@@ -33,7 +33,7 @@ export default function Cart({
   };
 
   return (
-    <div className="fixed top-0 right-0 z-[9999] h-full w-[350px] bg-zinc-900 border-l border-zinc-800 p-6 flex flex-col">
+    <div className="fixed top-0 right-0 z-9999 h-full w-[350px] bg-zinc-900 border-l border-zinc-800 p-6 flex flex-col">
       <button
         onClick={onClose}
         className="absolute top-3 right-3 text-zinc-400"

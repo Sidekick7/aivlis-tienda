@@ -4,6 +4,7 @@ import { useState } from "react";
 
 type Props = {
   product: {
+    id: number;
     name: string;
     price: number;
     images: string[];
@@ -20,6 +21,53 @@ export default function ProductInfo({ product }: Props) {
   const [selectedImage, setSelectedImage] = useState(
   product.images[0]
 );
+  const addToCart = () => {
+
+    const cart = JSON.parse(
+      localStorage.getItem("cart") || "[]"
+    );
+
+    const existingProduct = cart.find(
+      (item: any) =>
+        item.id === product.id &&
+        item.size === selectedSize
+    );
+
+    let updatedCart;
+
+    if (existingProduct) {
+
+      updatedCart = cart.map((item: any) =>
+        item.id === product.id &&
+        item.size === selectedSize
+          ? {
+              ...item,
+              quantity: item.quantity + 1,
+            }
+          : item
+      );
+
+    } else {
+
+      updatedCart = [
+        ...cart,
+        {
+          ...product,
+          size: selectedSize,
+          quantity: 1,
+        },
+      ];
+
+    }
+
+    localStorage.setItem(
+      "cart",
+      JSON.stringify(updatedCart)
+    );
+
+    window.dispatchEvent(new Event("cartUpdated"));
+
+  };
 
   return (
     <div>
@@ -136,6 +184,7 @@ export default function ProductInfo({ product }: Props) {
           </button>
 
           <button
+            onClick={addToCart}
             className="w-full mt-10 bg-white text-black py-4 rounded-2xl font-bold text-lg hover:opacity-90 transition"
             >
             Agregar

@@ -3,6 +3,7 @@
 import { Menu, Search, X } from "lucide-react";
 import { useState } from "react";
 import Link from "next/link";
+import { useCart } from "@/context/CartContext";
 
 
 type Props = {
@@ -12,6 +13,10 @@ type Props = {
 export default function Navbar({ onCartClick }: Props) {
 
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const {
+  cart,
+  setIsCartOpen,
+} = useCart();
 
   return (
     <>
@@ -43,10 +48,16 @@ export default function Navbar({ onCartClick }: Props) {
         <div>
 
           <button
-            onClick={onCartClick}
-            className="text-zinc-300 hover:text-white transition"
+            onClick={() => setIsCartOpen(true)}
+            className="text-zinc-300 hover:text-white transition relative"
           >
             Carrito
+
+            {cart.length > 0 && (
+              <span className="absolute -top-2 -right-4 bg-white text-black text-xs w-5 h-5 rounded-full flex items-center justify-center">
+                {cart.length}
+              </span>
+            )}
           </button>
 
         </div>

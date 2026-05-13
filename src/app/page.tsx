@@ -2,13 +2,13 @@
 
 import ProductCard from "@/components/ProductCard";
 import { products } from "@/data/products";
-import Cart from "@/components/Cart";
 import { useEffect, useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+
 import { Swiper, SwiperSlide } from "swiper/react";
 import { Autoplay, Pagination } from "swiper/modules";
 import "swiper/css";
 import "swiper/css/pagination";
+import { useCart } from "@/context/CartContext";
 
 type Product = {
   id: number;
@@ -19,9 +19,9 @@ type Product = {
 };
 
 export default function Home() {
+  const { addToCart } = useCart();
 
-  const [cart, setCart] = useState<Product[]>([]);
-  const [isCartOpen, setIsCartOpen] = useState(false);
+
 
   const heroImages = [
     "/hero/1.png",
@@ -31,76 +31,6 @@ export default function Home() {
 
   const [currentImage, setCurrentImage] = useState(0);
 
-  const addToCart = (product: any) => {
-
-    const existingProduct = cart.find(
-      (item) => item.id === product.id
-    );
-
-    let updatedCart;
-
-    if (existingProduct) {
-
-      updatedCart = cart.map((item) =>
-        item.id === product.id
-          ? {
-              ...item,
-              quantity: item.quantity + 1,
-            }
-          : item
-      );
-
-    } else {
-
-      updatedCart = [
-        ...cart,
-        {
-          ...product,
-          quantity: 1,
-        },
-      ];
-
-    }
-
-    setCart(updatedCart);
-    setIsCartOpen(true);
-
-  };
-
-  const removeFromCart = (id: number) => {
-
-    const updatedCart = cart
-      .map((item) =>
-        item.id === id
-          ? {
-              ...item,
-              quantity: item.quantity - 1,
-            }
-          : item
-      )
-      .filter((item) => item.quantity > 0);
-
-    setCart(updatedCart);
-  };
-
-  useEffect(() => {
-
-    const savedCart = localStorage.getItem("cart");
-
-    if (savedCart) {
-      setCart(JSON.parse(savedCart));
-    }
-
-  }, []);
-
-  useEffect(() => {
-
-    localStorage.setItem(
-      "cart",
-      JSON.stringify(cart)
-    );
-
-  }, [cart]);
 
   useEffect(() => {
 
@@ -178,13 +108,7 @@ export default function Home() {
 
       </section>
 
-      {isCartOpen && (
-        <Cart
-          cart={cart}
-          removeFromCart={removeFromCart}
-          onClose={() => setIsCartOpen(false)}
-        />
-      )}
+    
 
     </main>
   );
