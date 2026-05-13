@@ -27,7 +27,7 @@ export default function Cart({
       .join("%0A");
 
     const url =
-      `https://wa.me/5491164183240?text=Hola! Quiero hacer este pedido:%0A%0A${message}`;
+      `https://wa.me/5491158501082?text=Hola! Quiero hacer este pedido:%0A%0A${message}`;
 
     window.open(url, "_blank");
   };

@@ -4,6 +4,11 @@ import ProductCard from "@/components/ProductCard";
 import { products } from "@/data/products";
 import Cart from "@/components/Cart";
 import { useEffect, useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import { Swiper, SwiperSlide } from "swiper/react";
+import { Autoplay, Pagination } from "swiper/modules";
+import "swiper/css";
+import "swiper/css/pagination";
 
 type Product = {
   id: number;
@@ -97,51 +102,62 @@ export default function Home() {
 
   }, [cart]);
 
+  useEffect(() => {
+
+    const interval = setInterval(() => {
+
+      setCurrentImage((prev) =>
+        prev === heroImages.length - 1
+          ? 0
+          : prev + 1
+      );
+
+    }, 5000);
+
+    return () => clearInterval(interval);
+
+  }, [heroImages.length]);
+
   return (
     <main className="min-h-screen bg-black text-white">
 
-      <section className="relative w-full h-screen overflow-hidden">
+      <section className="relative w-full h-screen">
 
-        <div
-          className="flex h-full transition-transform duration-700 ease-in-out"
-          style={{
-            transform: `translateX(-${currentImage * 100}vw)`,
+        <Swiper
+          modules={[Autoplay, Pagination]}
+          spaceBetween={0}
+          slidesPerView={1}
+          loop
+          grabCursor={true}
+          autoplay={{
+            delay: 5000,
+            disableOnInteraction: false,
           }}
+          pagination={{
+            clickable: true,
+          }}
+          className="w-full h-full"
         >
 
           {heroImages.map((image) => (
 
-            <img
-              key={image}
-              src={image}
-              alt=""
-              className="w-screen h-full object-cover flex-shrink-0"
-            />
+            <SwiperSlide key={image}>
+
+              <img
+                src={image}
+                alt=""
+                draggable={false}
+                className="w-full h-screen object-cover"
+              />
+
+            </SwiperSlide>
 
           ))}
 
-        </div>
-
-        <div className="absolute bottom-10 left-1/2 -translate-x-1/2 flex gap-3">
-
-          {heroImages.map((_, index) => (
-
-            <button
-              key={index}
-              onClick={() => setCurrentImage(index)}
-              className={`w-3 h-3 rounded-full transition ${
-                currentImage === index
-                  ? "bg-white"
-                  : "bg-white/40"
-              }`}
-            />
-
-          ))}
-
-        </div>
+        </Swiper>
 
       </section>
-
+      
       <section id="catalogo" className="px-10 py-20">
 
         <h2 className="text-5xl font-bold mb-10">
