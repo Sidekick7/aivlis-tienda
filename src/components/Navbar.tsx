@@ -5,6 +5,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useCart } from "@/context/CartContext";
 import { useSearch } from "@/context/SearchContext";
+import Cart from "@/components/Cart";
 
 
 type Props = {
@@ -14,16 +15,19 @@ type Props = {
 export default function Navbar({ onCartClick }: Props) {
 
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [isMiniCartOpen, setIsMiniCartOpen] =
+  useState(false);
   const { setIsSearchOpen } = useSearch();
   const {
   cart,
-  setIsCartOpen,
+  removeFromCart,
+  
 } = useCart();
 
   return (
     <>
 
-      <nav className="w-full flex items-center justify-between px-10 py-6 border-b border-zinc-800">
+      <nav className="fixed top-0 left-0 w-full z-50 bg-black/80 backdrop-blur-md flex items-center justify-between px-5 md:px-10 py-6 border-b border-zinc-800">
 
         <div className="flex items-center gap-4">
 
@@ -50,10 +54,14 @@ export default function Navbar({ onCartClick }: Props) {
           AIVLIS
         </Link>
 
-        <div>
+        <div
+          className="relative flex items-center"
+          onMouseEnter={() => setIsMiniCartOpen(true)}
+          onMouseLeave={() => setIsMiniCartOpen(false)}
+        >
 
           <button
-            onClick={() => setIsCartOpen(true)}
+            onClick={() => {}}
             className="text-zinc-300 hover:text-white transition relative"
           >
             <ShoppingBag size={22} />
@@ -65,11 +73,26 @@ export default function Navbar({ onCartClick }: Props) {
             )}
           </button>
 
+          {isMiniCartOpen && cart.length > 0 && (
+
+            <div className="absolute top-full right-0 pt-2">
+
+              <Cart
+                cart={cart}
+                removeFromCart={removeFromCart}
+                onClose={() => setIsMiniCartOpen(false)}
+              />
+
+            </div>
+
+          )}
+
         </div>
 
       </nav>
 
       <div
+        onClick={() => setIsMenuOpen(false)}
         className={`fixed inset-0 z-50 bg-black/50 transition-opacity duration-500 ${
           isMenuOpen
             ? "opacity-100 pointer-events-auto"
@@ -77,6 +100,7 @@ export default function Navbar({ onCartClick }: Props) {
         }`}
       >
           <div
+            onClick={(e) => e.stopPropagation()}
             className={`w-[300px] h-full bg-black/70 backdrop-blur-[0px] border-r border-zinc-800 p-6 transform transition-transform duration-400 ease-in-out ${
               isMenuOpen
                 ? "translate-x-0"
@@ -103,7 +127,7 @@ export default function Navbar({ onCartClick }: Props) {
               <Link
                 href="/category/remeras"
                 onClick={() => setIsMenuOpen(false)}
-                className="text-left hover:text-zinc-400 transition"
+                className="w-fit hover:text-zinc-400 transition"
               >
                 Remeras
               </Link>
@@ -111,7 +135,7 @@ export default function Navbar({ onCartClick }: Props) {
               <Link
                 href="/category/camperas"
                 onClick={() => setIsMenuOpen(false)}
-                className="text-left hover:text-zinc-400 transition"
+                className="w-fit hover:text-zinc-400 transition"
               >
                 Camperas
               </Link>
@@ -119,7 +143,7 @@ export default function Navbar({ onCartClick }: Props) {
               <Link
                 href="/category/pantalones"
                 onClick={() => setIsMenuOpen(false)}
-                className="text-left hover:text-zinc-400 transition"
+                className="w-fit hover:text-zinc-400 transition"
               >
                 Pantalones
               </Link>

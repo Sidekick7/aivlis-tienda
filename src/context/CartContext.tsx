@@ -103,7 +103,7 @@ export function CartProvider({
     }
 
     setCart(updatedCart);
-    setIsCartOpen(true);
+    
 
   };
 

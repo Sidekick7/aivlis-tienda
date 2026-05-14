@@ -1,5 +1,7 @@
 "use client";
 
+import { Trash2 } from "lucide-react";
+
 type Props = {
   cart: any[];
   removeFromCart: (id: number) => void;
@@ -33,7 +35,7 @@ export default function Cart({
   };
 
   return (
-    <div className="fixed top-0 right-0 z-9999 h-full w-[350px] bg-zinc-900 border-l border-zinc-800 p-6 flex flex-col">
+    <div className="w-[340px] bg-zinc-900 border border-zinc-800 rounded-3xl p-5 shadow-2xl flex flex-col">
       <button
         onClick={onClose}
         className="absolute top-3 right-3 text-zinc-400"
@@ -55,22 +57,43 @@ export default function Cart({
         {cart.map((item, index) => (
           <div
             key={index}
-            className="bg-zinc-800 p-3 rounded-xl"
+            className="flex gap-3 bg-zinc-800 p-3 rounded-2xl"
           >
 
-            <p>
-              {item.name} x{item.quantity}
-            </p>
+            <img
+              src={item.images?.[0]}
+              alt={item.name}
+              className="w-20 h-20 object-cover rounded-xl"
+            />
 
-            <p className="text-zinc-400 text-sm">
-              ${item.price}
-            </p>
-            <button
-              onClick={() => removeFromCart(item.id)}
-              className="mt-3 text-red-400 text-sm hover:text-red-300"
-            >
-              Eliminar
-            </button>
+            <div className="flex-1">
+
+              <p className="font-semibold leading-tight">
+                {item.name}
+              </p>
+
+              {item.size && (
+                <p className="text-sm text-zinc-400 mt-1">
+                  Talle: {item.size}
+                </p>
+              )}
+
+              <p className="text-sm text-zinc-400 mt-1">
+                Cantidad: {item.quantity}
+              </p>
+
+              <p className="text-sm mt-1">
+                ${item.price}
+              </p>
+
+              <button
+                onClick={() => removeFromCart(item.id)}
+                className="mt-3 text-zinc-400 hover:text-red-400 transition"
+              >
+                <Trash2 size={18} />
+              </button>
+
+            </div>
 
           </div>
         ))}

@@ -49,7 +49,7 @@ export default function Home() {
   }, [heroImages.length]);
 
   return (
-    <main className="min-h-screen bg-black text-white">
+    <main className="min-h-screen bg-black text-white pt-21">
 
       <section className="relative w-full h-screen">
 
@@ -88,7 +88,7 @@ export default function Home() {
 
       </section>
       
-      <section id="catalogo" className="px-10 py-20">
+      <section id="catalogo" className="px-10 py-20 pt-21">
 
         <h2 className="text-5xl font-bold mb-10">
           Catálogo
