@@ -35,16 +35,13 @@ export default function Cart({
   };
 
   return (
-    <div className="w-[340px] bg-zinc-900 border border-zinc-800 rounded-3xl p-5 shadow-2xl flex flex-col">
+    <div className="w-[330px] bg-[#111] border border-zinc-800 rounded-2xl p-6 shadow-2xl flex flex-col">
       <button
         onClick={onClose}
         className="absolute top-3 right-3 text-zinc-400"
       >
         ✕
         </button>
-      <h2 className="text-2xl font-bold mb-4">
-        Carrito
-      </h2>
 
       <div className="flex flex-col gap-3">
 
@@ -57,43 +54,35 @@ export default function Cart({
         {cart.map((item, index) => (
           <div
             key={index}
-            className="flex gap-3 bg-zinc-800 p-3 rounded-2xl"
+            className="flex items-start gap-4 py-4 border-b border-zinc-800"
           >
 
             <img
               src={item.images?.[0]}
               alt={item.name}
-              className="w-20 h-20 object-cover rounded-xl"
+              className="w-16 h-16 object-cover rounded-md bg-white"
             />
 
             <div className="flex-1">
 
-              <p className="font-semibold leading-tight">
+              <p className="text-red-500 uppercase text-sm leading-tight font-medium">
                 {item.name}
+
+                {item.size && ` - ${item.size}`}
               </p>
 
-              {item.size && (
-                <p className="text-sm text-zinc-400 mt-1">
-                  Talle: {item.size}
-                </p>
-              )}
-
-              <p className="text-sm text-zinc-400 mt-1">
-                Cantidad: {item.quantity}
+              <p className="text-zinc-300 mt-2 text-sm">
+                {item.quantity} × ${item.price}
               </p>
-
-              <p className="text-sm mt-1">
-                ${item.price}
-              </p>
-
-              <button
-                onClick={() => removeFromCart(item.id)}
-                className="mt-3 text-zinc-400 hover:text-red-400 transition"
-              >
-                <Trash2 size={18} />
-              </button>
 
             </div>
+
+            <button
+              onClick={() => removeFromCart(item.id)}
+              className="text-zinc-400 hover:text-white transition"
+            >
+              <Trash2 size={18} />
+            </button>
 
           </div>
         ))}

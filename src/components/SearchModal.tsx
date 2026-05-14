@@ -23,7 +23,7 @@ export default function SearchModal() {
   if (!isSearchOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm p-10 overflow-y-auto">
+    <div className="relative fixed inset-0 z-50 bg-black/80 backdrop-blur-sm p-10 overflow-y-auto">
 
       <div className="max-w-2xl mx-auto">
 
@@ -72,9 +72,9 @@ export default function SearchModal() {
 
         <button
           onClick={() => setIsSearchOpen(false)}
-          className="mt-8 text-zinc-400 hover:text-white transition"
+          className="absolute top-5 right-5 text-zinc-400 hover:text-white transition"
         >
-          Cerrar
+          ✕
         </button>
 
       </div>
