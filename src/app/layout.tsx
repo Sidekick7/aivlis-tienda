@@ -5,6 +5,8 @@ import Navbar from "@/components/Navbar";
 import { CartProvider } from "@/context/CartContext";
 import Cart from "@/components/Cart";
 import CartWrapper from "@/components/CartWrapper";
+import { SearchProvider } from "@/context/SearchContext";
+import SearchModal from "@/components/SearchModal";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -35,15 +37,20 @@ export default function RootLayout({
 
       <body className="bg-black text-white min-h-full">
 
+      <SearchProvider>  
+
         <CartProvider>
 
           <Navbar />
 
           <CartWrapper />
+          <SearchModal />
 
           {children}
 
         </CartProvider>
+
+      </SearchProvider>  
 
       </body>
 

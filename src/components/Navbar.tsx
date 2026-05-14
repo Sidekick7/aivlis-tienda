@@ -1,9 +1,10 @@
 "use client";
 
-import { Menu, Search, X } from "lucide-react";
+import { Menu, Search, X, ShoppingBag, } from "lucide-react";
 import { useState } from "react";
 import Link from "next/link";
 import { useCart } from "@/context/CartContext";
+import { useSearch } from "@/context/SearchContext";
 
 
 type Props = {
@@ -13,6 +14,7 @@ type Props = {
 export default function Navbar({ onCartClick }: Props) {
 
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const { setIsSearchOpen } = useSearch();
   const {
   cart,
   setIsCartOpen,
@@ -32,7 +34,10 @@ export default function Navbar({ onCartClick }: Props) {
             <Menu size={24} />
           </button>
 
-          <button className="text-zinc-300 hover:text-white transition">
+          <button
+            onClick={() => setIsSearchOpen(true)}
+            className="text-zinc-300 hover:text-white transition"
+          >
             <Search size={22} />
           </button>
 
@@ -51,7 +56,7 @@ export default function Navbar({ onCartClick }: Props) {
             onClick={() => setIsCartOpen(true)}
             className="text-zinc-300 hover:text-white transition relative"
           >
-            Carrito
+            <ShoppingBag size={22} />
 
             {cart.length > 0 && (
               <span className="absolute -top-2 -right-4 bg-white text-black text-xs w-5 h-5 rounded-full flex items-center justify-center">
