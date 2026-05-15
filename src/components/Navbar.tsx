@@ -60,8 +60,8 @@ export default function Navbar({ onCartClick }: Props) {
           onMouseLeave={() => setIsMiniCartOpen(false)}
         >
 
-          <button
-            onClick={() => {}}
+          <Link
+            href="/cart"
             className="text-zinc-300 hover:text-white transition relative"
           >
             <ShoppingBag size={22} />
@@ -71,7 +71,7 @@ export default function Navbar({ onCartClick }: Props) {
                 {cart.length}
               </span>
             )}
-          </button>
+          </Link>
 
           {isMiniCartOpen && cart.length > 0 && (
 

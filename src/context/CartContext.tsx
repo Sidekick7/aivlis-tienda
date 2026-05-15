@@ -24,6 +24,9 @@ type CartContextType = {
     quantity?: number
   ) => void;
   removeFromCart: (id: number) => void;
+  increaseQuantity: (id: number) => void;
+  deleteItem: (id: number) => void;
+
   isCartOpen: boolean;
   setIsCartOpen: (value: boolean) => void;
 };
@@ -107,22 +110,46 @@ export function CartProvider({
 
   };
 
-  const removeFromCart = (id: number) => {
+const removeFromCart = (id: number) => {
 
-    const updatedCart = cart
-      .map((item) =>
-        item.id === id
-          ? {
-              ...item,
-              quantity: item.quantity - 1,
-            }
-          : item
-      )
-      .filter((item) => item.quantity > 0);
+  const updatedCart = cart
+    .map((item) =>
+      item.id === id
+        ? {
+            ...item,
+            quantity: item.quantity - 1,
+          }
+        : item
+    )
+    .filter((item) => item.quantity > 0);
 
-    setCart(updatedCart);
+  setCart(updatedCart);
 
-  };
+};
+
+const increaseQuantity = (id: number) => {
+
+  const updatedCart = cart.map((item) =>
+    item.id === id
+      ? {
+          ...item,
+          quantity: item.quantity + 1,
+        }
+      : item
+  );
+
+  setCart(updatedCart);
+
+};
+
+const deleteItem = (id: number) => {
+
+  const updatedCart =
+    cart.filter((item) => item.id !== id);
+
+  setCart(updatedCart);
+
+};
 
   return (
     <CartContext.Provider
@@ -130,6 +157,8 @@ export function CartProvider({
         cart,
         addToCart,
         removeFromCart,
+        increaseQuantity,
+        deleteItem,
         isCartOpen,
         setIsCartOpen,
       }}
