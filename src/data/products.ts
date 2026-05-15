@@ -6,6 +6,9 @@ export const products = [
     price: 7500,
 
     category: "remeras",
+    sku: "REM-1001",
+
+    colors: ["White", "black"],
 
     images: [
       "/products/argentinanaci.png",
@@ -13,8 +16,11 @@ export const products = [
     ], 
     sizes: ["S", "M", "L", "XL"],
 
-    description:
-      "Remera basica stampado serigrafia argentina_naci.",
+    details: [
+      "Tela: algodón premium",
+      "Estampado: serigrafía",
+      "Calce: regular fit",
+    ],
 
     minimum: 3,  
 
@@ -27,6 +33,9 @@ export const products = [
     price: 20000,
 
     category: "pantalones",
+    sku: "PAN-2001",
+
+    colors: ["blue"],
 
     images: [
       "/products/pantalon.png",
@@ -36,8 +45,11 @@ export const products = [
 
     sizes: ["S", "M", "L", "XL"],
 
-    description:
-      "Remera oversized premium confeccionada en algodón pesado.",
+    details: [
+      "Tela: algodón premium",
+      "Estampado: serigrafía",
+      "Calce: regular fit",
+    ],
     
     minimum: 3,
   },
@@ -49,6 +61,9 @@ export const products = [
     price: 45000,
 
     category: "camperas",
+    sku: "CAMP-7210",
+
+    colors: ["black"],
 
     images: [
       "/products/art-7210.png",
@@ -57,8 +72,11 @@ export const products = [
 
     sizes: ["S", "M", "L", "XL"],
     
-    description:
-      "Remera oversized premium confeccionada en algodón pesado.",    
+    details: [
+      "Tela: algodón premium",
+      "Estampado: serigrafía",
+      "Calce: regular fit",
+    ],    
     
     minimum: 3,  
     
@@ -71,6 +89,9 @@ export const products = [
     price: 7500,
 
     category: "remeras",
+    sku: "REM-1002",
+
+    colors: ["black"],
 
     images: [
       "/products/love.png",
@@ -81,8 +102,11 @@ export const products = [
 
     
 
-    description:
-      "Remera oversized premium confeccionada en algodón pesado.",
+    details: [
+      "Tela: algodón premium",
+      "Estampado: serigrafía",
+      "Calce: regular fit",
+    ],
 
     minimum: 3,  
   },
@@ -94,14 +118,20 @@ export const products = [
     price: 7500,
 
     category: "remeras",
+    sku: "REM-1003",
+
+    colors: ["white"],    
 
     images: [
       "/products/shhhh.png",
 
     ],  
 
-    description:
-      "Remera oversized premium confeccionada en algodón pesado.",      
+    details: [
+      "Tela: algodón premium",
+      "Estampado: serigrafía",
+      "Calce: regular fit",
+    ],      
 
     sizes: ["S", "M", "L", "XL"],
     

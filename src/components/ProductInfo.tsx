@@ -9,7 +9,10 @@ type Props = {
     price: number;
     images: string[];
     sizes: string[];
-    description: string;
+    details: string[];
+    sku: string;
+    colors: string[];
+    category: string;
     minimum: number;
   };
 };
@@ -18,6 +21,9 @@ export default function ProductInfo({ product }: Props) {
 
   const [selectedSize, setSelectedSize] = useState("");
   const [quantity, setQuantity] = useState(1);
+  const [selectedColor, setSelectedColor] = useState(
+  product.colors[0]
+  );
   const [selectedImage, setSelectedImage] = useState(
   product.images[0]
 );
@@ -70,44 +76,47 @@ export default function ProductInfo({ product }: Props) {
   };
 
   return (
-    <div>
-      
-    <div>
 
+    <div className="grid lg:grid-cols-[1.1fr_.9fr] gap-16 items-start">
+      
+    <div className="flex gap-5 items-start">
+      <div className="w-full max-w-[700px]">
       <img
         src={selectedImage}
         alt={product.name}
-        className="w-full rounded-2xl"
+        className="w-full max-h-[800px] object-cover rounded-3xl"
       />
 
-      <div className="flex gap-3 mt-4">
+
+      
+    </div>
+      <div className="flex flex-col gap-3 pt-2">
 
         {product.images.map((image) => (
 
           <button
             key={image}
             onClick={() => setSelectedImage(image)}
-            className={`border rounded-xl overflow-hidden ${
+            className={`rounded-2xl overflow-hidden transition-all duration-300 ${
               selectedImage === image
-                ? "border-white"
-                : "border-zinc-700"
+                ? "ring-2 ring-white/80 scale-[1.02]"
+                : "opacity-70 hover:opacity-100 hover:scale-[1.02]"
             }`}
           >
 
             <img
               src={image}
               alt=""
-              className="w-20 h-20 object-cover"
+              className="w-24 h-32 object-cover"
             />
 
           </button>
 
         ))}
 
-      </div>
-
-    </div>
-
+      </div>    
+  </div>
+      <div className="lg:sticky lg:top-28">
       <h1 className="text-5xl font-bold">
         {product.name}
       </h1>
@@ -115,13 +124,22 @@ export default function ProductInfo({ product }: Props) {
       <p className="text-3xl mt-5">
         ${product.price}
       </p>
+      
       <p className="mt-2 text-zinc-400">
         Precio mayorista
       </p>
 
-      <p className="mt-6 text-zinc-300 leading-relaxed">
-        {product.description}
-      </p>
+      <div className="mt-8 flex flex-col gap-3 text-zinc-300 leading-relaxed">
+
+        {product.details.map((detail) => (
+
+          <p key={detail}>
+            • {detail}
+          </p>
+
+        ))}
+
+      </div>
 
       <div className="mt-8">
 
@@ -154,10 +172,35 @@ export default function ProductInfo({ product }: Props) {
       <div className="mt-8">
 
         <p className="mb-3 text-zinc-400">
-          Cantidad
+          Colores
         </p>
 
-        <div className="flex items-center gap-4">
+        <div className="flex gap-3">
+
+          {product.colors.map((color) => (
+
+            <button
+              key={color}
+              onClick={() => setSelectedColor(color)}
+              className={`w-8 h-8 rounded-full border-2 transition ${
+                selectedColor === color
+                  ? "border-white scale-110"
+                  : "border-zinc-700 hover:border-white"
+              }`}
+              style={{
+                backgroundColor: color.toLowerCase(),
+              }}
+            />
+
+          ))}
+
+        </div>
+
+      </div>
+
+      <div className="flex items-center gap-4 mt-8">
+
+        <div className="flex items-center border border-zinc-700 rounded-2xl h-14">
 
           <button
             onClick={() =>
@@ -165,12 +208,12 @@ export default function ProductInfo({ product }: Props) {
                 prev > 1 ? prev - 1 : 1
               )
             }
-            className="w-10 h-10 border border-zinc-700 rounded-xl hover:border-white transition"
+            className="w-12 h-full flex items-center justify-center text-xl hover:bg-zinc-900 transition"
           >
             -
           </button>
 
-          <span className="text-xl font-semibold w-8 text-center">
+          <span className="w-10 flex items-center justify-center text-lg font-semibold">
             {quantity}
           </span>
 
@@ -178,19 +221,25 @@ export default function ProductInfo({ product }: Props) {
             onClick={() =>
               setQuantity((prev) => prev + 1)
             }
-            className="w-10 h-10 border border-zinc-700 rounded-xl hover:border-white transition"
+            className="w-12 h-full flex items-center justify-center text-xl hover:bg-zinc-900 transition"
           >
             +
           </button>
 
-          <button
-            onClick={addToCart}
-            className="w-full mt-10 bg-white text-black py-4 rounded-2xl font-bold text-lg hover:opacity-90 transition"
-            >
-            Agregar
-            {selectedSize && ` - Talle ${selectedSize}`}
-            {quantity > 1 && ` (${quantity})`}
-          </button>
+        </div>
+
+        <button
+          onClick={addToCart}
+          className="flex-1 h-14 bg-white text-black rounded-2xl font-semibold tracking-wide hover:opacity-90 transition"
+        >
+          AGREGAR AL CARRITO
+        </button>
+
+      </div>
+
+          </div>         
+
+
           <div className="mt-10 flex flex-col gap-3 text-sm text-zinc-400">
 
             <p>
@@ -206,11 +255,20 @@ export default function ProductInfo({ product }: Props) {
             </p>
 
           </div>
+          <div className="mt-10 flex flex-col gap-2 text-sm text-zinc-500 uppercase tracking-wide">
 
-        </div>
+            <p>
+              SKU · {product.sku}
+            </p>
 
-      </div>
+            <p>
+              Categoría · {product.category}
+            </p>
 
-    </div>
+          </div>
+
+          </div>
+
+    
   );
 }

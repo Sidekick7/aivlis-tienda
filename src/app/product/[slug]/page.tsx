@@ -25,9 +25,9 @@ export default async function ProductPage({
   }
 
   return (
-    <main className="min-h-screen bg-black text-white p-10 pt-32">
+    <main className="min-h-screen bg-black text-white px-6 pt-32 pb-20">
 
-      <div className="grid md:grid-cols-2 gap-10">
+      <div className="max-w-7xl mx-auto">
 
 
 
