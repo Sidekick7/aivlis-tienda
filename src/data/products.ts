@@ -8,12 +8,25 @@ export const products = [
     category: "remeras",
     sku: "REM-1001",
 
-    colors: ["White", "black"],
+    variants: [
+      {
+        color: "white",
 
-    images: [
-      "/products/argentinanaci.png",
-      "/products/art-98b.png",
-    ], 
+        images: [
+          "/products/argentinanaci.png",
+          
+        ],
+      },
+
+      {
+        color: "black",
+
+        images: [
+          
+          "/products/art-98b.png",
+        ],
+      },
+    ],
     sizes: ["S", "M", "L", "XL"],
 
     details: [
@@ -35,13 +48,17 @@ export const products = [
     category: "pantalones",
     sku: "PAN-2001",
 
-    colors: ["blue"],
+    variants: [
+      {
+        color: "blue",
 
-    images: [
-      "/products/pantalon.png",
-      "/products/pantalopn atras.png",
+        images: [
+          "/products/pantalon.png",
+          "/products/pantalopn atras.png",
+        ],
+      },
 
-    ],  
+    ], 
 
     sizes: ["S", "M", "L", "XL"],
 
@@ -63,12 +80,18 @@ export const products = [
     category: "camperas",
     sku: "CAMP-7210",
 
-    colors: ["black"],
+    variants: [
+      {
+        color: "black",
 
-    images: [
-      "/products/art-7210.png",
+        images: [
+          "/products/art-7210.png",
+          
+        ],
+      },
 
     ],
+
 
     sizes: ["S", "M", "L", "XL"],
     
@@ -91,12 +114,17 @@ export const products = [
     category: "remeras",
     sku: "REM-1002",
 
-    colors: ["black"],
+    variants: [
+      {
+        color: "white",
 
-    images: [
-      "/products/love.png",
+        images: [
+          "/products/love.png",
+          
+        ],
+      },
 
-    ],  
+    ], 
 
     sizes: ["S", "M", "L", "XL"],
 
@@ -120,12 +148,16 @@ export const products = [
     category: "remeras",
     sku: "REM-1003",
 
-    colors: ["white"],    
+    variants: [
+      {
+        color: "white",
 
-    images: [
-      "/products/shhhh.png",
-
-    ],  
+        images: [
+          "/products/shhhh.png",
+          
+        ],
+      },
+    ], 
 
     details: [
       "Tela: algodón premium",

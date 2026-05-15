@@ -7,11 +7,15 @@ type Props = {
     id: number;
     name: string;
     price: number;
-    images: string[];
+    
     sizes: string[];
     details: string[];
     sku: string;
-    colors: string[];
+    variants: {
+      color: string;
+      images: string[];
+    }[];
+    
     category: string;
     minimum: number;
   };
@@ -22,11 +26,17 @@ export default function ProductInfo({ product }: Props) {
   const [selectedSize, setSelectedSize] = useState("");
   const [quantity, setQuantity] = useState(1);
   const [selectedColor, setSelectedColor] = useState(
-  product.colors[0]
+    product.variants[0].color
   );
   const [selectedImage, setSelectedImage] = useState(
-  product.images[0]
-);
+    product.variants[0].images[0]
+  );
+
+  const [zoomPosition, setZoomPosition] = useState({
+    x: 50,
+    y: 50,
+  });
+
   const addToCart = () => {
 
     const cart = JSON.parse(
@@ -80,11 +90,30 @@ export default function ProductInfo({ product }: Props) {
     <div className="grid lg:grid-cols-[1.1fr_.9fr] gap-16 items-start">
       
     <div className="flex gap-5 items-start">
-      <div className="w-full max-w-[700px]">
+      <div
+        className="w-full max-w-[700px] overflow-hidden rounded-3xl"
+        onMouseMove={(e) => {
+
+          const rect =
+            e.currentTarget.getBoundingClientRect();
+
+          const x =
+            ((e.clientX - rect.left) / rect.width) * 100;
+
+          const y =
+            ((e.clientY - rect.top) / rect.height) * 100;
+
+          setZoomPosition({ x, y });
+
+        }}
+      >
       <img
         src={selectedImage}
         alt={product.name}
-        className="w-full max-h-[800px] object-cover rounded-3xl"
+        className="w-full max-h-[800px] object-cover transition-transform duration-300 hover:scale-150"
+        style={{
+          transformOrigin: `${zoomPosition.x}% ${zoomPosition.y}%`,
+        }}
       />
 
 
@@ -92,11 +121,15 @@ export default function ProductInfo({ product }: Props) {
     </div>
       <div className="flex flex-col gap-3 pt-2">
 
-        {product.images.map((image) => (
+        {product.variants.flatMap((variant) =>
+          variant.images.map((image) => (
 
           <button
             key={image}
-            onClick={() => setSelectedImage(image)}
+            onClick={() => {
+              setSelectedImage(image);
+              setSelectedColor(variant.color);
+            }}
             className={`rounded-2xl overflow-hidden transition-all duration-300 ${
               selectedImage === image
                 ? "ring-2 ring-white/80 scale-[1.02]"
@@ -112,7 +145,9 @@ export default function ProductInfo({ product }: Props) {
 
           </button>
 
-        ))}
+        ))
+      )}
+        
 
       </div>    
   </div>
@@ -177,18 +212,21 @@ export default function ProductInfo({ product }: Props) {
 
         <div className="flex gap-3">
 
-          {product.colors.map((color) => (
+          {product.variants.map((variant) => (
 
             <button
-              key={color}
-              onClick={() => setSelectedColor(color)}
+              key={variant.color}
+              onClick={() => {
+                setSelectedColor(variant.color);
+                setSelectedImage(variant.images[0]);
+              }}
               className={`w-8 h-8 rounded-full border-2 transition ${
-                selectedColor === color
+                selectedColor === variant.color
                   ? "border-white scale-110"
                   : "border-zinc-700 hover:border-white"
               }`}
               style={{
-                backgroundColor: color.toLowerCase(),
+                backgroundColor: variant.color.toLowerCase(),
               }}
             />
 

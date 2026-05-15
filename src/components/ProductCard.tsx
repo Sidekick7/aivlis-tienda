@@ -8,7 +8,10 @@ type Props = {
     slug: string;
     name: string;
     price: number;
-    images: string[];
+    variants: {
+      color: string;
+      images: string[];
+    }[];
   };
 
   addToCart?: (product: any) => void;
@@ -24,7 +27,7 @@ export default function ProductCard({
       <Link href={`/product/${product.slug}`}>
 
         <img
-          src={product.images[0]}
+          src={product.variants[0].images[0]}
           alt={product.name}
           className="w-full h-[400px] object-cover transition duration-500 hover:scale-105"
         />

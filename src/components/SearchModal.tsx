@@ -48,7 +48,7 @@ export default function SearchModal() {
               <div className="flex items-center gap-4">
 
                 <img
-                  src={product.images[0]}
+                  src={product.variants[0].images[0]}
                   alt={product.name}
                   className="w-20 h-20 object-cover rounded-xl"
                 />
