@@ -14,6 +14,9 @@ type CartItem = {
   quantity: number;
   size?: string;
   images?: string[];
+  
+  selectedImage?: string;
+  selectedColor?: string;
 };
 
 type CartContextType = {

@@ -68,7 +68,10 @@ export default function Navbar({ onCartClick }: Props) {
 
             {cart.length > 0 && (
               <span className="absolute -top-2 -right-4 bg-white text-black text-xs w-5 h-5 rounded-full flex items-center justify-center">
-                {cart.length}
+                {cart.reduce(
+                  (acc, item) => acc + item.quantity,
+                  0
+                )}
               </span>
             )}
           </Link>

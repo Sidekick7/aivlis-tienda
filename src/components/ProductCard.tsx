@@ -12,6 +12,7 @@ type Props = {
       color: string;
       images: string[];
     }[];
+    sizes: string[];
   };
 
   addToCart?: (product: any) => void;
@@ -22,40 +23,65 @@ export default function ProductCard({
   addToCart,
 }: Props) {
   return (
-    <div className="bg-zinc-900 rounded-2xl overflow-hidden transition duration-300 hover:-translate-y-2 hover:shadow-2xl hover:shadow-black/50">
+    <div className="bg-white rounded-2xl overflow-hidden transition duration-300 hover:-translate-y-2 hover:shadow-2xl hover:shadow-black/50">
 
       <Link href={`/product/${product.slug}`}>
 
         <img
           src={product.variants[0].images[0]}
           alt={product.name}
-          className="w-full h-[400px] object-cover transition duration-500 hover:scale-105"
+          className="max-w-[380px] w-full h-[520px] object-cover transition duration-500 hover:scale-105"
         />
-
-        <div className="p-5">
-
-          <h2 className="text-2xl font-semibold">
-            {product.name}
-          </h2>
-
-          <p className="mt-2 text-zinc-400">
-            ${product.price}
-          </p>
-
-        </div>
 
       </Link>
 
-      <div className="px-5 pb-5">
+        <div className="p-5">
+        <Link href={`/product/${product.slug}`}>  
+          <h2 className="inline-block text-2xl font-semibold">
+            {product.name}
+          </h2>
+        </Link>  
 
-        <button
-          onClick={() => addToCart?.(product)}
-          className="w-full bg-white text-black py-3 rounded-xl font-semibold hover:opacity-90 transition"
-        >
-          Agregar al carrito
-        </button>
+          <p className="mt-2 text-zinc-600">
+            ${product.price}
+          </p>
+
+
+      <div className="flex items-center gap-2 mt-2">
+
+          {product.variants.map((variant) => (
+
+            <div
+              key={variant.color}
+              className="w-4 h-4 rounded-full border border-zinc-400"
+              style={{
+                backgroundColor: variant.color,
+              }}
+            />
+
+          ))}
+
+      </div>  
+
+      <div className="flex gap-2 mt-2">
+
+          {product.sizes.map((size) => (
+
+            <div
+              key={size}
+              className="w-8 h-8 text-xs rounded-full border border-zinc-400 flex items-center justify-center text-xs text-zinc-600"
+            >
+              {size}
+            </div>
+
+          ))}
 
       </div>
+
+
+        </div>
+
+        
 
     </div>
   );

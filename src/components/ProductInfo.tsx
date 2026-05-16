@@ -1,6 +1,8 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
+import { useCart } from "@/context/CartContext";
 
 type Props = {
   product: {
@@ -37,51 +39,24 @@ export default function ProductInfo({ product }: Props) {
     y: 50,
   });
 
-  const addToCart = () => {
+  const { addToCart } = useCart();
 
-    const cart = JSON.parse(
-      localStorage.getItem("cart") || "[]"
-    );
+  const handleAddToCart = () => {
 
-    const existingProduct = cart.find(
-      (item: any) =>
-        item.id === product.id &&
-        item.size === selectedSize
-    );
-
-    let updatedCart;
-
-    if (existingProduct) {
-
-      updatedCart = cart.map((item: any) =>
-        item.id === product.id &&
-        item.size === selectedSize
-          ? {
-              ...item,
-              quantity: item.quantity + 1,
-            }
-          : item
-      );
-
-    } else {
-
-      updatedCart = [
-        ...cart,
-        {
-          ...product,
-          size: selectedSize,
-          quantity: 1,
-        },
-      ];
-
+    if (!selectedSize) {
+      alert("Seleccioná un talle");
+      return;
     }
 
-    localStorage.setItem(
-      "cart",
-      JSON.stringify(updatedCart)
+    addToCart(
+      {
+        ...product,
+        selectedImage,
+        selectedColor,
+      },
+      selectedSize,
+      quantity
     );
-
-    window.dispatchEvent(new Event("cartUpdated"));
 
   };
 
@@ -152,6 +127,33 @@ export default function ProductInfo({ product }: Props) {
       </div>    
   </div>
       <div className="lg:sticky lg:top-28">
+
+      <div className="flex items-center gap-2 text-sm text-zinc-500 mb-6">
+
+        <Link
+          href="/"
+          className="hover:text-white transition"
+        >
+          Inicio
+        </Link>
+
+        <span>/</span>
+
+        <Link
+          href={`/category/${product.category}`}
+          className="hover:text-white transition capitalize"
+        >
+          {product.category}
+        </Link>
+
+        <span>/</span>
+
+        <span className="text-zinc-300">
+          {product.name}
+        </span>
+
+      </div>
+
       <h1 className="text-5xl font-bold">
         {product.name}
       </h1>
@@ -246,20 +248,28 @@ export default function ProductInfo({ product }: Props) {
                 prev > 1 ? prev - 1 : 1
               )
             }
-            className="w-12 h-full flex items-center justify-center text-xl hover:bg-zinc-900 transition"
+            className="w-12 h-full flex items-center justify-center text-xl hover:bg-zinc-900 transition cursor-pointer"
           >
             -
           </button>
 
-          <span className="w-10 flex items-center justify-center text-lg font-semibold">
-            {quantity}
-          </span>
+          <input
+            type="number"
+            min="1"
+            value={quantity}
+            onChange={(e) =>
+              setQuantity(
+                Math.max(1, Number(e.target.value))
+              )
+            }
+            className="w-14 bg-transparent text-center outline-none text-lg font-semibold"
+          />
 
           <button
             onClick={() =>
               setQuantity((prev) => prev + 1)
             }
-            className="w-12 h-full flex items-center justify-center text-xl hover:bg-zinc-900 transition"
+            className="w-12 h-full flex items-center justify-center text-xl hover:bg-zinc-900 transition cursor-pointer"
           >
             +
           </button>
@@ -267,13 +277,13 @@ export default function ProductInfo({ product }: Props) {
         </div>
 
         <button
-          onClick={addToCart}
-          className="flex-1 h-14 bg-white text-black rounded-2xl font-semibold tracking-wide hover:opacity-90 transition"
+          onClick={handleAddToCart}
+          className="flex-1 h-14 bg-white text-black rounded-2xl font-semibold tracking-wide hover:opacity-90 transition cursor-pointer"
         >
           AGREGAR AL CARRITO
         </button>
 
-      </div>
+      
 
           </div>         
 
@@ -293,7 +303,7 @@ export default function ProductInfo({ product }: Props) {
             </p>
 
           </div>
-          <div className="mt-10 flex flex-col gap-2 text-sm text-zinc-500 uppercase tracking-wide">
+          <div className="mt-20 flex flex-col gap-2 text-sm text-zinc-500 uppercase tracking-wide">
 
             <p>
               SKU · {product.sku}
@@ -307,6 +317,6 @@ export default function ProductInfo({ product }: Props) {
 
           </div>
 
-    
+  </div> 
   );
 }

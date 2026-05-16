@@ -88,7 +88,7 @@ const {
             <div className="flex gap-4 items-center">
 
                 <img
-                    src={item.images?.[0]}
+                    src={item.selectedImage || item.images?.[0]}
                     alt={item.name}
                     className="w-28 h-28 object-cover rounded-2xl"
                 />
