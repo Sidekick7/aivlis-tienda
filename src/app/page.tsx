@@ -10,6 +10,8 @@ import "swiper/css";
 import "swiper/css/pagination";
 import { useCart } from "@/context/CartContext";
 import { Swiper as SwiperType } from "swiper";
+import { supabase } from "@/lib/supabase";
+
 
 type Product = {
   id: number;
@@ -20,6 +22,26 @@ type Product = {
 };
 
 export default function Home() {
+  const [dbProducts, setDbProducts] = useState<any[]>([]);
+    useEffect(() => {
+
+    const fetchProducts = async () => {
+
+      const { data, error } = await supabase
+        .from("products")
+        .select("*");
+
+      console.log(data);
+      console.log(error?.message);
+      console.log(error);
+
+      setDbProducts(data || []);
+
+    };
+
+    fetchProducts();
+
+  }, []);
   const { addToCart } = useCart();
 
 
@@ -139,13 +161,17 @@ export default function Home() {
 
         <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-6">
 
-          {products.map((product) => (
-            <ProductCard
-              key={product.id}
-              product={product}
-              addToCart={addToCart}
-            />
-          ))}
+          {[...dbProducts]
+            .sort((a, b) =>
+              Number(b.featured) - Number(a.featured)
+            )
+            .map((product) => (
+              <ProductCard
+                key={product.id}
+                product={product}
+                addToCart={addToCart}
+              />
+           ))}
 
         </div>
 

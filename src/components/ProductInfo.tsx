@@ -9,12 +9,14 @@ type Props = {
     id: number;
     name: string;
     price: number;
+    description: string;
     
     sizes: string[];
-    details: string[];
+    stock: number;
     sku: string;
     variants: {
       color: string;
+      hex: string;
       images: string[];
     }[];
     
@@ -165,18 +167,24 @@ export default function ProductInfo({ product }: Props) {
       <p className="mt-2 text-zinc-400">
         Precio mayorista
       </p>
+      {product.stock > 0 && product.stock <= 5 && (
 
-      <div className="mt-8 flex flex-col gap-3 text-zinc-300 leading-relaxed">
+        <p className="mt-4 text-sm text-red-400">
+          Últimas unidades disponibles
+        </p>
 
-        {product.details.map((detail) => (
+      )}
 
-          <p key={detail}>
-            • {detail}
-          </p>
+      {product.stock <= 0 && (
 
-        ))}
+        <p className="mt-4 text-sm text-zinc-500">
+          Agotado
+        </p>
 
-      </div>
+      )}
+      <p className="mt-8 text-zinc-300 leading-relaxed whitespace-pre-line">
+        {product.description}
+      </p>
 
       <div className="mt-8">
 
@@ -228,7 +236,7 @@ export default function ProductInfo({ product }: Props) {
                   : "border-zinc-700 hover:border-white"
               }`}
               style={{
-                backgroundColor: variant.color.toLowerCase(),
+                backgroundColor: variant.hex,
               }}
             />
 
