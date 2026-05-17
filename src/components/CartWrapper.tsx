@@ -10,6 +10,7 @@ export default function CartWrapper() {
     removeFromCart,
     isCartOpen,
     setIsCartOpen,
+    deleteItem,
   } = useCart();
 
   return (
@@ -19,6 +20,7 @@ export default function CartWrapper() {
           cart={cart}
           removeFromCart={removeFromCart}
           onClose={() => setIsCartOpen(false)}
+          deleteItem={deleteItem}
         />
       )}
     </>

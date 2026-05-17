@@ -10,13 +10,12 @@ type Props = {
     name: string;
     price: number;
     description: string;
-    
-    sizes: string[];
-    stock: number;
     sku: string;
     variants: {
       color: string;
       hex: string;
+      stock: number;
+      sizes: string[];
       images: string[];
     }[];
     
@@ -42,11 +41,18 @@ export default function ProductInfo({ product }: Props) {
   });
 
   const { addToCart } = useCart();
+  const selectedVariant =
+  product.variants.find(
+    (variant) => variant.color === selectedColor
+  ) || product.variants[0];
 
   const handleAddToCart = () => {
 
-    if (!selectedSize) {
-      alert("Seleccioná un talle");
+    if (
+      quantity >
+      Math.min(selectedVariant.stock, 20)
+    ){
+      alert("Superaste el stock disponible");
       return;
     }
 
@@ -106,6 +112,9 @@ export default function ProductInfo({ product }: Props) {
             onClick={() => {
               setSelectedImage(image);
               setSelectedColor(variant.color);
+              setSelectedSize(
+                variant.sizes?.[0] || ""
+              );
             }}
             className={`rounded-2xl overflow-hidden transition-all duration-300 ${
               selectedImage === image
@@ -167,7 +176,8 @@ export default function ProductInfo({ product }: Props) {
       <p className="mt-2 text-zinc-400">
         Precio mayorista
       </p>
-      {product.stock > 0 && product.stock <= 5 && (
+      {selectedVariant?.stock > 0 &&
+        selectedVariant?.stock <= 5 && (
 
         <p className="mt-4 text-sm text-red-400">
           Últimas unidades disponibles
@@ -175,7 +185,7 @@ export default function ProductInfo({ product }: Props) {
 
       )}
 
-      {product.stock <= 0 && (
+      {selectedVariant?.stock <= 0 && (
 
         <p className="mt-4 text-sm text-zinc-500">
           Agotado
@@ -194,7 +204,7 @@ export default function ProductInfo({ product }: Props) {
 
         <div className="flex gap-3">
 
-          {product.sizes.map((size) => (
+          {selectedVariant?.sizes?.map((size: string) => (
 
             <button
               key={size}
@@ -229,6 +239,9 @@ export default function ProductInfo({ product }: Props) {
               onClick={() => {
                 setSelectedColor(variant.color);
                 setSelectedImage(variant.images[0]);
+                setSelectedSize(
+                  variant.sizes?.[0] || ""
+                );
               }}
               className={`w-8 h-8 rounded-full border-2 transition ${
                 selectedColor === variant.color
@@ -275,7 +288,12 @@ export default function ProductInfo({ product }: Props) {
 
           <button
             onClick={() =>
-              setQuantity((prev) => prev + 1)
+              setQuantity((prev) =>
+                prev <
+                Math.min(selectedVariant.stock, 20)
+                  ? prev + 1
+                  : prev
+              )
             }
             className="w-12 h-full flex items-center justify-center text-xl hover:bg-zinc-900 transition cursor-pointer"
           >
@@ -286,12 +304,17 @@ export default function ProductInfo({ product }: Props) {
 
         <button
           onClick={handleAddToCart}
-          className="flex-1 h-14 bg-white text-black rounded-2xl font-semibold tracking-wide hover:opacity-90 transition cursor-pointer"
+          disabled={selectedVariant.stock <= 0}
+          className={`flex-1 h-14 rounded-2xl font-semibold tracking-wide transition ${
+            selectedVariant.stock <= 0
+              ? "bg-zinc-800 text-zinc-500 cursor-not-allowed"
+              : "bg-white text-black hover:opacity-90 cursor-pointer"
+          }`}
         >
-          AGREGAR AL CARRITO
+          {selectedVariant.stock <= 0
+            ? "AGOTADO"
+            : "AGREGAR AL CARRITO"}
         </button>
-
-      
 
           </div>         
 

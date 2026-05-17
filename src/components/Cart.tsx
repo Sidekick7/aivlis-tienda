@@ -4,13 +4,24 @@ import { Trash2 } from "lucide-react";
 
 type Props = {
   cart: any[];
-  removeFromCart: (id: number) => void;
+  removeFromCart: (
+    id: number,
+    size?: string,
+    color?: string
+  ) => void;
+
+  deleteItem: (
+    id: number,
+    size?: string,
+    color?: string
+  ) => void;
   onClose: () => void;
 };
 
 export default function Cart({
   cart,
   removeFromCart,
+  deleteItem,
   onClose,
 }: Props) {
 
@@ -68,7 +79,11 @@ export default function Cart({
               <p className="text-red-500 uppercase text-sm leading-tight font-medium">
                 {item.name}
 
-                {item.size && ` - ${item.size}`}
+                {item.selectedColor &&
+                  ` - ${item.selectedColor}`}
+
+                {item.size &&
+                  ` / ${item.size}`}
               </p>
 
               <p className="text-zinc-300 mt-2 text-sm">
@@ -78,7 +93,13 @@ export default function Cart({
             </div>
 
             <button
-              onClick={() => removeFromCart(item.id)}
+              onClick={() =>
+                deleteItem(
+                  item.id,
+                  item.size,
+                  item.selectedColor
+                )
+              }
               className="text-zinc-400 hover:text-white transition"
             >
               <Trash2 size={18} />

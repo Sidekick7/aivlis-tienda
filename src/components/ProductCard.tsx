@@ -8,12 +8,16 @@ type Props = {
     slug: string;
     name: string;
     price: number;
+
     variants: {
       color: string;
+      hex: string;
+      stock: number;
+      sizes: string[];
       images: string[];
     }[];
-    sizes: string[];
   };
+
 
   addToCart?: (product: any) => void;
 };
@@ -49,7 +53,7 @@ export default function ProductCard({
 
       <div className="flex items-center gap-2 mt-2">
 
-          {product.variants.map((variant) => (
+          {product.variants?.map((variant: any) => (
 
             <div
               key={variant.color}
@@ -65,7 +69,7 @@ export default function ProductCard({
 
       <div className="flex gap-2 mt-2">
 
-          {product.sizes.map((size) => (
+          {product.variants?.[0]?.sizes?.map((size: string) => (
 
             <div
               key={size}

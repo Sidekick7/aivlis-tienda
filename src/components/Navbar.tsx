@@ -21,7 +21,7 @@ export default function Navbar({ onCartClick }: Props) {
   const {
   cart,
   removeFromCart,
-  
+  deleteItem,
 } = useCart();
 
   return (
@@ -83,7 +83,9 @@ export default function Navbar({ onCartClick }: Props) {
               <Cart
                 cart={cart}
                 removeFromCart={removeFromCart}
+                deleteItem={deleteItem}
                 onClose={() => setIsMiniCartOpen(false)}
+                
               />
 
             </div>

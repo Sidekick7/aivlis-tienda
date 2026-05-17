@@ -26,9 +26,17 @@ type CartContextType = {
     size?: string,
     quantity?: number
   ) => void;
-  removeFromCart: (id: number) => void;
+  removeFromCart: (
+    id: number,
+    size?: string,
+    color?: string
+  ) => void;
   increaseQuantity: (id: number) => void;
-  deleteItem: (id: number) => void;
+  deleteItem: (
+    id: number,
+    size?: string,
+    color?: string
+  ) => void;
 
   isCartOpen: boolean;
   setIsCartOpen: (value: boolean) => void;
@@ -77,7 +85,8 @@ export function CartProvider({
     const existingProduct = cart.find(
       (item) =>
         item.id === product.id &&
-        item.size === size
+        item.size === size &&
+        item.selectedColor === product.selectedColor
     );
 
     let updatedCart;
@@ -86,7 +95,8 @@ export function CartProvider({
 
       updatedCart = cart.map((item) =>
         item.id === product.id &&
-        item.size === size
+        item.size === size &&
+        item.selectedColor === product.selectedColor
           ? {
               ...item,
               quantity:
@@ -113,11 +123,17 @@ export function CartProvider({
 
   };
 
-const removeFromCart = (id: number) => {
+const removeFromCart = (
+  id: number,
+  size?: string,
+  color?: string
+) => {
 
   const updatedCart = cart
     .map((item) =>
-      item.id === id
+      item.id === id &&
+      item.size === size &&
+      item.selectedColor === color
         ? {
             ...item,
             quantity: item.quantity - 1,
@@ -145,9 +161,20 @@ const increaseQuantity = (id: number) => {
 
 };
 
-const deleteItem = (id: number) => {
+const deleteItem = (
+  id: number,
+  size?: string,
+  color?: string
+) => {
 
-  const updatedCart =
+  const updatedCart = cart.filter(
+    (item) =>
+      !(
+        item.id === id &&
+        item.size === size &&
+        item.selectedColor === color
+      )
+  );
     cart.filter((item) => item.id !== id);
 
   setCart(updatedCart);
