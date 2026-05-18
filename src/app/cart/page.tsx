@@ -96,8 +96,15 @@ const {
                 <div>
 
                     <h2 className="text-lg font-semibold">
-                    {item.name}
+                      {item.name}
                     </h2>
+
+                    <p className="text-zinc-500 text-sm mt-1">
+                      {item.selectedColor}
+
+                      {item.size &&
+                        ` / ${item.size}`}
+                    </p>
 
                     <p className="text-zinc-500 text-sm mt-2">
                     Producto agregado al carrito
@@ -114,10 +121,6 @@ const {
 
             <div>
 
-              <div className="px-3 py-2 border border-zinc-800 rounded-xl text-center w-fit">
-                {item.size || "-"}
-              </div>
-
             </div>
 
             <div>
@@ -125,7 +128,13 @@ const {
               <div className="flex items-center gap-4 border border-zinc-800 rounded-xl px-4 py-2 w-fit">
 
                 <button
-                    onClick={() => removeFromCart(item.id)}
+                    onClick={() =>
+                      removeFromCart(
+                        item.id,
+                        item.size,
+                        item.selectedColor
+                      )
+                    }
                     className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-zinc-800 transition text-zinc-400 hover:text-white"
                 >
                     -
@@ -136,7 +145,13 @@ const {
                 </span>
 
                 <button
-                    onClick={() => increaseQuantity(item.id)}
+                    onClick={() =>
+                      increaseQuantity(
+                        item.id,
+                        item.size,
+                        item.selectedColor
+                      )
+                    }
                     className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-zinc-800 transition text-zinc-400 hover:text-white"
                 >
                     +
@@ -157,7 +172,13 @@ const {
 
 
             <button
-              onClick={() => deleteItem(item.id)}
+              onClick={() =>
+                deleteItem(
+                  item.id,
+                  item.size,
+                  item.selectedColor
+                )
+              }
               className="text-zinc-400 hover:text-red-400 transition"
             >
               <Trash2 />

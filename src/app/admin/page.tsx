@@ -22,16 +22,22 @@ const [variants, setVariants] = useState<
   {
     color: string;
     hex: string;
-    stock: string;
-    sizes: string;
+    sizes: {
+      size: string;
+      stock: string;
+    }[];
     images: File[];
   }[]
 >([
   {
     color: "Negro",
     hex: "#000000",
-    stock: "",
-    sizes: "S,M,L",
+    sizes: [
+      {
+        size: "S",
+        stock: "",
+      },
+    ],
     images: [],
   },
 ]);
@@ -58,10 +64,12 @@ const createProduct = async () => {
   const processedVariants: {
     color: string;
     hex: string;
-    stock: number;
-    sizes: string[];
+    sizes: {
+        size: string;
+        stock: number;
+    }[];
     images: string[];
-    }[] = [];
+  }[] = [];
 
   for (const variant of variants) {
 
@@ -88,8 +96,10 @@ const createProduct = async () => {
     processedVariants.push({
       color: variant.color,
       hex: variant.hex,
-      stock: Number(variant.stock),
-      sizes: variant.sizes.split(","),
+      sizes: variant.sizes.map((sizeItem) => ({
+        size: sizeItem.size,
+        stock: Number(sizeItem.stock),
+      })),
       images: imageUrls,
     });
 
@@ -137,13 +147,17 @@ const createProduct = async () => {
     setDescription("");
 
     setVariants([
-      {
-        color: "Negro",
-        hex: "#000000",
-        stock: "",
-        sizes: "S,M,L",
-        images: [],
-      },
+        {
+            color: "Negro",
+            hex: "#000000",
+            sizes: [
+            {
+                size: "S",
+                stock: "",
+            },
+            ],
+            images: [],
+        },
     ]);
 
     setSelectedVariantIndex(0);
@@ -177,7 +191,15 @@ const deleteProduct = async (id: number) => {
 
 const updateProduct = async () => {
 
-    const processedVariants = [];
+    const processedVariants: {
+        color: string;
+        hex: string;
+        sizes: {
+            size: string;
+            stock: number;
+        }[];
+        images: string[];
+    }[] = [];
 
     for (const variant of editingProduct.variants) {
 
@@ -214,8 +236,10 @@ const updateProduct = async () => {
             processedVariants.push({
                 color: variant.color,
                 hex: variant.hex,
-                stock: Number(variant.stock),
-                sizes: variant.sizes,
+                sizes: variant.sizes.map((sizeItem: any) => ({
+                    size: sizeItem.size,
+                    stock: Number(sizeItem.stock),
+                })),
                 images: imageUrls,
             });
 
@@ -368,37 +392,94 @@ const editingVariant =
             className="w-20 h-12 rounded-xl overflow-hidden bg-transparent cursor-pointer"
         />
 
-        <input
-            type="text"
-            placeholder="Talles: S,M,L"
-            value={selectedVariant.sizes}
-            onChange={(e) => {
+        <div className="flex flex-col gap-3">
+
+            {selectedVariant.sizes.map((sizeItem, index) => (
+
+                <div
+                key={index}
+                className="flex gap-3"
+                >
+
+                <input
+                    type="text"
+                    placeholder="Talle"
+                    value={sizeItem.size}
+                    onChange={(e) => {
+
+                    const updated = [...variants];
+
+                    updated[selectedVariantIndex]
+                        .sizes[index]
+                        .size = e.target.value;
+
+                    setVariants(updated);
+
+                    }}
+                    className="h-12 px-4 rounded-xl bg-zinc-800 outline-none flex-1"
+                />
+
+                <input
+                    type="number"
+                    placeholder="Stock"
+                    value={sizeItem.stock}
+                    onChange={(e) => {
+
+                    const updated = [...variants];
+
+                    updated[selectedVariantIndex]
+                        .sizes[index]
+                        .stock = e.target.value;
+
+                    setVariants(updated);
+
+                    }}
+                    className="h-12 px-4 rounded-xl bg-zinc-800 outline-none w-32"
+                />
+
+                <button
+                    type="button"
+                    onClick={() => {
+
+                    const updated = [...variants];
+
+                    updated[selectedVariantIndex].sizes =
+                        updated[selectedVariantIndex]
+                        .sizes
+                        .filter((_, i) => i !== index);
+
+                    setVariants(updated);
+
+                    }}
+                    className="w-12 rounded-xl bg-red-500"
+                >
+                    ✕
+                </button>
+
+                </div>
+
+            ))}
+
+            <button
+                type="button"
+                onClick={() => {
 
                 const updated = [...variants];
 
-                updated[selectedVariantIndex].sizes = e.target.value;
+                updated[selectedVariantIndex].sizes.push({
+                    size: "",
+                    stock: "",
+                });
 
                 setVariants(updated);
 
-            }}
-            className="h-12 px-4 rounded-xl bg-zinc-800 outline-none"
-        />
+                }}
+                className="h-11 rounded-xl border border-dashed border-zinc-600"
+            >
+                + Agregar talle
+            </button>
 
-        <input
-            type="number"
-            placeholder="Stock"
-            value={selectedVariant.stock}
-            onChange={(e) => {
-
-                const updated = [...variants];
-
-                updated[selectedVariantIndex].stock = e.target.value;
-
-                setVariants(updated);
-
-            }}
-            className="h-12 px-4 rounded-xl bg-zinc-800 outline-none"
-        />
+        </div>
 
         <input
             type="file"
@@ -507,12 +588,16 @@ const editingVariant =
                     setVariants([
                         ...variants,
                         {
-                        color: "",
-                        hex: "#000000",
-                        stock: "",
-                        sizes: "S,M,L",
-                        images: [],
-                        },
+                            color: "",
+                            hex: "#000000",
+                            sizes: [
+                                {
+                                size: "S",
+                                stock: "",
+                                },
+                            ],
+                            images: [],
+                        }
                     ])
                 }
                 className="px-4 h-10 rounded-xl bg-zinc-800 border border-dashed border-zinc-600 hover:border-white transition cursor-pointer"
@@ -705,43 +790,109 @@ const editingVariant =
             className="w-20 h-12 rounded-xl overflow-hidden bg-transparent cursor-pointer"
         />
 
-        <input
-            type="text"
-            value={editingVariant?.sizes?.join(",") || ""}
-            onChange={(e) => {
+        <div className="flex flex-col gap-3">
+
+            {editingVariant?.sizes?.map(
+                (sizeItem: any, index: number) => (
+
+                <div
+                    key={index}
+                    className="flex gap-3"
+                >
+
+                    <input
+                    type="text"
+                    value={sizeItem.size}
+                    onChange={(e) => {
+
+                        const updated = [...editingProduct.variants];
+
+                        updated[editingVariantIndex]
+                        .sizes[index]
+                        .size = e.target.value;
+
+                        setEditingProduct({
+                        ...editingProduct,
+                        variants: updated,
+                        });
+
+                    }}
+                    className="h-12 px-4 rounded-xl bg-zinc-800 outline-none flex-1"
+                    />
+
+                    <input
+                    type="number"
+                    value={sizeItem.stock}
+                    onChange={(e) => {
+
+                        const updated = [...editingProduct.variants];
+
+                        updated[editingVariantIndex]
+                        .sizes[index]
+                        .stock = Number(e.target.value);
+
+                        setEditingProduct({
+                        ...editingProduct,
+                        variants: updated,
+                        });
+
+                    }}
+                    className="h-12 px-4 rounded-xl bg-zinc-800 outline-none w-32"
+                    />
+
+                    <button
+                    type="button"
+                    onClick={() => {
+
+                        const updated = [...editingProduct.variants];
+
+                        updated[editingVariantIndex].sizes =
+                        updated[editingVariantIndex]
+                            .sizes
+                            .filter((_: any, i: number) =>
+                            i !== index
+                            );
+
+                        setEditingProduct({
+                        ...editingProduct,
+                        variants: updated,
+                        });
+
+                    }}
+                    className="w-12 rounded-xl bg-red-500"
+                    >
+                    ✕
+                    </button>
+
+            </div>
+
+                )
+            )}
+
+            <button
+                type="button"
+                onClick={() => {
 
                 const updated = [...editingProduct.variants];
 
-                updated[editingVariantIndex].sizes =
-                    e.target.value.split(",");
+                updated[editingVariantIndex].sizes.push({
+                    size: "",
+                    stock: 0,
+                });
 
                 setEditingProduct({
                     ...editingProduct,
                     variants: updated,
                 });
 
-            }}
-            className="h-12 px-4 rounded-xl bg-zinc-800 outline-none"
-        />
+                }}
+                className="h-11 rounded-xl border border-dashed border-zinc-600"
+            >
+                + Agregar talle
+            </button>
 
-        <input
-            type="number"
-            value={editingVariant?.stock ?? ""}
-            onChange={(e) => {
+            </div>
 
-                const updated = [...editingProduct.variants];
-
-                updated[editingVariantIndex].stock =
-                    Number(e.target.value);
-
-                setEditingProduct({
-                    ...editingProduct,
-                    variants: updated,
-                });
-
-            }}
-            className="h-12 px-4 rounded-xl bg-zinc-800 outline-none"
-        />
 
   
         <input

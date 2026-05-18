@@ -31,7 +31,11 @@ type CartContextType = {
     size?: string,
     color?: string
   ) => void;
-  increaseQuantity: (id: number) => void;
+  increaseQuantity: (
+    id: number,
+    size?: string,
+    color?: string
+  ) => void;
   deleteItem: (
     id: number,
     size?: string,
@@ -146,13 +150,22 @@ const removeFromCart = (
 
 };
 
-const increaseQuantity = (id: number) => {
+const increaseQuantity = (
+  id: number,
+  size?: string,
+  color?: string
+) => {
 
   const updatedCart = cart.map((item) =>
-    item.id === id
+    item.id === id &&
+    item.size === size &&
+    item.selectedColor === color
       ? {
           ...item,
-          quantity: item.quantity + 1,
+          quantity:
+            item.quantity <20
+              ? item.quantity + 1
+              : item.quantity,
         }
       : item
   );

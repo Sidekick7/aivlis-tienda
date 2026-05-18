@@ -14,8 +14,10 @@ type Props = {
     variants: {
       color: string;
       hex: string;
-      stock: number;
-      sizes: string[];
+      sizes: {
+        size: string;
+        stock: number;
+      }[];
       images: string[];
     }[];
     
@@ -26,7 +28,9 @@ type Props = {
 
 export default function ProductInfo({ product }: Props) {
 
-  const [selectedSize, setSelectedSize] = useState("");
+  const [selectedSize, setSelectedSize] = useState(
+    product.variants[0]?.sizes?.[0]?.size || ""
+  );
   const [quantity, setQuantity] = useState(1);
   const [selectedColor, setSelectedColor] = useState(
     product.variants[0].color
@@ -41,16 +45,22 @@ export default function ProductInfo({ product }: Props) {
   });
 
   const { addToCart } = useCart();
+
   const selectedVariant =
-  product.variants.find(
-    (variant) => variant.color === selectedColor
-  ) || product.variants[0];
+    product.variants.find(
+      (variant) => variant.color === selectedColor
+    ) || product.variants[0];
+
+  const selectedSizeData =
+    selectedVariant.sizes.find(
+      (item) => item.size === selectedSize
+    );
 
   const handleAddToCart = () => {
 
     if (
       quantity >
-      Math.min(selectedVariant.stock, 20)
+      Math.min(selectedSizeData?.stock || 0, 20)
     ){
       alert("Superaste el stock disponible");
       return;
@@ -113,7 +123,7 @@ export default function ProductInfo({ product }: Props) {
               setSelectedImage(image);
               setSelectedColor(variant.color);
               setSelectedSize(
-                variant.sizes?.[0] || ""
+                variant.sizes?.[0]?.size || ""
               );
             }}
             className={`rounded-2xl overflow-hidden transition-all duration-300 ${
@@ -176,8 +186,9 @@ export default function ProductInfo({ product }: Props) {
       <p className="mt-2 text-zinc-400">
         Precio mayorista
       </p>
-      {selectedVariant?.stock > 0 &&
-        selectedVariant?.stock <= 5 && (
+      {selectedSizeData &&
+        selectedSizeData.stock > 0 &&
+        selectedSizeData.stock <= 5 && (
 
         <p className="mt-4 text-sm text-red-400">
           Últimas unidades disponibles
@@ -185,7 +196,8 @@ export default function ProductInfo({ product }: Props) {
 
       )}
 
-      {selectedVariant?.stock <= 0 && (
+      {(!selectedSizeData ||
+        selectedSizeData.stock <= 0) && (
 
         <p className="mt-4 text-sm text-zinc-500">
           Agotado
@@ -204,18 +216,25 @@ export default function ProductInfo({ product }: Props) {
 
         <div className="flex gap-3">
 
-          {selectedVariant?.sizes?.map((size: string) => (
+          {selectedVariant?.sizes?.map((sizeItem) => (
 
             <button
-              key={size}
-              onClick={() => setSelectedSize(size)}
+              key={sizeItem.size}
+              onClick={() =>
+                setSelectedSize(sizeItem.size)
+              }
+              disabled={sizeItem.stock <= 0}
               className={`w-12 h-12 border rounded-xl transition ${
-                selectedSize === size
+                selectedSize === sizeItem.size
                   ? "bg-white text-black border-white"
                   : "border-zinc-700 hover:border-white"
+              } ${
+                sizeItem.stock <= 0
+                  ? "opacity-40 cursor-not-allowed"
+                  : ""
               }`}
             >
-              {size}
+              {sizeItem.size}
             </button>
 
           ))}
@@ -240,7 +259,7 @@ export default function ProductInfo({ product }: Props) {
                 setSelectedColor(variant.color);
                 setSelectedImage(variant.images[0]);
                 setSelectedSize(
-                  variant.sizes?.[0] || ""
+                  variant.sizes?.[0]?.size || ""
                 );
               }}
               className={`w-8 h-8 rounded-full border-2 transition ${
@@ -290,7 +309,7 @@ export default function ProductInfo({ product }: Props) {
             onClick={() =>
               setQuantity((prev) =>
                 prev <
-                Math.min(selectedVariant.stock, 20)
+                  Math.min(selectedSizeData?.stock || 0, 20)
                   ? prev + 1
                   : prev
               )
@@ -304,14 +323,14 @@ export default function ProductInfo({ product }: Props) {
 
         <button
           onClick={handleAddToCart}
-          disabled={selectedVariant.stock <= 0}
+          disabled={!selectedSizeData || selectedSizeData.stock <= 0}
           className={`flex-1 h-14 rounded-2xl font-semibold tracking-wide transition ${
-            selectedVariant.stock <= 0
+            !selectedSizeData || selectedSizeData.stock <= 0
               ? "bg-zinc-800 text-zinc-500 cursor-not-allowed"
               : "bg-white text-black hover:opacity-90 cursor-pointer"
           }`}
         >
-          {selectedVariant.stock <= 0
+          {!selectedSizeData || selectedSizeData.stock <= 0
             ? "AGOTADO"
             : "AGREGAR AL CARRITO"}
         </button>
