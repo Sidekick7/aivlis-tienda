@@ -8,11 +8,13 @@ import {
   buildOrderWhatsAppMessage,
   getCartItemLabel,
   getCartTotal,
+  validateCartStock,
 } from "@/lib/order";
 import {
   createOrderNumber,
   createOrderTicket,
 } from "@/lib/orders";
+import { getProductsByIds } from "@/lib/products";
 import { useEffect, useState } from "react";
 
 const checkoutCustomerStorageKey = "checkout_customer";
@@ -125,6 +127,30 @@ export default function CheckoutPage() {
     setOrderError("");
     setIsSubmitting(true);
     syncSavedCustomer();
+
+    try {
+      const currentProducts = await getProductsByIds(
+        cart.map((item) => item.id)
+      );
+      const stockError = validateCartStock(
+        cart,
+        currentProducts
+      );
+
+      if (stockError) {
+        setOrderError(stockError);
+        setIsSubmitting(false);
+        return;
+      }
+    } catch (error) {
+      setOrderError(
+        error instanceof Error
+          ? `No se pudo validar el stock: ${error.message}`
+          : "No se pudo validar el stock."
+      );
+      setIsSubmitting(false);
+      return;
+    }
 
     const orderNumber = createOrderNumber();
     const customer = {

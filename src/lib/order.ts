@@ -1,6 +1,7 @@
 import type { CartItem } from "@/context/CartContext";
 import { storeConfig } from "@/config/store";
 import type { CustomerInfo } from "@/types/order";
+import type { Product } from "@/types/product";
 
 export function getCartTotal(cart: CartItem[]) {
   return cart.reduce(
@@ -88,4 +89,36 @@ ${customer.email || "-"}
 
 Notas adicionales:
 ${customer.notes || "-"}`;
+}
+
+export function validateCartStock(
+  cart: CartItem[],
+  products: Product[]
+) {
+  const productsById = new Map(
+    products.map((product) => [product.id, product])
+  );
+
+  for (const item of cart) {
+    const product = productsById.get(item.id);
+
+    if (!product) {
+      return `${item.name} ya no esta disponible.`;
+    }
+
+    const selectedVariant =
+      product.variants.find(
+        (variant) => variant.color === item.selectedColor
+      ) ?? product.variants[0];
+    const selectedSize = selectedVariant?.sizes.find(
+      (size) => size.size === item.size
+    );
+    const currentStock = selectedSize?.stock ?? 0;
+
+    if (item.quantity > currentStock) {
+      return `Stock insuficiente para ${getCartItemLabel(item)}. Disponible: ${currentStock}.`;
+    }
+  }
+
+  return null;
 }

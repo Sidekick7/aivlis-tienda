@@ -149,3 +149,24 @@ export async function getProductBySlug(
 
   return normalizeProduct(data as SupabaseProductRow);
 }
+
+export async function getProductsByIds(
+  productIds: number[]
+): Promise<Product[]> {
+  if (productIds.length === 0) {
+    return [];
+  }
+
+  const { data, error } = await supabase
+    .from("products")
+    .select("*")
+    .in("id", productIds);
+
+  if (error) {
+    throw error;
+  }
+
+  return (data ?? []).map((row) =>
+    normalizeProduct(row as SupabaseProductRow)
+  );
+}
