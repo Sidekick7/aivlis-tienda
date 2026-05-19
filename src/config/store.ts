@@ -1,5 +1,5 @@
 export const storeConfig = {
-  whatsappNumber: "5491158501082",
+  whatsappNumber: "5491169366810",
   defaultMinimumQuantity: 3,
   fallbackMaxQuantity: 20,
 };

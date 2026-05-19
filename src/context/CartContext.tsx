@@ -11,6 +11,7 @@ import type { Product } from "@/types/product";
 
 export type CartItem = {
   id: number;
+  slug: string;
   name: string;
   price: number;
   quantity: number;

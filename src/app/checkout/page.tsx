@@ -8,7 +8,24 @@ import {
   getCartItemLabel,
   getCartTotal,
 } from "@/lib/order";
-import { useState } from "react";
+import {
+  createOrderNumber,
+  createOrderTicket,
+} from "@/lib/orders";
+import { useEffect, useState } from "react";
+
+const checkoutCustomerStorageKey = "checkout_customer";
+
+type SavedCheckoutCustomer = {
+  name: string;
+  dni: string;
+  whatsapp: string;
+  address: string;
+  city: string;
+  province: string;
+  zip: string;
+  email: string;
+};
 
 export default function CheckoutPage() {
   const { cart } = useCart();
@@ -23,6 +40,39 @@ export default function CheckoutPage() {
   const [email, setEmail] = useState("");
   const [notes, setNotes] = useState("");
   const [showError, setShowError] = useState(false);
+  const [orderError, setOrderError] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [rememberCustomer, setRememberCustomer] = useState(false);
+
+  useEffect(() => {
+
+    queueMicrotask(() => {
+      const savedCustomer = localStorage.getItem(
+        checkoutCustomerStorageKey
+      );
+
+      if (!savedCustomer) return;
+
+      try {
+        const customer = JSON.parse(
+          savedCustomer
+        ) as SavedCheckoutCustomer;
+
+        setName(customer.name || "");
+        setDni(customer.dni || "");
+        setWhatsapp(customer.whatsapp || "");
+        setAddress(customer.address || "");
+        setCity(customer.city || "");
+        setProvince(customer.province || "");
+        setZip(customer.zip || "");
+        setEmail(customer.email || "");
+        setRememberCustomer(true);
+      } catch {
+        localStorage.removeItem(checkoutCustomerStorageKey);
+      }
+    });
+
+  }, []);
 
   const total = getCartTotal(cart);
   const requiredFields = [
@@ -39,13 +89,42 @@ export default function CheckoutPage() {
   );
   const hasNoProducts = cart.length === 0;
 
-  const handleWhatsApp = () => {
+  const syncSavedCustomer = () => {
+    if (rememberCustomer) {
+      const customerToSave: SavedCheckoutCustomer = {
+        name,
+        dni,
+        whatsapp,
+        address,
+        city,
+        province,
+        zip,
+        email,
+      };
+
+      localStorage.setItem(
+        checkoutCustomerStorageKey,
+        JSON.stringify(customerToSave)
+      );
+    } else {
+      localStorage.removeItem(checkoutCustomerStorageKey);
+    }
+  };
+
+  const handleWhatsApp = async () => {
     if (hasEmptyFields || hasNoProducts) {
       setShowError(true);
       return;
     }
 
+    setOrderError("");
+    setIsSubmitting(true);
+    syncSavedCustomer();
+
+    const orderNumber = createOrderNumber();
     const message = `Hola! Quiero realizar este pedido:
+
+Ticket: ${orderNumber}
 
 ${formatCartItemsForWhatsApp(cart)}
 
@@ -80,7 +159,33 @@ ${email || "-"}
 Notas adicionales:
 ${notes || "-"}`;
 
-    window.open(buildWhatsAppUrl(message), "_blank");
+    try {
+      await createOrderTicket({
+        orderNumber,
+        cart,
+        customer: {
+          name,
+          dni,
+          whatsapp,
+          address,
+          city,
+          province,
+          zip,
+          email,
+          notes,
+        },
+        total,
+        whatsappMessage: message,
+      });
+
+      window.open(buildWhatsAppUrl(message), "_blank");
+    } catch {
+      setOrderError(
+        "No se pudo crear el ticket. Revisa que las tablas de pedidos existan en Supabase."
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -244,6 +349,18 @@ ${notes || "-"}`;
             />
           </div>
 
+          <label className="flex items-center gap-3 text-sm text-zinc-300">
+            <input
+              type="checkbox"
+              checked={rememberCustomer}
+              onChange={(e) =>
+                setRememberCustomer(e.target.checked)
+              }
+              className="w-4 h-4 accent-white"
+            />
+            Recordar mis datos para proximos pedidos
+          </label>
+
           <div className="border-t border-zinc-800 pt-6 mt-4">
             <div className="flex flex-col gap-3 mb-6">
               {cart.length === 0 && (
@@ -290,12 +407,20 @@ ${notes || "-"}`;
               </p>
             )}
 
+            {orderError && (
+              <p className="mt-4 text-red-500 text-sm">
+                {orderError}
+              </p>
+            )}
+
             <button
               onClick={handleWhatsApp}
-              disabled={hasNoProducts}
+              disabled={hasNoProducts || isSubmitting}
               className="mt-6 w-full bg-green-500 py-4 rounded-xl font-semibold hover:opacity-90 transition disabled:opacity-40 disabled:cursor-not-allowed"
             >
-              Enviar pedido por WhatsApp
+              {isSubmitting
+                ? "Creando ticket..."
+                : "Enviar pedido por WhatsApp"}
             </button>
           </div>
         </div>

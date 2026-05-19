@@ -67,7 +67,7 @@ const {
 
             <p>Producto</p>
 
-            <p>Talle</p>
+            <p>Precio</p>
 
             <p>Cantidad</p>
 
@@ -118,14 +118,12 @@ const {
                 </div>
 
 
-              <p className="mt-4 text-xl font-semibold">
-                ${item.price * item.quantity}
-              </p>
-
             </div>
 
             <div>
-
+              <p className="text-lg font-semibold">
+                ${item.price}
+              </p>
             </div>
 
             <div>
