@@ -15,7 +15,7 @@ type Props = {
   onStatusChange: (
     order: AdminOrder,
     status: OrderStatus
-  ) => void;
+  ) => Promise<void>;
 };
 
 const currencyFormatter = new Intl.NumberFormat("es-AR", {
@@ -57,6 +57,28 @@ export default function AdminOrdersSection({
     useState<OrderFilter>("all");
   const [expandedOrderId, setExpandedOrderId] =
     useState<string | null>(null);
+  const [savingStatus, setSavingStatus] = useState<{
+    orderId: string;
+    status: OrderStatus;
+  } | null>(null);
+
+  const handleStatusChange = async (
+    order: AdminOrder,
+    status: OrderStatus
+  ) => {
+    if (savingStatus || order.status === status) return;
+
+    setSavingStatus({
+      orderId: order.id,
+      status,
+    });
+
+    try {
+      await onStatusChange(order, status);
+    } finally {
+      setSavingStatus(null);
+    }
+  };
 
   const normalizedOrderSearch = orderSearch
     .trim()
@@ -168,6 +190,8 @@ export default function AdminOrdersSection({
       <div className="flex flex-col gap-4">
         {visibleOrders.map((order) => {
           const isExpanded = expandedOrderId === order.id;
+          const isSavingOrder =
+            savingStatus?.orderId === order.id;
 
           return (
             <article
@@ -236,15 +260,22 @@ export default function AdminOrdersSection({
                       <button
                         key={status}
                         type="button"
-                        onClick={() => onStatusChange(order, status)}
-                        disabled={order.status === status}
+                        onClick={() => handleStatusChange(order, status)}
+                        disabled={
+                          order.status === status || isSavingOrder
+                        }
                         className={`h-10 px-4 rounded-xl border text-sm font-semibold transition cursor-pointer disabled:cursor-default ${
                           order.status === status
                             ? "bg-white text-black border-white"
+                            : isSavingOrder
+                              ? "border-zinc-600 bg-zinc-700 text-zinc-300"
                             : orderStatusButtonClasses[status]
                         }`}
                       >
-                        {orderStatusLabels[status]}
+                        {savingStatus?.orderId === order.id &&
+                        savingStatus.status === status
+                          ? "Guardando..."
+                          : orderStatusLabels[status]}
                       </button>
                     )
                   )}

@@ -16,8 +16,9 @@ type Props = {
   setDetailsText: Dispatch<SetStateAction<string>>;
   editingVariantIndex: number;
   setEditingVariantIndex: Dispatch<SetStateAction<number>>;
+  isSaving: boolean;
   onClose: () => void;
-  onSave: () => void;
+  onSave: () => Promise<void>;
 };
 
 function getImageUrl(image: string | File) {
@@ -34,6 +35,7 @@ export default function EditProductModal({
   setDetailsText,
   editingVariantIndex,
   setEditingVariantIndex,
+  isSaving,
   onClose,
   onSave,
 }: Props) {
@@ -56,7 +58,9 @@ export default function EditProductModal({
   return (
     <div
       className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center"
-      onClick={onClose}
+      onClick={() => {
+        if (!isSaving) onClose();
+      }}
     >
       <div
         className="bg-zinc-900 w-full max-w-2xl rounded-3xl p-8 max-h-[90vh] overflow-y-auto"
@@ -69,6 +73,7 @@ export default function EditProductModal({
 
           <button
             onClick={onClose}
+            disabled={isSaving}
             className="text-zinc-400 hover:text-white transition cursor-pointer"
           >
             x
@@ -378,9 +383,10 @@ export default function EditProductModal({
 
           <button
             onClick={onSave}
-            className="h-12 bg-white text-black rounded-xl font-semibold hover:opacity-90 transition cursor-pointer"
+            disabled={isSaving}
+            className="h-12 bg-white text-black rounded-xl font-semibold hover:opacity-90 transition cursor-pointer disabled:cursor-not-allowed disabled:opacity-60"
           >
-            Guardar cambios
+            {isSaving ? "Guardando..." : "Guardar cambios"}
           </button>
         </div>
       </div>

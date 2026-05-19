@@ -14,13 +14,18 @@ import type { Product } from "@/types/product";
 
 type Props = {
   products: Product[];
-  onToggleFeatured: (product: Product) => void;
-  onDelete: (productId: number) => void;
+  savingProductAction: {
+    id: number;
+    action: "featured" | "delete";
+  } | null;
+  onToggleFeatured: (product: Product) => Promise<void>;
+  onDelete: (productId: number) => Promise<void>;
   onEdit: (product: Product) => void;
 };
 
 export default function AdminProductsSection({
   products,
+  savingProductAction,
   onToggleFeatured,
   onDelete,
   onEdit,
@@ -145,11 +150,15 @@ export default function AdminProductsSection({
       )}
 
       <div className="flex flex-col gap-4">
-        {visibleProducts.map((product) => (
-          <div
-            key={product.id}
-            className="grid gap-4 rounded-2xl bg-zinc-800 p-4 lg:grid-cols-[minmax(260px,1fr)_130px_120px_130px_220px] lg:items-center"
-          >
+        {visibleProducts.map((product) => {
+          const isSavingProduct =
+            savingProductAction?.id === product.id;
+
+          return (
+            <div
+              key={product.id}
+              className="grid gap-4 rounded-2xl bg-zinc-800 p-4 lg:grid-cols-[minmax(260px,1fr)_130px_120px_130px_220px] lg:items-center"
+            >
             <div className="flex items-center gap-4 min-w-0">
               <Image
                 src={getProductImage(product)}
@@ -207,31 +216,43 @@ export default function AdminProductsSection({
             <div className="flex flex-wrap items-center gap-3 lg:justify-end">
               <button
                 onClick={() => onToggleFeatured(product)}
-                className={`px-4 h-10 rounded-xl font-medium transition cursor-pointer ${
+                disabled={isSavingProduct}
+                className={`px-4 h-10 rounded-xl font-medium transition cursor-pointer disabled:cursor-not-allowed disabled:opacity-60 ${
                   product.featured
                     ? "bg-white text-black"
                     : "bg-zinc-700 text-white"
                 }`}
               >
-                {product.featured ? "Destacado" : "No destacado"}
+                {isSavingProduct &&
+                savingProductAction.action === "featured"
+                  ? "Guardando..."
+                  : product.featured
+                    ? "Destacado"
+                    : "No destacado"}
               </button>
 
               <button
                 onClick={() => onDelete(product.id)}
-                className="text-red-500 hover:text-red-400 transition cursor-pointer"
+                disabled={isSavingProduct}
+                className="text-red-500 hover:text-red-400 transition cursor-pointer disabled:cursor-not-allowed disabled:opacity-60"
               >
-                Eliminar
+                {isSavingProduct &&
+                savingProductAction.action === "delete"
+                  ? "Eliminando..."
+                  : "Eliminar"}
               </button>
 
               <button
                 onClick={() => onEdit(product)}
-                className="text-blue-500 hover:text-blue-400 transition cursor-pointer"
+                disabled={isSavingProduct}
+                className="text-blue-500 hover:text-blue-400 transition cursor-pointer disabled:cursor-not-allowed disabled:opacity-60"
               >
                 Editar
               </button>
             </div>
           </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );

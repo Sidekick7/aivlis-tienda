@@ -29,8 +29,9 @@ type Props = {
   setVariants: Dispatch<SetStateAction<NewProductVariant[]>>;
   selectedVariantIndex: number;
   setSelectedVariantIndex: Dispatch<SetStateAction<number>>;
+  isSaving: boolean;
   onClose: () => void;
-  onCreate: () => void;
+  onCreate: () => Promise<void>;
 };
 
 export default function CreateProductModal({
@@ -53,6 +54,7 @@ export default function CreateProductModal({
   setVariants,
   selectedVariantIndex,
   setSelectedVariantIndex,
+  isSaving,
   onClose,
   onCreate,
 }: Props) {
@@ -64,7 +66,9 @@ export default function CreateProductModal({
   return (
     <div
       className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center"
-      onClick={onClose}
+      onClick={() => {
+        if (!isSaving) onClose();
+      }}
     >
       <div
         className="bg-zinc-900 w-full max-w-2xl rounded-3xl p-8 max-h-[90vh] overflow-y-auto"
@@ -77,6 +81,7 @@ export default function CreateProductModal({
 
           <button
             onClick={onClose}
+            disabled={isSaving}
             className="text-zinc-400 hover:text-white transition cursor-pointer"
           >
             x
@@ -344,9 +349,10 @@ export default function CreateProductModal({
 
           <button
             onClick={onCreate}
-            className="h-12 bg-white text-black rounded-xl font-semibold hover:opacity-90 transition cursor-pointer"
+            disabled={isSaving}
+            className="h-12 bg-white text-black rounded-xl font-semibold hover:opacity-90 transition cursor-pointer disabled:cursor-not-allowed disabled:opacity-60"
           >
-            Crear producto
+            {isSaving ? "Creando..." : "Crear producto"}
           </button>
         </div>
       </div>

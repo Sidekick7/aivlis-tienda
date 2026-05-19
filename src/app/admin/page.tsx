@@ -31,6 +31,22 @@ import type { Product } from "@/types/product";
 import type { AdminOrder, OrderStatus } from "@/types/order";
 import type { Session } from "@supabase/supabase-js";
 
+type AdminNotice = {
+  type: "success" | "error";
+  message: string;
+};
+
+type SavingProductAction = {
+  id: number;
+  action: "featured" | "delete";
+};
+
+const orderStatusLabels: Record<OrderStatus, string> = {
+  pending_payment: "Pendiente de pago",
+  confirmed: "Confirmado",
+  cancelled: "Cancelado",
+};
+
 export default function AdminPage() {
 
 const [session, setSession] = useState<Session | null>(null);
@@ -51,6 +67,12 @@ const [products, setProducts] = useState<Product[]>([]);
 const [orders, setOrders] = useState<AdminOrder[]>([]);
 const [isOrdersLoading, setIsOrdersLoading] = useState(false);
 const [orderError, setOrderError] = useState("");
+const [adminNotice, setAdminNotice] =
+  useState<AdminNotice | null>(null);
+const [isCreatingProduct, setIsCreatingProduct] = useState(false);
+const [isUpdatingProduct, setIsUpdatingProduct] = useState(false);
+const [savingProductAction, setSavingProductAction] =
+  useState<SavingProductAction | null>(null);
 const [editingProduct, setEditingProduct] =
   useState<EditableProduct | null>(null);
 const [editingDetailsText, setEditingDetailsText] = useState("");
@@ -118,7 +140,10 @@ useEffect(() => {
 }, [session]);
 
 const createProduct = async () => {
+  if (isCreatingProduct) return;
+
   setProductFormError("");
+  setAdminNotice(null);
 
   const nextSlug = slug || slugifyProductName(name);
   const validationError = getProductFormError({
@@ -139,6 +164,8 @@ const createProduct = async () => {
     return;
   }
 
+  setIsCreatingProduct(true);
+
   try {
     await createAdminProduct({
       name,
@@ -149,14 +176,6 @@ const createProduct = async () => {
       detailsText,
       variants,
     });
-  } catch (error) {
-    setProductFormError(
-      error && typeof error === "object"
-        ? getProductMutationError(error)
-        : "No se pudo guardar el producto."
-    );
-    return;
-  }
 
     await refreshProducts();
 
@@ -176,7 +195,19 @@ const createProduct = async () => {
 
     setSelectedVariantIndex(0);
 
-    alert("Producto creado");
+    setAdminNotice({
+      type: "success",
+      message: "Producto creado.",
+    });
+  } catch (error) {
+    setProductFormError(
+      error && typeof error === "object"
+        ? getProductMutationError(error)
+        : "No se pudo guardar el producto."
+    );
+  } finally {
+    setIsCreatingProduct(false);
+  }
 
 };
 
@@ -185,6 +216,7 @@ const createProduct = async () => {
 
 
 const deleteProduct = async (id: number) => {
+  if (savingProductAction) return;
 
   const shouldDelete = window.confirm(
     "Seguro que queres eliminar este producto?"
@@ -192,40 +224,70 @@ const deleteProduct = async (id: number) => {
 
   if (!shouldDelete) return;
 
+  setSavingProductAction({
+    id,
+    action: "delete",
+  });
+
   try {
     await deleteAdminProduct(id);
-  } catch (error) {
-    alert(
-      error instanceof Error
-        ? `No se pudo eliminar el producto: ${error.message}`
-        : "No se pudo eliminar el producto."
-    );
-    return;
-  }
 
     setProducts((prev) =>
       prev.filter((product) => product.id !== id)
     );
 
+    setAdminNotice({
+      type: "success",
+      message: "Producto eliminado.",
+    });
+  } catch (error) {
+    setAdminNotice({
+      type: "error",
+      message:
+        error instanceof Error
+          ? `No se pudo eliminar el producto: ${error.message}`
+          : "No se pudo eliminar el producto.",
+    });
+  } finally {
+    setSavingProductAction(null);
+  }
+
 };
 
 const toggleFeaturedProduct = async (product: Product) => {
+  if (savingProductAction) return;
+
+  setSavingProductAction({
+    id: product.id,
+    action: "featured",
+  });
+
   try {
     await updateAdminProductFeatured(product);
-  } catch (error) {
-    alert(
-      error instanceof Error
-        ? `No se pudo actualizar destacado: ${error.message}`
-        : "No se pudo actualizar destacado."
-    );
-    return;
-  }
 
   await refreshProducts();
+  setAdminNotice({
+    type: "success",
+    message: product.featured
+      ? "Producto quitado de destacados."
+      : "Producto marcado como destacado.",
+  });
+  } catch (error) {
+    setAdminNotice({
+      type: "error",
+      message:
+        error instanceof Error
+          ? `No se pudo actualizar destacado: ${error.message}`
+          : "No se pudo actualizar destacado.",
+    });
+  } finally {
+    setSavingProductAction(null);
+  }
 };
 
 const startEditingProduct = (product: Product) => {
   setProductFormError("");
+  setAdminNotice(null);
   setEditingProduct(
     JSON.parse(JSON.stringify(product))
   );
@@ -240,8 +302,10 @@ const startEditingProduct = (product: Product) => {
 const updateProduct = async () => {
 
     if (!editingProduct) return;
+    if (isUpdatingProduct) return;
 
     setProductFormError("");
+    setAdminNotice(null);
 
     const nextSlug = slugifyProductName(editingProduct.slug);
     const validationError = getProductFormError({
@@ -268,25 +332,31 @@ const updateProduct = async () => {
       return;
     }
 
+    setIsUpdatingProduct(true);
+
     try {
       await updateAdminProduct({
         product: editingProduct,
         slug: nextSlug,
         detailsText: editingDetailsText,
       });
+
+    await refreshProducts();
+    setEditingProduct(null);
+
+    setAdminNotice({
+      type: "success",
+      message: "Producto actualizado.",
+    });
     } catch (error) {
       setProductFormError(
         error && typeof error === "object"
           ? getProductMutationError(error)
           : "No se pudo guardar el producto."
       );
-      return;
+    } finally {
+      setIsUpdatingProduct(false);
     }
-
-    await refreshProducts();
-    setEditingProduct(null);
-
-    alert("Producto actualizado");
 
 };
 
@@ -322,18 +392,26 @@ const handleOrderStatusChange = async (
   order: AdminOrder,
   status: OrderStatus
 ) => {
+  const previousStatus = order.status;
+
   try {
     await updateOrderStatus(order, status);
     await Promise.all([
       refreshOrders(),
       refreshProducts(),
     ]);
+    setAdminNotice({
+      type: "success",
+      message: `Pedido ${order.orderNumber}: ${orderStatusLabels[previousStatus]} -> ${orderStatusLabels[status]}.`,
+    });
   } catch (error) {
-    alert(
-      error instanceof Error
-        ? error.message
-        : "No se pudo actualizar el pedido"
-    );
+    setAdminNotice({
+      type: "error",
+      message:
+        error instanceof Error
+          ? error.message
+          : "No se pudo actualizar el pedido.",
+    });
   }
 };
 
@@ -445,7 +523,23 @@ if (!session) {
           Pedidos ({orders.length})
         </button>
       </div>
-      
+
+      {adminNotice && (
+        <div
+          role="status"
+          style={{
+            backgroundColor:
+              adminNotice.type === "success" ? "#16a34a" : "#dc2626",
+            borderColor:
+              adminNotice.type === "success" ? "#86efac" : "#fca5a5",
+            color: "#ffffff",
+          }}
+          className="mb-8 rounded-2xl border p-4 text-sm font-semibold"
+        >
+          {adminNotice.message}
+        </div>
+      )}
+
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
 
         <div className="bg-zinc-900 rounded-2xl p-6">
@@ -459,6 +553,7 @@ if (!session) {
             <button
                 onClick={() => {
                   setProductFormError("");
+                  setAdminNotice(null);
                   setShowCreate(true);
                 }}
                 className="mt-6 bg-white text-black px-5 h-11 rounded-xl font-semibold hover:opacity-90 transition cursor-pointer"
@@ -508,6 +603,7 @@ if (!session) {
     setVariants={setVariants}
     selectedVariantIndex={selectedVariantIndex}
     setSelectedVariantIndex={setSelectedVariantIndex}
+    isSaving={isCreatingProduct}
     onClose={() => {
       setProductFormError("");
       setShowCreate(false);
@@ -525,6 +621,7 @@ if (!session) {
     setDetailsText={setEditingDetailsText}
     editingVariantIndex={editingVariantIndex}
     setEditingVariantIndex={setEditingVariantIndex}
+    isSaving={isUpdatingProduct}
     onClose={() => {
       setProductFormError("");
       setEditingProduct(null);
@@ -545,10 +642,34 @@ if (!session) {
 {activeSection === "products" && (
   <AdminProductsSection
     products={products}
+    savingProductAction={savingProductAction}
     onToggleFeatured={toggleFeaturedProduct}
     onDelete={deleteProduct}
     onEdit={startEditingProduct}
   />
+)}
+
+{adminNotice && (
+  <div
+    style={{
+      backgroundColor:
+        adminNotice.type === "success" ? "#16a34a" : "#dc2626",
+      borderColor:
+        adminNotice.type === "success" ? "#86efac" : "#fca5a5",
+      color: "#ffffff",
+    }}
+    className="fixed left-1/2 top-24 z-[9999] flex w-[calc(100%-2rem)] max-w-xl -translate-x-1/2 items-start justify-between gap-4 rounded-2xl border p-4 text-sm font-semibold shadow-2xl"
+  >
+    <span>{adminNotice.message}</span>
+
+    <button
+      type="button"
+      onClick={() => setAdminNotice(null)}
+      className="shrink-0 text-xs font-semibold uppercase tracking-wide opacity-80 transition hover:opacity-100"
+    >
+      Cerrar
+    </button>
+  </div>
 )}
     </main>
   );

@@ -57,6 +57,8 @@ export default function ProductInfo({ product }: Props) {
   const [selectedImage, setSelectedImage] = useState(
     firstImage
   );
+  const [cartMessage, setCartMessage] = useState("");
+  const [cartError, setCartError] = useState("");
 
   const [zoomPosition, setZoomPosition] = useState({
     x: 50,
@@ -87,19 +89,39 @@ export default function ProductInfo({ product }: Props) {
     stockLimit - quantityAlreadyInCart,
     0
   );
+  const maxQuantityToSelect =
+    availableToAdd > 0 ? availableToAdd : 1;
+  const selectedQuantity = Math.min(
+    Math.max(quantity, 1),
+    maxQuantityToSelect
+  );
+  const resetCartFeedback = () => {
+    setCartMessage("");
+    setCartError("");
+    setQuantity(1);
+  };
 
   const handleAddToCart = () => {
+    setCartMessage("");
+    setCartError("");
 
     if (!selectedVariant || !selectedSizeData) {
-      alert("Este producto no tiene stock disponible");
+      setCartError("Este producto no tiene stock disponible.");
       return;
     }
 
-    if (
-      quantity >
-      availableToAdd
-    ){
-      alert("Superaste el stock disponible");
+    if (availableToAdd <= 0) {
+      setCartError(
+        "Ya agregaste todo el stock disponible al carrito."
+      );
+      return;
+    }
+
+    if (selectedQuantity > availableToAdd) {
+      setQuantity(availableToAdd);
+      setCartError(
+        `Solo quedan ${availableToAdd} disponibles para agregar.`
+      );
       return;
     }
 
@@ -110,9 +132,14 @@ export default function ProductInfo({ product }: Props) {
         selectedColor,
       },
       selectedSize,
-      quantity
+      selectedQuantity
     );
 
+    setCartMessage(
+      `${selectedQuantity} ${
+        selectedQuantity === 1 ? "unidad agregada" : "unidades agregadas"
+      } al carrito.`
+    );
   };
 
   return (
@@ -158,6 +185,7 @@ export default function ProductInfo({ product }: Props) {
           <button
             key={thumbnail.image}
             onClick={() => {
+              resetCartFeedback();
               setSelectedImage(thumbnail.image);
 
               if (thumbnail.variant) {
@@ -262,9 +290,10 @@ export default function ProductInfo({ product }: Props) {
 
             <button
               key={sizeItem.size}
-              onClick={() =>
-                setSelectedSize(sizeItem.size)
-              }
+              onClick={() => {
+                resetCartFeedback();
+                setSelectedSize(sizeItem.size);
+              }}
               disabled={sizeItem.stock <= 0}
               className={`w-12 h-12 border rounded-xl transition ${
                 selectedSize === sizeItem.size
@@ -298,6 +327,7 @@ export default function ProductInfo({ product }: Props) {
             <button
               key={variant.color}
               onClick={() => {
+                resetCartFeedback();
                 setSelectedColor(variant.color);
                 setSelectedImage(
                   variant.images[0] ||
@@ -330,8 +360,10 @@ export default function ProductInfo({ product }: Props) {
 
           <button
             onClick={() =>
-              setQuantity((prev) =>
-                prev > 1 ? prev - 1 : 1
+              setQuantity(
+                selectedQuantity > 1
+                  ? selectedQuantity - 1
+                  : 1
               )
             }
             className="w-12 h-full flex items-center justify-center text-xl hover:bg-zinc-900 transition cursor-pointer"
@@ -342,23 +374,38 @@ export default function ProductInfo({ product }: Props) {
           <input
             type="number"
             min="1"
-            value={quantity}
-            onChange={(e) =>
+            max={availableToAdd || 1}
+            value={selectedQuantity}
+            onChange={(e) => {
+              const nextQuantity = Math.floor(
+                Number(e.target.value)
+              );
+              const maxQuantity =
+                availableToAdd > 0 ? availableToAdd : 1;
+
               setQuantity(
-                Math.max(1, Number(e.target.value))
-              )
-            }
+                Number.isFinite(nextQuantity)
+                  ? Math.min(
+                      Math.max(1, nextQuantity),
+                      maxQuantity
+                    )
+                  : 1
+              );
+            }}
             className="w-14 bg-transparent text-center outline-none text-lg font-semibold"
           />
 
           <button
             onClick={() =>
-              setQuantity((prev) =>
-                prev <
-                  availableToAdd
-                  ? prev + 1
-                  : prev
+              setQuantity(
+                selectedQuantity < availableToAdd
+                  ? selectedQuantity + 1
+                  : selectedQuantity
               )
+            }
+            disabled={
+              availableToAdd <= 0 ||
+              selectedQuantity >= availableToAdd
             }
             className="w-12 h-full flex items-center justify-center text-xl hover:bg-zinc-900 transition cursor-pointer"
           >
@@ -390,6 +437,24 @@ export default function ProductInfo({ product }: Props) {
         </button>
 
           </div>         
+
+          {quantityAlreadyInCart > 0 && availableToAdd > 0 && (
+            <p className="mt-3 text-sm text-zinc-500">
+              Ya tenes {quantityAlreadyInCart} en el carrito para este talle y color.
+            </p>
+          )}
+
+          {cartError && (
+            <p className="mt-3 text-sm text-red-400">
+              {cartError}
+            </p>
+          )}
+
+          {cartMessage && (
+            <p className="mt-3 text-sm text-green-400">
+              {cartMessage}
+            </p>
+          )}
 
 
           <div className="mt-10 flex flex-col gap-3 text-sm text-zinc-400">
