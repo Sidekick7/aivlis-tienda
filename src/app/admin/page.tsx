@@ -1,11 +1,12 @@
 "use client";
 
 import Image from "next/image";
-import { useEffect, useState } from "react";
+import { type FormEvent, useEffect, useState } from "react";
 import { categories } from "@/config/store";
 import { supabase } from "@/lib/supabase";
 import { getProducts } from "@/lib/products";
 import type { Product, ProductVariantSize } from "@/types/product";
+import type { Session } from "@supabase/supabase-js";
 
 
 type NewProductVariant = {
@@ -41,6 +42,12 @@ function getVariantStock(variant: {
 
 export default function AdminPage() {
 
+const [session, setSession] = useState<Session | null>(null);
+const [isAuthLoading, setIsAuthLoading] = useState(true);
+const [authEmail, setAuthEmail] = useState("");
+const [authPassword, setAuthPassword] = useState("");
+const [authMessage, setAuthMessage] = useState("");
+const [isSendingLogin, setIsSendingLogin] = useState(false);
 const [showCreate, setShowCreate] = useState(false);
 const [name, setName] = useState("");
 const [slug, setSlug] = useState("");
@@ -68,6 +75,24 @@ const [variants, setVariants] = useState<NewProductVariant[]>([
   },
 ]);
 
+
+useEffect(() => {
+
+  supabase.auth.getSession().then(({ data }) => {
+    setSession(data.session);
+    setIsAuthLoading(false);
+  });
+
+  const {
+    data: { subscription },
+  } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+    setSession(nextSession);
+    setIsAuthLoading(false);
+  });
+
+  return () => subscription.unsubscribe();
+
+}, []);
 
 const refreshProducts = async () => {
   const products = await getProducts();
@@ -305,16 +330,118 @@ const updateProduct = async () => {
 
 };
 
+const handleLogin = async (event: FormEvent<HTMLFormElement>) => {
+  event.preventDefault();
+
+  setAuthMessage("");
+  setIsSendingLogin(true);
+
+  const { error } = await supabase.auth.signInWithPassword({
+    email: authEmail.trim(),
+    password: authPassword,
+  });
+
+  setIsSendingLogin(false);
+
+  if (error) {
+    setAuthMessage(`No se pudo iniciar sesion: ${error.message}`);
+    return;
+  }
+
+  setAuthPassword("");
+};
+
+const handleLogout = async () => {
+  await supabase.auth.signOut();
+  setSession(null);
+};
+
 const selectedVariant = variants[selectedVariantIndex];
 const editingVariant =
   editingProduct?.variants?.[editingVariantIndex];
 
+if (isAuthLoading) {
   return (
-    <main className="min-h-screen bg-black text-white p-10">
+    <main className="min-h-screen bg-black text-white px-6 pb-10 pt-32 md:px-10 flex items-center justify-center">
+      <p className="text-zinc-400">
+        Cargando admin...
+      </p>
+    </main>
+  );
+}
 
-      <h1 className="text-5xl font-bold mb-10">
-        Admin
-      </h1>
+if (!session) {
+  return (
+    <main className="min-h-screen bg-black text-white px-6 pb-10 pt-32 flex items-center justify-center">
+      <form
+        onSubmit={handleLogin}
+        className="w-full max-w-md bg-zinc-900 rounded-3xl p-8"
+      >
+        <h1 className="text-4xl font-bold">
+          Admin
+        </h1>
+
+        <p className="text-zinc-400 mt-3">
+          Entra con tu email y contrasena para administrar la tienda.
+        </p>
+
+        <input
+          type="email"
+          placeholder="tu@email.com"
+          value={authEmail}
+          onChange={(event) => setAuthEmail(event.target.value)}
+          required
+          className="mt-8 h-12 w-full px-4 rounded-xl bg-zinc-800 outline-none"
+        />
+
+        <input
+          type="password"
+          placeholder="Contrasena"
+          value={authPassword}
+          onChange={(event) => setAuthPassword(event.target.value)}
+          required
+          className="mt-4 h-12 w-full px-4 rounded-xl bg-zinc-800 outline-none"
+        />
+
+        <button
+          type="submit"
+          disabled={isSendingLogin}
+          className="mt-4 h-12 w-full bg-white text-black rounded-xl font-semibold hover:opacity-90 transition cursor-pointer disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          {isSendingLogin ? "Entrando..." : "Entrar"}
+        </button>
+
+        {authMessage && (
+          <p className="text-sm text-zinc-400 mt-4">
+            {authMessage}
+          </p>
+        )}
+      </form>
+    </main>
+  );
+}
+
+  return (
+    <main className="min-h-screen bg-black text-white px-6 pb-10 pt-32 md:px-10">
+
+      <div className="flex items-start justify-between gap-6 mb-10">
+        <div>
+          <h1 className="text-5xl font-bold">
+            Admin
+          </h1>
+
+          <p className="text-zinc-500 mt-2">
+            {session.user.email}
+          </p>
+        </div>
+
+        <button
+          onClick={handleLogout}
+          className="bg-zinc-800 text-white px-5 h-11 rounded-xl font-semibold hover:bg-zinc-700 transition cursor-pointer"
+        >
+          Salir
+        </button>
+      </div>
       
       <div className="grid grid-cols-4 gap-6">
 
