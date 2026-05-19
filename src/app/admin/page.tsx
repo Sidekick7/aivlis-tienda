@@ -2,7 +2,8 @@
 
 import Image from "next/image";
 import { type FormEvent, useEffect, useState } from "react";
-import { categories } from "@/config/store";
+import { Search } from "lucide-react";
+import { categories, fallbackProductImage } from "@/config/store";
 import { supabase } from "@/lib/supabase";
 import { getProducts } from "@/lib/products";
 import { getAdminOrders, updateOrderStatus } from "@/lib/orders";
@@ -33,6 +34,10 @@ type EditableProduct = Omit<Product, "price" | "variants"> & {
   variants: EditableVariant[];
 };
 
+type AdminSection = "products" | "orders";
+type ProductFilter = "all" | "featured" | "in_stock" | "out_of_stock";
+type OrderFilter = "all" | OrderStatus;
+
 const currencyFormatter = new Intl.NumberFormat("es-AR", {
   style: "currency",
   currency: "ARS",
@@ -62,6 +67,27 @@ function formatDetailsText(details: string[]) {
   return details.join("\n");
 }
 
+function getProductImage(product: Product) {
+  return (
+    product.images[0] ||
+    product.variants.find((variant) => variant.images.length > 0)
+      ?.images[0] ||
+    fallbackProductImage
+  );
+}
+
+function getProductTotalStock(product: Product) {
+  return product.variants.reduce(
+    (total, variant) =>
+      total +
+      variant.sizes.reduce(
+        (variantTotal, size) => variantTotal + size.stock,
+        0
+      ),
+    0
+  );
+}
+
 function getVariantStock(variant: {
   sizes: { stock: string | number }[];
 }) {
@@ -79,12 +105,24 @@ const [authEmail, setAuthEmail] = useState("");
 const [authPassword, setAuthPassword] = useState("");
 const [authMessage, setAuthMessage] = useState("");
 const [isSendingLogin, setIsSendingLogin] = useState(false);
+const [activeSection, setActiveSection] =
+  useState<AdminSection>("products");
 const [showCreate, setShowCreate] = useState(false);
 const [name, setName] = useState("");
 const [slug, setSlug] = useState("");
 const [price, setPrice] = useState("");
 const [products, setProducts] = useState<Product[]>([]);
+const [productSearch, setProductSearch] = useState("");
+const [productFilter, setProductFilter] =
+  useState<ProductFilter>("all");
+const [productCategoryFilter, setProductCategoryFilter] =
+  useState("all");
 const [orders, setOrders] = useState<AdminOrder[]>([]);
+const [orderSearch, setOrderSearch] = useState("");
+const [orderFilter, setOrderFilter] =
+  useState<OrderFilter>("all");
+const [expandedOrderId, setExpandedOrderId] =
+  useState<string | null>(null);
 const [isOrdersLoading, setIsOrdersLoading] = useState(false);
 const [orderError, setOrderError] = useState("");
 const [editingProduct, setEditingProduct] =
@@ -436,6 +474,56 @@ const handleOrderStatusChange = async (
 const selectedVariant = variants[selectedVariantIndex];
 const editingVariant =
   editingProduct?.variants?.[editingVariantIndex];
+const normalizedProductSearch = productSearch
+  .trim()
+  .toLowerCase();
+const filteredProducts = normalizedProductSearch
+  ? products.filter((product) =>
+      [
+        product.name,
+        product.slug,
+        product.category,
+        product.sku ?? "",
+      ]
+        .join(" ")
+        .toLowerCase()
+        .includes(normalizedProductSearch)
+    )
+  : products;
+const visibleProducts = filteredProducts.filter((product) => {
+  const totalStock = getProductTotalStock(product);
+  const matchesCategory =
+    productCategoryFilter === "all" ||
+    product.category === productCategoryFilter;
+
+  if (!matchesCategory) return false;
+  if (productFilter === "featured") return product.featured;
+  if (productFilter === "in_stock") return totalStock > 0;
+  if (productFilter === "out_of_stock") return totalStock <= 0;
+
+  return true;
+});
+const normalizedOrderSearch = orderSearch
+  .trim()
+  .toLowerCase();
+const visibleOrders = orders.filter((order) => {
+  const matchesFilter =
+    orderFilter === "all" || order.status === orderFilter;
+  const matchesSearch =
+    !normalizedOrderSearch ||
+    [
+      order.orderNumber,
+      order.customerName,
+      order.customerDni,
+      order.customerWhatsapp,
+      order.customerEmail ?? "",
+    ]
+      .join(" ")
+      .toLowerCase()
+      .includes(normalizedOrderSearch);
+
+  return matchesFilter && matchesSearch;
+});
 
 if (isAuthLoading) {
   return (
@@ -517,6 +605,32 @@ if (!session) {
           className="bg-zinc-800 text-white px-5 h-11 rounded-xl font-semibold hover:bg-zinc-700 transition cursor-pointer"
         >
           Salir
+        </button>
+      </div>
+
+      <div className="mb-8 flex w-full rounded-2xl bg-zinc-900 p-1 md:w-fit">
+        <button
+          type="button"
+          onClick={() => setActiveSection("products")}
+          className={`h-11 flex-1 rounded-xl px-5 font-semibold transition cursor-pointer md:flex-none ${
+            activeSection === "products"
+              ? "bg-white text-black"
+              : "text-zinc-400 hover:text-white"
+          }`}
+        >
+          Productos ({products.length})
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveSection("orders")}
+          className={`h-11 flex-1 rounded-xl px-5 font-semibold transition cursor-pointer md:flex-none ${
+            activeSection === "orders"
+              ? "bg-white text-black"
+              : "text-zinc-400 hover:text-white"
+          }`}
+        >
+          Pedidos ({orders.length})
         </button>
       </div>
       
@@ -1291,6 +1405,7 @@ if (!session) {
 
 )}
 
+{activeSection === "orders" && (
 <section className="mt-10 bg-zinc-900 rounded-3xl p-6">
 
   <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between mb-6">
@@ -1300,17 +1415,56 @@ if (!session) {
       </h2>
 
       <p className="text-zinc-400 mt-2">
-        Tickets generados antes del pago externo.
+        {visibleOrders.length} de {orders.length} tickets
       </p>
     </div>
 
-    <button
-      type="button"
-      onClick={refreshOrders}
-      className="h-11 px-5 rounded-xl bg-zinc-800 text-white font-semibold hover:bg-zinc-700 transition cursor-pointer"
-    >
-      Actualizar pedidos
-    </button>
+    <div className="flex flex-col gap-3 md:flex-row md:items-center">
+      <div className="relative w-full md:w-80">
+        <Search
+          size={18}
+          className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500"
+        />
+
+        <input
+          type="search"
+          placeholder="Buscar ticket, cliente o WhatsApp"
+          value={orderSearch}
+          onChange={(event) => setOrderSearch(event.target.value)}
+          className="h-11 w-full rounded-xl border border-zinc-800 bg-zinc-950 pl-11 pr-4 outline-none transition focus:border-zinc-500"
+        />
+      </div>
+
+      <button
+        type="button"
+        onClick={refreshOrders}
+        className="h-11 px-5 rounded-xl bg-zinc-800 text-white font-semibold hover:bg-zinc-700 transition cursor-pointer"
+      >
+        Actualizar
+      </button>
+    </div>
+  </div>
+
+  <div className="mb-6 flex flex-wrap gap-2">
+    {([
+      ["all", "Todos"],
+      ["pending_payment", "Pendientes"],
+      ["confirmed", "Confirmados"],
+      ["cancelled", "Cancelados"],
+    ] as [OrderFilter, string][]).map(([value, label]) => (
+      <button
+        key={value}
+        type="button"
+        onClick={() => setOrderFilter(value)}
+        className={`h-10 rounded-xl px-4 text-sm font-semibold transition cursor-pointer ${
+          orderFilter === value
+            ? "bg-white text-black"
+            : "bg-zinc-800 text-zinc-300 hover:text-white"
+        }`}
+      >
+        {label}
+      </button>
+    ))}
   </div>
 
   {orderError && (
@@ -1331,20 +1485,26 @@ if (!session) {
     </p>
   )}
 
+  {!isOrdersLoading && orders.length > 0 && visibleOrders.length === 0 && (
+    <p className="rounded-2xl border border-zinc-800 bg-zinc-950 p-8 text-center text-zinc-400">
+      No hay pedidos que coincidan con los filtros.
+    </p>
+  )}
+
   <div className="flex flex-col gap-4">
 
-    {orders.map((order) => (
+    {visibleOrders.map((order) => (
 
       <article
         key={order.id}
-        className="bg-zinc-800 rounded-2xl p-5"
+        className="bg-zinc-800 rounded-2xl p-4"
       >
 
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+        <div className="grid gap-4 lg:grid-cols-[1.2fr_.8fr_1fr] lg:items-center">
 
           <div>
             <div className="flex flex-wrap items-center gap-3">
-              <h3 className="text-xl font-semibold">
+              <h3 className="font-semibold">
                 {order.orderNumber}
               </h3>
 
@@ -1363,6 +1523,8 @@ if (!session) {
               {order.customerName} · DNI {order.customerDni}
             </p>
 
+            {expandedOrderId === order.id && (
+            <>
             <p className="text-zinc-400 text-sm mt-1">
               {order.customerAddress}, {order.customerCity}, {order.customerProvince} ({order.customerZip})
             </p>
@@ -1377,9 +1539,23 @@ if (!session) {
                 Nota: {order.notes}
               </p>
             )}
+            </>
+            )}
           </div>
 
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap gap-2 lg:justify-end">
+            <button
+              type="button"
+              onClick={() =>
+                setExpandedOrderId((currentId) =>
+                  currentId === order.id ? null : order.id
+                )
+              }
+              className="h-10 px-4 rounded-xl text-sm font-semibold bg-zinc-700 text-white hover:bg-zinc-600 transition cursor-pointer"
+            >
+              {expandedOrderId === order.id ? "Ocultar" : "Ver detalle"}
+            </button>
+
             {(["pending_payment", "confirmed", "cancelled"] as OrderStatus[]).map(
               (status) => (
                 <button
@@ -1401,6 +1577,7 @@ if (!session) {
 
         </div>
 
+        {expandedOrderId === order.id && (
         <div className="mt-5 grid gap-3">
 
           {order.items.map((item) => (
@@ -1441,6 +1618,7 @@ if (!session) {
           ))}
 
         </div>
+        )}
 
       </article>
 
@@ -1449,35 +1627,156 @@ if (!session) {
   </div>
 
 </section>
+)}
 
+{activeSection === "products" && (
 <div className="mt-10 bg-zinc-900 rounded-3xl p-6">
 
-  <h2 className="text-3xl font-bold mb-6">
-    Productos
-  </h2>
+  <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between mb-6">
+    <div>
+      <h2 className="text-3xl font-bold">
+        Productos
+      </h2>
+
+      <p className="text-zinc-400 mt-2">
+        {visibleProducts.length} de {products.length} productos
+      </p>
+    </div>
+
+    <div className="relative w-full lg:max-w-sm">
+      <Search
+        size={18}
+        className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500"
+      />
+
+      <input
+        type="search"
+        placeholder="Buscar por nombre, slug, categoria o SKU"
+        value={productSearch}
+        onChange={(event) => setProductSearch(event.target.value)}
+        className="h-12 w-full rounded-xl border border-zinc-800 bg-zinc-950 pl-11 pr-4 outline-none transition focus:border-zinc-500"
+      />
+    </div>
+  </div>
+
+  <div className="mb-6 flex flex-wrap gap-2">
+    {([
+      ["all", "Todos"],
+      ["featured", "Destacados"],
+      ["in_stock", "Con stock"],
+      ["out_of_stock", "Sin stock"],
+    ] as [ProductFilter, string][]).map(([value, label]) => (
+      <button
+        key={value}
+        type="button"
+        onClick={() => {
+          setProductFilter(value);
+
+          if (value === "all") {
+            setProductCategoryFilter("all");
+            setProductSearch("");
+          }
+        }}
+        className={`h-10 rounded-xl px-4 text-sm font-semibold transition cursor-pointer ${
+          productFilter === value &&
+          (value !== "all" || productCategoryFilter === "all")
+            ? "bg-white text-black"
+            : "bg-zinc-800 text-zinc-300 hover:text-white"
+        }`}
+      >
+        {label}
+      </button>
+    ))}
+
+    {categories.map((categoryOption) => (
+      <button
+        key={categoryOption.value}
+        type="button"
+        onClick={() => {
+          setProductCategoryFilter(categoryOption.value);
+          setProductFilter("all");
+        }}
+        className={`h-10 rounded-xl px-4 text-sm font-semibold transition cursor-pointer ${
+          productCategoryFilter === categoryOption.value
+            ? "bg-white text-black"
+            : "bg-zinc-800 text-zinc-300 hover:text-white"
+        }`}
+      >
+        {categoryOption.label}
+      </button>
+    ))}
+  </div>
+
+  {visibleProducts.length === 0 && (
+    <div className="rounded-2xl border border-zinc-800 bg-zinc-950 p-8 text-center text-zinc-400">
+      No hay productos que coincidan con la busqueda.
+    </div>
+  )}
 
   <div className="flex flex-col gap-4">
 
-    {products.map((product) => (
+    {visibleProducts.map((product) => (
 
       <div
         key={product.id}
-        className="flex items-center justify-between bg-zinc-800 rounded-2xl p-4"
+        className="grid gap-4 rounded-2xl bg-zinc-800 p-4 lg:grid-cols-[minmax(260px,1fr)_130px_120px_130px_220px] lg:items-center"
       >
 
-        <div>
-          <h3 className="font-semibold text-xl">
-            {product.name}
-          </h3>
+        <div className="flex items-center gap-4 min-w-0">
+          <Image
+            src={getProductImage(product)}
+            alt={product.name}
+            width={72}
+            height={72}
+            className="h-[72px] w-[72px] rounded-xl object-cover bg-zinc-900"
+          />
 
-          <p className="text-zinc-400">
-            ${product.price}
+          <div className="min-w-0">
+            <h3 className="truncate text-xl font-semibold">
+              {product.name}
+            </h3>
+
+            <p className="mt-1 truncate text-sm text-zinc-500">
+              /product/{product.slug}
+            </p>
+
+            <p className="mt-1 text-sm text-zinc-400">
+              {product.variants.length} colores
+            </p>
+          </div>
+        </div>
+
+        <div>
+          <p className="text-xs uppercase text-zinc-500">
+            Precio
           </p>
-          <p className="text-zinc-500 text-sm">
-                {product.category}
+
+          <p className="mt-1 font-semibold">
+            {currencyFormatter.format(product.price)}
           </p>
         </div>
 
+        <div>
+          <p className="text-xs uppercase text-zinc-500">
+            Stock
+          </p>
+
+          <p className="mt-1 font-semibold">
+            {getProductTotalStock(product)}
+          </p>
+        </div>
+
+        <div>
+          <p className="text-xs uppercase text-zinc-500">
+            Categoria
+          </p>
+
+          <p className="mt-1 capitalize text-zinc-300">
+            {product.category}
+          </p>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-3 lg:justify-end">
             <button
                 onClick={async () => {
 
@@ -1497,7 +1796,7 @@ if (!session) {
                     : "bg-zinc-700 text-white"
                 }`}
             >
-                {product.featured ? "Featured" : "No featured"}
+                {product.featured ? "Destacado" : "No destacado"}
             </button>
 
 
@@ -1526,6 +1825,7 @@ if (!session) {
             >
                 Editar
             </button>
+        </div>
 
       </div>
 
@@ -1535,7 +1835,7 @@ if (!session) {
 
 </div>
 
-      
+)}
 
     </main>
   );
