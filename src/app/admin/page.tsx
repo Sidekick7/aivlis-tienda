@@ -318,28 +318,40 @@ const createProduct = async () => {
 
 const deleteProduct = async (id: number) => {
 
+  const shouldDelete = window.confirm(
+    "Seguro que queres eliminar este producto?"
+  );
+
+  if (!shouldDelete) return;
+
   const { error } = await supabase
     .from("products")
     .delete()
     .eq("id", id);
 
-  if (!error) {
+  if (error) {
+    alert(`No se pudo eliminar el producto: ${error.message}`);
+    return;
+  }
 
     setProducts((prev) =>
       prev.filter((product) => product.id !== id)
     );
 
-  }
-
 };
 
 const toggleFeaturedProduct = async (product: Product) => {
-  await supabase
+  const { error } = await supabase
     .from("products")
     .update({
       featured: !product.featured,
     })
     .eq("id", product.id);
+
+  if (error) {
+    alert(`No se pudo actualizar destacado: ${error.message}`);
+    return;
+  }
 
   await refreshProducts();
 };
