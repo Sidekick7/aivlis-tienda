@@ -157,9 +157,9 @@ export function createOrderNumber() {
     .toISOString()
     .slice(0, 10)
     .replaceAll("-", "");
-  const randomPart = Math.random()
-    .toString(36)
-    .slice(2, 8)
+  const randomPart = crypto.randomUUID()
+    .replaceAll("-", "")
+    .slice(0, 6)
     .toUpperCase();
 
   return `AIV-${datePart}-${randomPart}`;

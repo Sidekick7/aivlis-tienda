@@ -20,6 +20,26 @@ security definer
 set search_path = public
 as $$
 begin
+  if jsonb_typeof(items) <> 'array' or jsonb_array_length(items) = 0 then
+    raise exception 'El pedido no tiene productos.';
+  end if;
+
+  if exists (
+    select 1
+    from jsonb_array_elements(items) as item
+    where coalesce(item ->> 'product_slug', '') = ''
+      or coalesce(item ->> 'product_name', '') = ''
+      or coalesce((item ->> 'quantity')::integer, 0) <= 0
+      or coalesce((item ->> 'unit_price')::numeric, 0) < 0
+      or coalesce((item ->> 'subtotal')::numeric, 0) < 0
+  ) then
+    raise exception 'El pedido tiene productos invalidos.';
+  end if;
+
+  if total < 0 then
+    raise exception 'El total del pedido es invalido.';
+  end if;
+
   insert into public.orders (
     id,
     order_number,

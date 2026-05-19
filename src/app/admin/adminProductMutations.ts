@@ -1,5 +1,13 @@
 import { supabase } from "@/lib/supabase";
-import { getVariantStock } from "@/app/admin/adminUtils";
+import {
+  getVariantStock,
+  parseDetailsText,
+} from "@/app/admin/adminUtils";
+import type {
+  EditableProduct,
+  NewProductVariant,
+} from "@/app/admin/adminTypes";
+import type { Product } from "@/types/product";
 
 export type ProductFormVariant = {
   color: string;
@@ -131,4 +139,102 @@ export function getProcessedVariantsStock(
     (total, variant) => total + variant.stock,
     0
   );
+}
+
+export async function createAdminProduct({
+  name,
+  slug,
+  price,
+  category,
+  description,
+  detailsText,
+  variants,
+}: {
+  name: string;
+  slug: string;
+  price: string;
+  category: string;
+  description: string;
+  detailsText: string;
+  variants: NewProductVariant[];
+}) {
+  const processedVariants = await prepareProductVariants(variants);
+
+  const { error } = await supabase
+    .from("products")
+    .insert([
+      {
+        name,
+        slug,
+        price: Number(price),
+        category,
+        description,
+        stock: getProcessedVariantsStock(processedVariants),
+        details: parseDetailsText(detailsText),
+        featured: false,
+        variants: processedVariants,
+        images: processedVariants[0]?.images || [],
+      },
+    ]);
+
+  if (error) {
+    throw error;
+  }
+}
+
+export async function updateAdminProduct({
+  product,
+  slug,
+  detailsText,
+}: {
+  product: EditableProduct;
+  slug: string;
+  detailsText: string;
+}) {
+  const processedVariants = await prepareProductVariants(
+    product.variants
+  );
+
+  const { error } = await supabase
+    .from("products")
+    .update({
+      name: product.name,
+      slug,
+      price: Number(product.price),
+      category: product.category,
+      description: product.description,
+      details: parseDetailsText(detailsText),
+      stock: getProcessedVariantsStock(processedVariants),
+      variants: processedVariants,
+      images: processedVariants[0]?.images || [],
+    })
+    .eq("id", product.id);
+
+  if (error) {
+    throw error;
+  }
+}
+
+export async function deleteAdminProduct(id: number) {
+  const { error } = await supabase
+    .from("products")
+    .delete()
+    .eq("id", id);
+
+  if (error) {
+    throw error;
+  }
+}
+
+export async function updateAdminProductFeatured(product: Product) {
+  const { error } = await supabase
+    .from("products")
+    .update({
+      featured: !product.featured,
+    })
+    .eq("id", product.id);
+
+  if (error) {
+    throw error;
+  }
 }

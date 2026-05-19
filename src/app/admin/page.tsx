@@ -12,14 +12,15 @@ import EditProductModal from "@/app/admin/EditProductModal";
 import {
   createEmptyProductVariant,
   formatDetailsText,
-  parseDetailsText,
   slugifyProductName,
 } from "@/app/admin/adminUtils";
 import {
-  getProcessedVariantsStock,
+  createAdminProduct,
+  deleteAdminProduct,
   getProductFormError,
   getProductMutationError,
-  prepareProductVariants,
+  updateAdminProduct,
+  updateAdminProductFeatured,
 } from "@/app/admin/adminProductMutations";
 import type {
   AdminSection,
@@ -138,42 +139,22 @@ const createProduct = async () => {
     return;
   }
 
-  let processedVariants;
-
   try {
-    processedVariants = await prepareProductVariants(variants);
+    await createAdminProduct({
+      name,
+      slug: nextSlug,
+      price,
+      category,
+      description,
+      detailsText,
+      variants,
+    });
   } catch (error) {
     setProductFormError(
-      error instanceof Error
-        ? error.message
-        : "No se pudieron preparar las variantes."
+      error && typeof error === "object"
+        ? getProductMutationError(error)
+        : "No se pudo guardar el producto."
     );
-    return;
-  }
-
-  const { error } = await supabase
-    .from("products")
-    .insert([
-      {
-        name,
-        slug: nextSlug,
-        price: Number(price),
-        category,
-        description,
-        stock: getProcessedVariantsStock(processedVariants),
-
-        details: parseDetailsText(detailsText),
-
-        featured: false,
-
-        variants: processedVariants,
-
-        images: processedVariants[0]?.images || [],
-      },
-    ]);
-
-  if (error) {
-    setProductFormError(getProductMutationError(error));
     return;
   }
 
@@ -211,13 +192,14 @@ const deleteProduct = async (id: number) => {
 
   if (!shouldDelete) return;
 
-  const { error } = await supabase
-    .from("products")
-    .delete()
-    .eq("id", id);
-
-  if (error) {
-    alert(`No se pudo eliminar el producto: ${error.message}`);
+  try {
+    await deleteAdminProduct(id);
+  } catch (error) {
+    alert(
+      error instanceof Error
+        ? `No se pudo eliminar el producto: ${error.message}`
+        : "No se pudo eliminar el producto."
+    );
     return;
   }
 
@@ -228,15 +210,14 @@ const deleteProduct = async (id: number) => {
 };
 
 const toggleFeaturedProduct = async (product: Product) => {
-  const { error } = await supabase
-    .from("products")
-    .update({
-      featured: !product.featured,
-    })
-    .eq("id", product.id);
-
-  if (error) {
-    alert(`No se pudo actualizar destacado: ${error.message}`);
+  try {
+    await updateAdminProductFeatured(product);
+  } catch (error) {
+    alert(
+      error instanceof Error
+        ? `No se pudo actualizar destacado: ${error.message}`
+        : "No se pudo actualizar destacado."
+    );
     return;
   }
 
@@ -287,44 +268,20 @@ const updateProduct = async () => {
       return;
     }
 
-    let processedVariants;
-
     try {
-      processedVariants = await prepareProductVariants(
-        editingProduct.variants
-      );
+      await updateAdminProduct({
+        product: editingProduct,
+        slug: nextSlug,
+        detailsText: editingDetailsText,
+      });
     } catch (error) {
       setProductFormError(
-        error instanceof Error
-          ? error.message
-          : "No se pudieron preparar las variantes."
+        error && typeof error === "object"
+          ? getProductMutationError(error)
+          : "No se pudo guardar el producto."
       );
       return;
     }
-
-  const { error } = await supabase
-    .from("products")
-    .update({
-      name: editingProduct.name,
-      slug: nextSlug,
-      price: Number(editingProduct.price),
-
-      category: editingProduct.category,
-      description: editingProduct.description,
-      details: parseDetailsText(editingDetailsText),
-      stock: getProcessedVariantsStock(processedVariants),
-
-      variants: processedVariants,
-
-      images: processedVariants[0]?.images || [],
-      
-    })
-    .eq("id", editingProduct.id);
-
-  if (error) {
-    setProductFormError(getProductMutationError(error));
-    return;
-  }
 
     await refreshProducts();
     setEditingProduct(null);
