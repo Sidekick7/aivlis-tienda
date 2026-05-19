@@ -3,7 +3,6 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import Navbar from "@/components/Navbar";
 import { CartProvider } from "@/context/CartContext";
-import Cart from "@/components/Cart";
 import CartWrapper from "@/components/CartWrapper";
 import { SearchProvider } from "@/context/SearchContext";
 import SearchModal from "@/components/SearchModal";

@@ -1,15 +1,18 @@
 "use client";
 
+import Image from "next/image";
+import { fallbackProductImage } from "@/config/store";
 import { Trash2 } from "lucide-react";
+import type { CartItem } from "@/context/CartContext";
+import {
+  buildWhatsAppUrl,
+  formatCartItemsForWhatsApp,
+  getCartItemLabel,
+  getCartTotal,
+} from "@/lib/order";
 
 type Props = {
-  cart: any[];
-  removeFromCart: (
-    id: number,
-    size?: string,
-    color?: string
-  ) => void;
-
+  cart: CartItem[];
   deleteItem: (
     id: number,
     size?: string,
@@ -20,29 +23,21 @@ type Props = {
 
 export default function Cart({
   cart,
-  removeFromCart,
   deleteItem,
   onClose,
 }: Props) {
-
-  const total = cart.reduce(
-    (acc, item) => acc + item.price * item.quantity,
-    0
-  );
+  const total = getCartTotal(cart);
 
   const sendWhatsApp = () => {
+    if (cart.length === 0) return;
 
-    const message = cart
-      .map(
-        (item) =>
-          `• ${item.name} x${item.quantity} - $${item.price}`
-      )
-      .join("%0A");
+    const message = `Hola! Quiero hacer este pedido:
 
-    const url =
-      `https://wa.me/5491158501082?text=Hola! Quiero hacer este pedido:%0A%0A${message}`;
+${formatCartItemsForWhatsApp(cart)}
 
-    window.open(url, "_blank");
+TOTAL: $${total}`;
+
+    window.open(buildWhatsAppUrl(message), "_blank");
   };
 
   return (
@@ -51,11 +46,10 @@ export default function Cart({
         onClick={onClose}
         className="absolute top-3 right-3 text-zinc-400"
       >
-        ✕
-        </button>
+        x
+      </button>
 
       <div className="flex flex-col gap-3">
-
         {cart.length === 0 && (
           <p className="text-zinc-400">
             No hay productos
@@ -67,29 +61,26 @@ export default function Cart({
             key={index}
             className="flex items-start gap-4 py-4 border-b border-zinc-800"
           >
-
-            <img
-              src={item.selectedImage || item.images?.[0]}
+            <Image
+              src={
+                item.selectedImage ||
+                item.images?.[0] ||
+                fallbackProductImage
+              }
               alt={item.name}
+              width={64}
+              height={64}
               className="w-16 h-16 object-cover rounded-md bg-white"
             />
 
             <div className="flex-1">
-
               <p className="text-red-500 uppercase text-sm leading-tight font-medium">
-                {item.name}
-
-                {item.selectedColor &&
-                  ` - ${item.selectedColor}`}
-
-                {item.size &&
-                  ` / ${item.size}`}
+                {getCartItemLabel(item)}
               </p>
 
               <p className="text-zinc-300 mt-2 text-sm">
-                {item.quantity} × ${item.price}
+                {item.quantity} x ${item.price}
               </p>
-
             </div>
 
             <button
@@ -104,27 +95,23 @@ export default function Cart({
             >
               <Trash2 size={18} />
             </button>
-
           </div>
         ))}
-
       </div>
 
       <div className="mt-5 border-t border-zinc-700 pt-4">
-
         <p className="text-lg font-bold">
           Total: ${total}
         </p>
-
       </div>
 
       <button
         onClick={sendWhatsApp}
-        className="w-full mt-5 bg-green-500 py-3 rounded-xl font-bold hover:opacity-90 transition"
+        disabled={cart.length === 0}
+        className="w-full mt-5 bg-green-500 py-3 rounded-xl font-bold hover:opacity-90 transition disabled:opacity-40 disabled:cursor-not-allowed"
       >
         Enviar por WhatsApp
       </button>
-
     </div>
   );
 }

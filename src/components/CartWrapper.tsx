@@ -7,7 +7,6 @@ export default function CartWrapper() {
 
   const {
     cart,
-    removeFromCart,
     isCartOpen,
     setIsCartOpen,
     deleteItem,
@@ -18,7 +17,6 @@ export default function CartWrapper() {
       {isCartOpen && (
         <Cart
           cart={cart}
-          removeFromCart={removeFromCart}
           onClose={() => setIsCartOpen(false)}
           deleteItem={deleteItem}
         />

@@ -1,0 +1,41 @@
+export type ProductVariantSize = {
+  size: string;
+  stock: number;
+};
+
+export type ProductVariant = {
+  color: string;
+  hex: string;
+  stock?: number;
+  sizes: ProductVariantSize[];
+  images: string[];
+};
+
+export type Product = {
+  id: number;
+  slug: string;
+  name: string;
+  price: number;
+  category: string;
+  description: string;
+  sku?: string;
+  minimum: number;
+  details: string[];
+  featured: boolean;
+  images: string[];
+  stock?: number;
+  variants: ProductVariant[];
+};
+
+export type SupabaseProductRow = Partial<
+  Omit<Product, "variants" | "minimum" | "details" | "featured" | "images">
+> & {
+  id: number;
+  variants?: unknown;
+  minimum?: number | null;
+  details?: unknown;
+  featured?: boolean | null;
+  images?: unknown;
+  sizes?: unknown;
+  stock?: number | null;
+};

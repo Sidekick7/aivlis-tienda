@@ -1,42 +1,41 @@
 "use client";
 
 import ProductCard from "@/components/ProductCard";
-import { useEffect, useState } from "react";
-import { supabase } from "@/lib/supabase";
-import { useCart } from "@/context/CartContext";
+import { use, useEffect, useState } from "react";
+import { getProductsByCategory } from "@/lib/products";
+import type { Product } from "@/types/product";
 
 export default function CategoryPage({
   params,
 }: {
-  params: { category: string };
+  params: Promise<{ category: string }>;
 }) {
 
-  const [products, setProducts] = useState<any[]>([]);
-  const { addToCart } = useCart();
+  const { category } = use(params);
+  const [products, setProducts] = useState<Product[]>([]);
 
   useEffect(() => {
 
     const fetchProducts = async () => {
 
-      const { data } = await supabase
-        .from("products")
-        .select("*")
-        .eq("category", params.category);
+      const products = await getProductsByCategory(
+        category
+      );
 
-      setProducts(data || []);
+      setProducts(products);
 
     };
 
     fetchProducts();
 
-  }, [params.category]);
+  }, [category]);
 
   return (
 
     <main className="min-h-screen bg-black text-white p-10">
 
       <h1 className="text-5xl font-bold mb-10 capitalize">
-        {params.category}
+        {category}
       </h1>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-10">
@@ -46,7 +45,6 @@ export default function CategoryPage({
           <ProductCard
             key={product.id}
             product={product}
-            addToCart={addToCart}
           />
 
         ))}

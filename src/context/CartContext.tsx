@@ -6,15 +6,23 @@ import {
   useEffect,
   useState,
 } from "react";
+import { storeConfig } from "@/config/store";
+import type { Product } from "@/types/product";
 
-type CartItem = {
+export type CartItem = {
   id: number;
   name: string;
   price: number;
   quantity: number;
   size?: string;
   images?: string[];
+  variants?: Product["variants"];
   
+  selectedImage?: string;
+  selectedColor?: string;
+};
+
+type CartProduct = Product & {
   selectedImage?: string;
   selectedColor?: string;
 };
@@ -22,7 +30,7 @@ type CartItem = {
 type CartContextType = {
   cart: CartItem[];
   addToCart: (
-    product: any,
+    product: CartProduct,
     size?: string,
     quantity?: number
   ) => void;
@@ -50,6 +58,37 @@ const CartContext = createContext<CartContextType | null>(
   null
 );
 
+const fallbackCartContext: CartContextType = {
+  cart: [],
+  addToCart: () => {},
+  removeFromCart: () => {},
+  increaseQuantity: () => {},
+  deleteItem: () => {},
+  isCartOpen: false,
+  setIsCartOpen: () => {},
+};
+
+function getStockForSelection(
+  product: {
+    variants?: Product["variants"];
+    selectedColor?: string;
+  },
+  size?: string,
+  color?: string
+) {
+  const selectedColor = color ?? product.selectedColor;
+  const selectedVariant =
+    product.variants?.find(
+      (variant) => variant.color === selectedColor
+    ) ?? product.variants?.[0];
+
+  const selectedSize = selectedVariant?.sizes?.find(
+    (sizeItem) => sizeItem.size === size
+  );
+
+  return selectedSize?.stock ?? storeConfig.fallbackMaxQuantity;
+}
+
 export function CartProvider({
   children,
 }: {
@@ -57,31 +96,40 @@ export function CartProvider({
 }) {
 
   const [cart, setCart] = useState<CartItem[]>([]);
+  const [isCartReady, setIsCartReady] = useState(false);
   const [isCartOpen, setIsCartOpen] =
     useState(false);
 
   useEffect(() => {
 
-    const savedCart =
-      localStorage.getItem("cart");
+    queueMicrotask(() => {
+      const savedCart = localStorage.getItem("cart");
 
-    if (savedCart) {
-      setCart(JSON.parse(savedCart));
-    }
+      if (savedCart) {
+        try {
+          setCart(JSON.parse(savedCart) as CartItem[]);
+        } catch {
+          setCart([]);
+        }
+      }
+
+      setIsCartReady(true);
+    });
 
   }, []);
 
   useEffect(() => {
+    if (!isCartReady) return;
 
     localStorage.setItem(
       "cart",
       JSON.stringify(cart)
     );
 
-  }, [cart]);
+  }, [cart, isCartReady]);
 
   const addToCart = (
-    product: any,
+    product: CartProduct,
     size?: string,
     quantity: number = 1
   ) => {
@@ -93,7 +141,12 @@ export function CartProvider({
         item.selectedColor === product.selectedColor
     );
 
-    let updatedCart;
+    const stockLimit = getStockForSelection(product, size);
+    const safeQuantity = Math.min(quantity, stockLimit);
+
+    if (safeQuantity <= 0) return;
+
+    let updatedCart: CartItem[];
 
     if (existingProduct) {
 
@@ -102,9 +155,12 @@ export function CartProvider({
         item.size === size &&
         item.selectedColor === product.selectedColor
           ? {
-              ...item,
+            ...item,
               quantity:
-                item.quantity + quantity,
+                Math.min(
+                  item.quantity + quantity,
+                  stockLimit
+                ),
             }
           : item
       );
@@ -116,7 +172,7 @@ export function CartProvider({
         {
           ...product,
           size,
-          quantity,
+          quantity: safeQuantity,
         },
       ];
 
@@ -163,7 +219,8 @@ const increaseQuantity = (
       ? {
           ...item,
           quantity:
-            item.quantity <20
+            item.quantity <
+              getStockForSelection(item, size, color)
               ? item.quantity + 1
               : item.quantity,
         }
@@ -215,11 +272,5 @@ export function useCart() {
 
   const context = useContext(CartContext);
 
-  if (!context) {
-    throw new Error(
-      "useCart must be used inside CartProvider"
-    );
-  }
-
-  return context;
+  return context ?? fallbackCartContext;
 }

@@ -1,39 +1,26 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
+import type { Product } from "@/types/product";
 
 type Props = {
-  product: {
-    id: number;
-    slug: string;
-    name: string;
-    price: number;
-
-    variants: {
-      color: string;
-      hex: string;
-      stock: number;
-      sizes: string[];
-      images: string[];
-    }[];
-  };
-
-
-  addToCart?: (product: any) => void;
+  product: Product;
 };
 
 export default function ProductCard({
   product,
-  addToCart,
 }: Props) {
   return (
     <div className="bg-white rounded-2xl overflow-hidden transition duration-300 hover:-translate-y-2 hover:shadow-2xl hover:shadow-black/50">
 
       <Link href={`/product/${product.slug}`}>
 
-        <img
+        <Image
           src={product.variants[0].images[0]}
           alt={product.name}
+          width={380}
+          height={520}
           className="max-w-[380px] w-full h-[520px] object-cover transition duration-500 hover:scale-105"
         />
 
@@ -53,13 +40,13 @@ export default function ProductCard({
 
       <div className="flex items-center gap-2 mt-2">
 
-          {product.variants?.map((variant: any) => (
+          {product.variants?.map((variant) => (
 
             <div
               key={variant.color}
               className="w-4 h-4 rounded-full border border-zinc-400"
               style={{
-                backgroundColor: variant.color,
+                backgroundColor: variant.hex,
               }}
             />
 
@@ -69,13 +56,13 @@ export default function ProductCard({
 
       <div className="flex gap-2 mt-2">
 
-          {product.variants?.[0]?.sizes?.map((size: string) => (
+          {product.variants?.[0]?.sizes?.map((sizeItem) => (
 
             <div
-              key={size}
+              key={sizeItem.size}
               className="w-8 h-8 text-xs rounded-full border border-zinc-400 flex items-center justify-center text-xs text-zinc-600"
             >
-              {size}
+              {sizeItem.size}
             </div>
 
           ))}

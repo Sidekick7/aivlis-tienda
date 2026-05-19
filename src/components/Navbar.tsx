@@ -3,16 +3,12 @@
 import { Menu, Search, X, ShoppingBag, } from "lucide-react";
 import { useState } from "react";
 import Link from "next/link";
+import { mainNavCategories } from "@/config/store";
 import { useCart } from "@/context/CartContext";
 import { useSearch } from "@/context/SearchContext";
 import Cart from "@/components/Cart";
 
-
-type Props = {
-  onCartClick?: () => void;
-};
-
-export default function Navbar({ onCartClick }: Props) {
+export default function Navbar() {
 
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isMiniCartOpen, setIsMiniCartOpen] =
@@ -20,7 +16,6 @@ export default function Navbar({ onCartClick }: Props) {
   const { setIsSearchOpen } = useSearch();
   const {
   cart,
-  removeFromCart,
   deleteItem,
 } = useCart();
 
@@ -82,7 +77,6 @@ export default function Navbar({ onCartClick }: Props) {
 
               <Cart
                 cart={cart}
-                removeFromCart={removeFromCart}
                 deleteItem={deleteItem}
                 onClose={() => setIsMiniCartOpen(false)}
                 
@@ -129,29 +123,16 @@ export default function Navbar({ onCartClick }: Props) {
 
             <div className="flex flex-col gap-6 text-lg">
 
-              <Link
-                href="/category/remeras"
-                onClick={() => setIsMenuOpen(false)}
-                className="w-fit hover:text-zinc-400 transition"
-              >
-                Remeras
-              </Link>
-
-              <Link
-                href="/category/camperas"
-                onClick={() => setIsMenuOpen(false)}
-                className="w-fit hover:text-zinc-400 transition"
-              >
-                Camperas
-              </Link>
-
-              <Link
-                href="/category/pantalones"
-                onClick={() => setIsMenuOpen(false)}
-                className="w-fit hover:text-zinc-400 transition"
-              >
-                Pantalones
-              </Link>
+              {mainNavCategories.map((category) => (
+                <Link
+                  key={category.value}
+                  href={`/category/${category.value}`}
+                  onClick={() => setIsMenuOpen(false)}
+                  className="w-fit hover:text-zinc-400 transition"
+                >
+                  {category.label}
+                </Link>
+              ))}
 
             </div>
 

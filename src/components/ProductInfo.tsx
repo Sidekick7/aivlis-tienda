@@ -1,29 +1,14 @@
 "use client";
 
+import Image from "next/image";
 import { useState } from "react";
 import Link from "next/link";
+import { storeConfig } from "@/config/store";
 import { useCart } from "@/context/CartContext";
+import type { Product } from "@/types/product";
 
 type Props = {
-  product: {
-    id: number;
-    name: string;
-    price: number;
-    description: string;
-    sku: string;
-    variants: {
-      color: string;
-      hex: string;
-      sizes: {
-        size: string;
-        stock: number;
-      }[];
-      images: string[];
-    }[];
-    
-    category: string;
-    minimum: number;
-  };
+  product: Product;
 };
 
 export default function ProductInfo({ product }: Props) {
@@ -44,7 +29,7 @@ export default function ProductInfo({ product }: Props) {
     y: 50,
   });
 
-  const { addToCart } = useCart();
+  const { addToCart, cart } = useCart();
 
   const selectedVariant =
     product.variants.find(
@@ -55,12 +40,28 @@ export default function ProductInfo({ product }: Props) {
     selectedVariant.sizes.find(
       (item) => item.size === selectedSize
     );
+  const stockLimit = Math.min(
+    selectedSizeData?.stock || 0,
+    storeConfig.fallbackMaxQuantity
+  );
+  const quantityAlreadyInCart = cart
+    .filter(
+      (item) =>
+        item.id === product.id &&
+        item.size === selectedSize &&
+        item.selectedColor === selectedColor
+    )
+    .reduce((total, item) => total + item.quantity, 0);
+  const availableToAdd = Math.max(
+    stockLimit - quantityAlreadyInCart,
+    0
+  );
 
   const handleAddToCart = () => {
 
     if (
       quantity >
-      Math.min(selectedSizeData?.stock || 0, 20)
+      availableToAdd
     ){
       alert("Superaste el stock disponible");
       return;
@@ -100,9 +101,11 @@ export default function ProductInfo({ product }: Props) {
 
         }}
       >
-      <img
+      <Image
         src={selectedImage}
         alt={product.name}
+        width={700}
+        height={800}
         className="w-full max-h-[800px] object-cover transition-transform duration-300 hover:scale-150"
         style={{
           transformOrigin: `${zoomPosition.x}% ${zoomPosition.y}%`,
@@ -133,9 +136,11 @@ export default function ProductInfo({ product }: Props) {
             }`}
           >
 
-            <img
+            <Image
               src={image}
               alt=""
+              width={96}
+              height={128}
               className="w-24 h-32 object-cover"
             />
 
@@ -309,7 +314,7 @@ export default function ProductInfo({ product }: Props) {
             onClick={() =>
               setQuantity((prev) =>
                 prev <
-                  Math.min(selectedSizeData?.stock || 0, 20)
+                  availableToAdd
                   ? prev + 1
                   : prev
               )
@@ -323,15 +328,23 @@ export default function ProductInfo({ product }: Props) {
 
         <button
           onClick={handleAddToCart}
-          disabled={!selectedSizeData || selectedSizeData.stock <= 0}
+          disabled={
+            !selectedSizeData ||
+            selectedSizeData.stock <= 0 ||
+            availableToAdd <= 0
+          }
           className={`flex-1 h-14 rounded-2xl font-semibold tracking-wide transition ${
-            !selectedSizeData || selectedSizeData.stock <= 0
+            !selectedSizeData ||
+            selectedSizeData.stock <= 0 ||
+            availableToAdd <= 0
               ? "bg-zinc-800 text-zinc-500 cursor-not-allowed"
               : "bg-white text-black hover:opacity-90 cursor-pointer"
           }`}
         >
           {!selectedSizeData || selectedSizeData.stock <= 0
             ? "AGOTADO"
+            : availableToAdd <= 0
+            ? "STOCK EN CARRITO"
             : "AGREGAR AL CARRITO"}
         </button>
 
@@ -356,7 +369,7 @@ export default function ProductInfo({ product }: Props) {
           <div className="mt-20 flex flex-col gap-2 text-sm text-zinc-500 uppercase tracking-wide">
 
             <p>
-              SKU · {product.sku}
+              SKU · {product.sku ?? product.slug}
             </p>
 
             <p>

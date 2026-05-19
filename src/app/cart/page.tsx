@@ -1,7 +1,10 @@
 "use client";
 
 import { useCart } from "@/context/CartContext";
+import { fallbackProductImage } from "@/config/store";
+import { getCartTotal } from "@/lib/order";
 import { Trash2 } from "lucide-react";
+import Image from "next/image";
 import Link from "next/link";
 
 export default function CartPage() {
@@ -13,11 +16,7 @@ const {
   deleteItem,
 } = useCart();
 
-  const total = cart.reduce(
-    (acc, item) =>
-      acc + item.price * item.quantity,
-    0
-  );
+  const total = getCartTotal(cart);
 
   return (
 
@@ -87,9 +86,15 @@ const {
 
             <div className="flex gap-4 items-center">
 
-                <img
-                    src={item.selectedImage || item.images?.[0]}
+                <Image
+                    src={
+                      item.selectedImage ||
+                      item.images?.[0] ||
+                      fallbackProductImage
+                    }
                     alt={item.name}
+                    width={112}
+                    height={112}
                     className="w-28 h-28 object-cover rounded-2xl"
                 />
 

@@ -1,8 +1,43 @@
 "use client";
 
+import Image from "next/image";
 import { useEffect, useState } from "react";
+import { categories } from "@/config/store";
 import { supabase } from "@/lib/supabase";
+import { getProducts } from "@/lib/products";
+import type { Product, ProductVariantSize } from "@/types/product";
 
+
+type NewProductVariant = {
+  color: string;
+  hex: string;
+  sizes: {
+    size: string;
+    stock: string;
+  }[];
+  images: File[];
+};
+
+type EditableVariant = {
+  color: string;
+  hex: string;
+  sizes: ProductVariantSize[];
+  images: (string | File)[];
+};
+
+type EditableProduct = Omit<Product, "price" | "variants"> & {
+  price: number | string;
+  variants: EditableVariant[];
+};
+
+function getVariantStock(variant: {
+  sizes: { stock: string | number }[];
+}) {
+  return variant.sizes.reduce(
+    (total, sizeItem) => total + Number(sizeItem.stock || 0),
+    0
+  );
+}
 
 export default function AdminPage() {
 
@@ -10,25 +45,16 @@ const [showCreate, setShowCreate] = useState(false);
 const [name, setName] = useState("");
 const [slug, setSlug] = useState("");
 const [price, setPrice] = useState("");
-const [products, setProducts] = useState<any[]>([]);
-const [editingProduct, setEditingProduct] = useState<any | null>(null);
-const [category, setCategory] = useState("remeras");
+const [products, setProducts] = useState<Product[]>([]);
+const [editingProduct, setEditingProduct] =
+  useState<EditableProduct | null>(null);
+const [category, setCategory] = useState(categories[0].value);
 const [description, setDescription] = useState("");
 
 const [editingVariantIndex, setEditingVariantIndex] = useState(0);
 
 const [selectedVariantIndex, setSelectedVariantIndex] = useState(0);
-const [variants, setVariants] = useState<
-  {
-    color: string;
-    hex: string;
-    sizes: {
-      size: string;
-      stock: string;
-    }[];
-    images: File[];
-  }[]
->([
+const [variants, setVariants] = useState<NewProductVariant[]>([
   {
     color: "Negro",
     hex: "#000000",
@@ -43,19 +69,15 @@ const [variants, setVariants] = useState<
 ]);
 
 
+const refreshProducts = async () => {
+  const products = await getProducts();
+
+  setProducts(products);
+};
+
 useEffect(() => {
 
-  const fetchProducts = async () => {
-
-    const { data } = await supabase
-      .from("products")
-      .select("*");
-
-    setProducts(data || []);
-
-  };
-
-  fetchProducts();
+  getProducts().then(setProducts);
 
 }, []);
 
@@ -64,6 +86,7 @@ const createProduct = async () => {
   const processedVariants: {
     color: string;
     hex: string;
+    stock: number;
     sizes: {
         size: string;
         stock: number;
@@ -73,7 +96,7 @@ const createProduct = async () => {
 
   for (const variant of variants) {
 
-    let imageUrls: string[] = [];
+    const imageUrls: string[] = [];
 
     for (const file of variant.images) {
 
@@ -96,6 +119,7 @@ const createProduct = async () => {
     processedVariants.push({
       color: variant.color,
       hex: variant.hex,
+      stock: getVariantStock(variant),
       sizes: variant.sizes.map((sizeItem) => ({
         size: sizeItem.size,
         stock: Number(sizeItem.stock),
@@ -114,6 +138,10 @@ const createProduct = async () => {
         price: Number(price),
         category,
         description,
+        stock: processedVariants.reduce(
+          (total, variant) => total + variant.stock,
+          0
+        ),
 
         details: [
           "Algodón premium",
@@ -129,15 +157,12 @@ const createProduct = async () => {
       },
     ]);
 
-  console.log(error);
+  if (error) {
+    alert("No se pudo crear el producto");
+    return;
+  }
 
-  if (!error) {
-
-    const { data } = await supabase
-      .from("products")
-      .select("*");
-
-    setProducts(data || []);
+    await refreshProducts();
 
     setShowCreate(false);
 
@@ -145,6 +170,7 @@ const createProduct = async () => {
     setSlug("");
     setPrice("");
     setDescription("");
+    setCategory(categories[0].value);
 
     setVariants([
         {
@@ -163,8 +189,6 @@ const createProduct = async () => {
     setSelectedVariantIndex(0);
 
     alert("Producto creado");
-
-  }
 
 };
 
@@ -191,9 +215,12 @@ const deleteProduct = async (id: number) => {
 
 const updateProduct = async () => {
 
+    if (!editingProduct) return;
+
     const processedVariants: {
         color: string;
         hex: string;
+        stock: number;
         sizes: {
             size: string;
             stock: number;
@@ -236,7 +263,8 @@ const updateProduct = async () => {
             processedVariants.push({
                 color: variant.color,
                 hex: variant.hex,
-                sizes: variant.sizes.map((sizeItem: any) => ({
+                stock: getVariantStock(variant),
+                sizes: variant.sizes.map((sizeItem) => ({
                     size: sizeItem.size,
                     stock: Number(sizeItem.stock),
                 })),
@@ -254,6 +282,10 @@ const updateProduct = async () => {
 
       category: editingProduct.category,
       description: editingProduct.description,
+      stock: processedVariants.reduce(
+        (total, variant) => total + variant.stock,
+        0
+      ),
 
       variants: processedVariants,
 
@@ -264,11 +296,7 @@ const updateProduct = async () => {
 
   if (!error) {
 
-    const { data } = await supabase
-      .from("products")
-      .select("*");
-
-    setProducts(data || []);
+    await refreshProducts();
     setEditingProduct(null);
 
     alert("Producto actualizado");
@@ -507,9 +535,12 @@ const editingVariant =
                     className="relative"
                 >
 
-                    <img
+                    <Image
                         src={URL.createObjectURL(file)}
                         alt=""
+                        width={80}
+                        height={80}
+                        unoptimized
                         className="w-20 h-20 object-cover rounded-xl border border-zinc-700"
                     />
 
@@ -545,21 +576,14 @@ const editingVariant =
             className="h-12 px-4 rounded-xl bg-zinc-800 outline-none"
         >
 
-            <option value="remeras">
-                Remeras
-            </option>
-
-            <option value="camperas">
-                Camperas
-            </option>
-
-            <option value="pantalones">
-                Pantalones
-            </option>
-
-            <option value="accesorios">
-                Accesorios
-            </option>
+            {categories.map((categoryOption) => (
+                <option
+                    key={categoryOption.value}
+                    value={categoryOption.value}
+                >
+                    {categoryOption.label}
+                </option>
+            ))}
 
         </select>
 
@@ -704,21 +728,14 @@ const editingVariant =
             className="h-12 px-4 rounded-xl bg-zinc-800 outline-none"
         >
 
-            <option value="remeras">
-                Remeras
-            </option>
-
-            <option value="camperas">
-                Camperas
-            </option>
-
-            <option value="pantalones">
-                Pantalones
-            </option>
-
-            <option value="accesorios">
-                Accesorios
-            </option>
+            {categories.map((categoryOption) => (
+                <option
+                    key={categoryOption.value}
+                    value={categoryOption.value}
+                >
+                    {categoryOption.label}
+                </option>
+            ))}
 
         </select>
 
@@ -735,7 +752,7 @@ const editingVariant =
 
         <div className="flex flex-wrap gap-2">
 
-            {editingProduct?.variants?.map((variant: any, index: number) => (
+            {editingProduct?.variants?.map((variant, index) => (
 
                 <button
                     key={index}
@@ -793,7 +810,7 @@ const editingVariant =
         <div className="flex flex-col gap-3">
 
             {editingVariant?.sizes?.map(
-                (sizeItem: any, index: number) => (
+                (sizeItem, index) => (
 
                 <div
                     key={index}
@@ -849,7 +866,7 @@ const editingVariant =
                         updated[editingVariantIndex].sizes =
                         updated[editingVariantIndex]
                             .sizes
-                            .filter((_: any, i: number) =>
+                            .filter((_, i) =>
                             i !== index
                             );
 
@@ -898,21 +915,43 @@ const editingVariant =
         <input
             type="file"
             multiple
+            onChange={(e) => {
+                const updated = [...editingProduct.variants];
+
+                updated[editingVariantIndex].images = [
+                    ...updated[editingVariantIndex].images,
+                    ...Array.from(e.target.files || []),
+                ];
+
+                setEditingProduct({
+                    ...editingProduct,
+                    variants: updated,
+                });
+            }}
             className="text-sm text-zinc-400"
         />        
 
         <div className="flex gap-3 flex-wrap">
 
-            {editingVariant?.images?.map((image: string) => (
+            {editingVariant?.images?.map((image) => {
+                const imageUrl =
+                    typeof image === "string"
+                    ? image
+                    : URL.createObjectURL(image);
+
+                return (
 
                 <div
-                    key={image}
+                    key={imageUrl}
                     className="relative"
                 >
 
-                    <img
-                    src={image}
+                    <Image
+                    src={imageUrl}
                     alt=""
+                    width={80}
+                    height={80}
+                    unoptimized={typeof image !== "string"}
                     className="w-20 h-20 object-cover rounded-xl border border-zinc-700"
                     />
 
@@ -923,7 +962,7 @@ const editingVariant =
 
                             updated[editingVariantIndex].images =
                                 updated[editingVariantIndex].images.filter(
-                                    (img: string) => img !== image
+                                    (img) => img !== image
                                 );
 
                             setEditingProduct({
@@ -998,7 +1037,8 @@ const editingVariant =
 
                 </div>
 
-                ))}
+                );
+            })}
 
         </div>
 
@@ -1055,11 +1095,7 @@ const editingVariant =
                     })
                     .eq("id", product.id);
 
-                  const { data } = await supabase
-                    .from("products")
-                    .select("*");
-
-                  setProducts(data || []);
+                  await refreshProducts();
 
                 }}
                 className={`px-4 h-10 rounded-xl font-medium transition cursor-pointer ${

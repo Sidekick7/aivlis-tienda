@@ -1,8 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import Image from "next/image";
+import { useEffect, useState } from "react";
 import { useSearch } from "@/context/SearchContext";
-import { products } from "@/data/products";
+import { getProducts } from "@/lib/products";
+import type { Product } from "@/types/product";
 import Link from "next/link";
 
 export default function SearchModal() {
@@ -13,6 +15,19 @@ export default function SearchModal() {
   } = useSearch();
 
   const [query, setQuery] = useState("");
+  const [products, setProducts] = useState<Product[]>([]);
+
+  useEffect(() => {
+    if (!isSearchOpen || products.length > 0) return;
+
+    const fetchProducts = async () => {
+      const products = await getProducts();
+
+      setProducts(products);
+    };
+
+    fetchProducts();
+  }, [isSearchOpen, products.length]);
 
   const filteredProducts = products.filter((product) =>
     product.name
@@ -47,9 +62,11 @@ export default function SearchModal() {
             >
               <div className="flex items-center gap-4">
 
-                <img
+                <Image
                   src={product.variants[0].images[0]}
                   alt={product.name}
+                  width={80}
+                  height={80}
                   className="w-20 h-20 object-cover rounded-xl"
                 />
 

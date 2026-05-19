@@ -1,61 +1,37 @@
 "use client";
 
 import ProductCard from "@/components/ProductCard";
-import { products } from "@/data/products";
+import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
 
 import { Swiper, SwiperSlide } from "swiper/react";
-import { Autoplay, Pagination } from "swiper/modules";
+import type { SwiperRef } from "swiper/react";
+import { Autoplay } from "swiper/modules";
 import "swiper/css";
 import "swiper/css/pagination";
-import { useCart } from "@/context/CartContext";
-import { Swiper as SwiperType } from "swiper";
-import { supabase } from "@/lib/supabase";
+import { editorialImages } from "@/config/store";
+import { getProducts } from "@/lib/products";
+import type { Product } from "@/types/product";
 
-
-type Product = {
-  id: number;
-  name: string;
-  price: number;
-  image: string;
-  quantity: number;
-};
 
 export default function Home() {
-  const [dbProducts, setDbProducts] = useState<any[]>([]);
+  const [dbProducts, setDbProducts] = useState<Product[]>([]);
     useEffect(() => {
 
     const fetchProducts = async () => {
 
-      const { data, error } = await supabase
-        .from("products")
-        .select("*");
+      const products = await getProducts();
 
-      console.log(data);
-      console.log(error?.message);
-      console.log(error);
-
-      setDbProducts(data || []);
+      setDbProducts(products);
 
     };
 
     fetchProducts();
 
   }, []);
-  const { addToCart } = useCart();
-
-
-
-  const editorialImages = [
-    "/editorial/1.png",
-    "/editorial/2.png",
-    "/editorial/3.png",
-    "/editorial/4.png",
-    "/editorial/5.png",
-  ];
 
   const [currentImage, setCurrentImage] = useState(0);
-  const swiperRef = useRef<any>(null);
+  const swiperRef = useRef<SwiperRef>(null);
   
   useEffect(() => {
 
@@ -71,7 +47,7 @@ export default function Home() {
 
     return () => clearInterval(interval);
 
-  }, [editorialImages.length]);
+  }, []);
 
   return (
     <main className="min-h-screen bg-zinc-100 text-black pt-21">
@@ -116,9 +92,11 @@ export default function Home() {
               >
               
 
-              <img
+              <Image
                 src={image}
                 alt=""
+                width={900}
+                height={1100}
                 draggable={false}
                 className="w-full h-full object-cover object-center transition duration-700 hover:scale-105"
               />
@@ -169,7 +147,6 @@ export default function Home() {
               <ProductCard
                 key={product.id}
                 product={product}
-                addToCart={addToCart}
               />
            ))}
 

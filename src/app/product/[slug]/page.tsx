@@ -1,7 +1,7 @@
 
 import ProductInfo from "@/components/ProductInfo";
 
-import { supabase } from "@/lib/supabase";
+import { getProductBySlug } from "@/lib/products";
 export default async function ProductPage({
 
   params,
@@ -11,11 +11,7 @@ export default async function ProductPage({
 
   const { slug } = await params;
 
-  const { data: product } = await supabase
-    .from("products")
-    .select("*")
-    .eq("slug", slug)
-    .single();
+  const product = await getProductBySlug(slug);
 
   if (!product) {
     
