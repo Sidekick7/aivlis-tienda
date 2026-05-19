@@ -141,13 +141,18 @@ export async function getProductBySlug(
     .from("products")
     .select("*")
     .eq("slug", slug)
-    .single();
+    .order("id", { ascending: true })
+    .limit(1);
 
   if (error) {
     return null;
   }
 
-  return normalizeProduct(data as SupabaseProductRow);
+  const product = data?.[0];
+
+  return product
+    ? normalizeProduct(product as SupabaseProductRow)
+    : null;
 }
 
 export async function getProductsByIds(

@@ -34,6 +34,7 @@ const [isSendingLogin, setIsSendingLogin] = useState(false);
 const [activeSection, setActiveSection] =
   useState<AdminSection>("products");
 const [showCreate, setShowCreate] = useState(false);
+const [productFormError, setProductFormError] = useState("");
 const [name, setName] = useState("");
 const [slug, setSlug] = useState("");
 const [isSlugEdited, setIsSlugEdited] = useState(false);
@@ -65,6 +66,66 @@ const [variants, setVariants] = useState<NewProductVariant[]>([
     images: [],
   },
 ]);
+
+function getProductFormError({
+  productName,
+  productSlug,
+  productPrice,
+  productCategory,
+  productVariants,
+}: {
+  productName: string;
+  productSlug: string;
+  productPrice: string | number;
+  productCategory: string;
+  productVariants: {
+    color: string;
+    sizes: { size: string; stock: string | number }[];
+  }[];
+}) {
+  if (!productName.trim()) return "El nombre es obligatorio.";
+  if (!productSlug.trim()) return "El slug es obligatorio.";
+  if (!Number.isFinite(Number(productPrice)) || Number(productPrice) <= 0) {
+    return "El precio debe ser mayor a 0.";
+  }
+  if (!productCategory.trim()) return "La categoria es obligatoria.";
+  if (productVariants.length === 0) {
+    return "Agrega al menos un color.";
+  }
+
+  for (const variant of productVariants) {
+    if (!variant.color.trim()) return "Cada color necesita un nombre.";
+    if (variant.sizes.length === 0) {
+      return `Agrega al menos un talle para ${variant.color}.`;
+    }
+
+    for (const sizeItem of variant.sizes) {
+      if (!sizeItem.size.trim()) return "Cada talle necesita un nombre.";
+
+      const stock = Number(sizeItem.stock);
+
+      if (!Number.isInteger(stock) || stock < 0) {
+        return `El stock de ${sizeItem.size} debe ser 0 o mayor.`;
+      }
+    }
+  }
+
+  return "";
+}
+
+function getProductMutationError(error: {
+  code?: string;
+  message?: string;
+}) {
+  if (
+    error.code === "23505" ||
+    error.message?.toLowerCase().includes("duplicate")
+  ) {
+    return "Ya existe un producto con ese slug.";
+  }
+
+  return error.message || "No se pudo guardar el producto.";
+}
 
 
 useEffect(() => {
@@ -120,6 +181,26 @@ useEffect(() => {
 }, [session]);
 
 const createProduct = async () => {
+  setProductFormError("");
+
+  const nextSlug = slug || slugifyProductName(name);
+  const validationError = getProductFormError({
+    productName: name,
+    productSlug: nextSlug,
+    productPrice: price,
+    productCategory: category,
+    productVariants: variants,
+  });
+
+  if (validationError) {
+    setProductFormError(validationError);
+    return;
+  }
+
+  if (products.some((product) => product.slug === nextSlug)) {
+    setProductFormError("Ya existe un producto con ese slug.");
+    return;
+  }
 
   const processedVariants: {
     color: string;
@@ -144,13 +225,16 @@ const createProduct = async () => {
         .from("products")
         .upload(fileName, file);
 
-      if (!uploadError) {
-
-        imageUrls.push(
-          `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/products/${fileName}`
+      if (uploadError) {
+        setProductFormError(
+          `No se pudo subir una imagen: ${uploadError.message}`
         );
-
+        return;
       }
+
+      imageUrls.push(
+        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/products/${fileName}`
+      );
 
     }
 
@@ -172,7 +256,7 @@ const createProduct = async () => {
     .insert([
       {
         name,
-        slug,
+        slug: nextSlug,
         price: Number(price),
         category,
         description,
@@ -192,7 +276,7 @@ const createProduct = async () => {
     ]);
 
   if (error) {
-    alert("No se pudo crear el producto");
+    setProductFormError(getProductMutationError(error));
     return;
   }
 
@@ -261,6 +345,7 @@ const toggleFeaturedProduct = async (product: Product) => {
 };
 
 const startEditingProduct = (product: Product) => {
+  setProductFormError("");
   setEditingProduct(
     JSON.parse(JSON.stringify(product))
   );
@@ -275,6 +360,33 @@ const startEditingProduct = (product: Product) => {
 const updateProduct = async () => {
 
     if (!editingProduct) return;
+
+    setProductFormError("");
+
+    const nextSlug = slugifyProductName(editingProduct.slug);
+    const validationError = getProductFormError({
+      productName: editingProduct.name,
+      productSlug: nextSlug,
+      productPrice: editingProduct.price,
+      productCategory: editingProduct.category,
+      productVariants: editingProduct.variants,
+    });
+
+    if (validationError) {
+      setProductFormError(validationError);
+      return;
+    }
+
+    if (
+      products.some(
+        (product) =>
+          product.slug === nextSlug &&
+          product.id !== editingProduct.id
+      )
+    ) {
+      setProductFormError("Ya existe un producto con ese slug.");
+      return;
+    }
 
     const processedVariants: {
         color: string;
@@ -309,13 +421,16 @@ const updateProduct = async () => {
                     .from("products")
                     .upload(fileName, image);
 
-                if (!uploadError) {
-
-                    imageUrls.push(
-                        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/products/${fileName}`
+                if (uploadError) {
+                    setProductFormError(
+                      `No se pudo subir una imagen: ${uploadError.message}`
                     );
-
+                    return;
                 }
+
+                imageUrls.push(
+                    `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/products/${fileName}`
+                );
 
             }
 
@@ -336,7 +451,7 @@ const updateProduct = async () => {
     .from("products")
     .update({
       name: editingProduct.name,
-      slug: editingProduct.slug,
+      slug: nextSlug,
       price: Number(editingProduct.price),
 
       category: editingProduct.category,
@@ -354,14 +469,15 @@ const updateProduct = async () => {
     })
     .eq("id", editingProduct.id);
 
-  if (!error) {
+  if (error) {
+    setProductFormError(getProductMutationError(error));
+    return;
+  }
 
     await refreshProducts();
     setEditingProduct(null);
 
     alert("Producto actualizado");
-
-  }
 
 };
 
@@ -536,7 +652,10 @@ if (!session) {
             Administrar catálogo
             </p>
             <button
-                onClick={() => setShowCreate(true)}
+                onClick={() => {
+                  setProductFormError("");
+                  setShowCreate(true);
+                }}
                 className="mt-6 bg-white text-black px-5 h-11 rounded-xl font-semibold hover:opacity-90 transition cursor-pointer"
             >
                 Nuevo producto
@@ -566,7 +685,10 @@ if (!session) {
 {showCreate && (
 
   <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center"
-       onClick={() => setShowCreate(false)}
+       onClick={() => {
+        setProductFormError("");
+        setShowCreate(false);
+       }}
   >
 
     <div className="bg-zinc-900 w-full max-w-2xl rounded-3xl p-8 max-h-[90vh] overflow-y-auto"
@@ -580,7 +702,10 @@ if (!session) {
         </h2>
 
         <button
-          onClick={() => setShowCreate(false)}
+          onClick={() => {
+            setProductFormError("");
+            setShowCreate(false);
+          }}
           className="text-zinc-400 hover:text-white transition cursor-pointer"
         >
           ✕
@@ -589,6 +714,11 @@ if (!session) {
       </div>
 
       <div className="grid gap-5">
+        {productFormError && (
+          <p className="rounded-xl border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-300">
+            {productFormError}
+          </p>
+        )}
 
         <input
           type="text"
@@ -900,7 +1030,10 @@ if (!session) {
 {editingProduct && (
 
   <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center"
-       onClick={() => setEditingProduct(null)}
+       onClick={() => {
+        setProductFormError("");
+        setEditingProduct(null);
+       }}
   >
 
     <div className="bg-zinc-900 w-full max-w-2xl rounded-3xl p-8 max-h-[90vh] overflow-y-auto"
@@ -914,7 +1047,10 @@ if (!session) {
         </h2>
 
         <button
-          onClick={() => setEditingProduct(null)}
+          onClick={() => {
+            setProductFormError("");
+            setEditingProduct(null);
+          }}
           className="text-zinc-400 hover:text-white transition cursor-pointer"
         >
           ✕
@@ -923,6 +1059,11 @@ if (!session) {
       </div>
 
       <div className="grid gap-5">
+        {productFormError && (
+          <p className="rounded-xl border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-300">
+            {productFormError}
+          </p>
+        )}
 
         <input
           type="text"
