@@ -1,5 +1,4 @@
 import { supabase } from "@/lib/supabase";
-import { storeConfig } from "@/config/store";
 import type {
   Product,
   ProductVariant,
@@ -96,7 +95,6 @@ export function normalizeProduct(row: SupabaseProductRow): Product {
     category: row.category ?? "",
     description: row.description ?? "",
     sku: row.sku,
-    minimum: Number(row.minimum ?? storeConfig.defaultMinimumQuantity),
     details: toStringArray(row.details),
     featured: Boolean(row.featured),
     images: toStringArray(row.images),
@@ -106,7 +104,10 @@ export function normalizeProduct(row: SupabaseProductRow): Product {
 }
 
 export async function getProducts(): Promise<Product[]> {
-  const { data, error } = await supabase.from("products").select("*");
+  const { data, error } = await supabase
+    .from("products")
+    .select("*")
+    .order("id", { ascending: true });
 
   if (error) {
     throw error;
@@ -123,7 +124,8 @@ export async function getProductsByCategory(
   const { data, error } = await supabase
     .from("products")
     .select("*")
-    .eq("category", category);
+    .eq("category", category)
+    .order("id", { ascending: true });
 
   if (error) {
     throw error;
@@ -165,7 +167,8 @@ export async function getProductsByIds(
   const { data, error } = await supabase
     .from("products")
     .select("*")
-    .in("id", productIds);
+    .in("id", productIds)
+    .order("id", { ascending: true });
 
   if (error) {
     throw error;

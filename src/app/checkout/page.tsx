@@ -31,7 +31,7 @@ type SavedCheckoutCustomer = {
 };
 
 export default function CheckoutPage() {
-  const { cart, clearCart } = useCart();
+  const { cart, clearCart, isCartReady } = useCart();
 
   const [name, setName] = useState("");
   const [dni, setDni] = useState("");
@@ -92,7 +92,7 @@ export default function CheckoutPage() {
   const hasEmptyFields = requiredFields.some(
     (field) => !field.trim()
   );
-  const hasNoProducts = cart.length === 0;
+  const hasNoProducts = isCartReady && cart.length === 0;
 
   const syncSavedCustomer = () => {
     if (rememberCustomer) {
@@ -170,6 +170,19 @@ export default function CheckoutPage() {
       customer,
       total,
     });
+    let whatsappUrl = "";
+
+    try {
+      whatsappUrl = buildWhatsAppUrl(message);
+    } catch (error) {
+      setOrderError(
+        error instanceof Error
+          ? error.message
+          : "No se pudo preparar el enlace de WhatsApp."
+      );
+      setIsSubmitting(false);
+      return;
+    }
 
     try {
       await createOrderTicket({
@@ -180,7 +193,7 @@ export default function CheckoutPage() {
         whatsappMessage: message,
       });
 
-      window.open(buildWhatsAppUrl(message), "_blank");
+      window.open(whatsappUrl, "_blank");
       setCreatedOrderNumber(orderNumber);
       clearCart();
     } catch (error) {
@@ -255,7 +268,7 @@ export default function CheckoutPage() {
 
           <div>
             <p className="mb-2 text-sm text-zinc-300">
-              Direccion calle y altura
+              Dirección calle y altura
             </p>
 
             <input
@@ -315,7 +328,7 @@ export default function CheckoutPage() {
 
           <div>
             <p className="mb-2 text-sm text-zinc-300">
-              Codigo Postal / ZIP
+              Código Postal / ZIP
             </p>
 
             <input
@@ -369,13 +382,19 @@ export default function CheckoutPage() {
 
           <div className="border-t border-zinc-800 pt-6 mt-4">
             <div className="flex flex-col gap-3 mb-6">
-              {cart.length === 0 && (
+              {!isCartReady && (
+                <p className="text-zinc-500 text-sm">
+                  Cargando carrito...
+                </p>
+              )}
+
+              {isCartReady && cart.length === 0 && (
                 <p className="text-zinc-500 text-sm">
                   No hay productos en el carrito.
                 </p>
               )}
 
-              {cart.map((item) => (
+              {isCartReady && cart.map((item) => (
                 <div
                   key={`${item.id}-${item.selectedColor}-${item.size}`}
                   className="flex items-start justify-between gap-4 text-sm text-zinc-300"
@@ -438,6 +457,7 @@ export default function CheckoutPage() {
               onClick={handleWhatsApp}
               disabled={
                 hasNoProducts ||
+                !isCartReady ||
                 isSubmitting ||
                 Boolean(createdOrderNumber)
               }

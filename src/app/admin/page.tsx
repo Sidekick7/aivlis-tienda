@@ -1,6 +1,5 @@
 "use client";
 
-import Image from "next/image";
 import { type FormEvent, useEffect, useState } from "react";
 import { categories } from "@/config/store";
 import { supabase } from "@/lib/supabase";
@@ -8,12 +7,20 @@ import { getProducts } from "@/lib/products";
 import { getAdminOrders, updateOrderStatus } from "@/lib/orders";
 import AdminOrdersSection from "@/app/admin/AdminOrdersSection";
 import AdminProductsSection from "@/app/admin/AdminProductsSection";
+import CreateProductModal from "@/app/admin/CreateProductModal";
+import EditProductModal from "@/app/admin/EditProductModal";
 import {
+  createEmptyProductVariant,
   formatDetailsText,
-  getVariantStock,
   parseDetailsText,
   slugifyProductName,
 } from "@/app/admin/adminUtils";
+import {
+  getProcessedVariantsStock,
+  getProductFormError,
+  getProductMutationError,
+  prepareProductVariants,
+} from "@/app/admin/adminProductMutations";
 import type {
   AdminSection,
   EditableProduct,
@@ -54,79 +61,8 @@ const [editingVariantIndex, setEditingVariantIndex] = useState(0);
 
 const [selectedVariantIndex, setSelectedVariantIndex] = useState(0);
 const [variants, setVariants] = useState<NewProductVariant[]>([
-  {
-    color: "Negro",
-    hex: "#000000",
-    sizes: [
-      {
-        size: "S",
-        stock: "",
-      },
-    ],
-    images: [],
-  },
+  createEmptyProductVariant(),
 ]);
-
-function getProductFormError({
-  productName,
-  productSlug,
-  productPrice,
-  productCategory,
-  productVariants,
-}: {
-  productName: string;
-  productSlug: string;
-  productPrice: string | number;
-  productCategory: string;
-  productVariants: {
-    color: string;
-    sizes: { size: string; stock: string | number }[];
-  }[];
-}) {
-  if (!productName.trim()) return "El nombre es obligatorio.";
-  if (!productSlug.trim()) return "El slug es obligatorio.";
-  if (!Number.isFinite(Number(productPrice)) || Number(productPrice) <= 0) {
-    return "El precio debe ser mayor a 0.";
-  }
-  if (!productCategory.trim()) return "La categoria es obligatoria.";
-  if (productVariants.length === 0) {
-    return "Agrega al menos un color.";
-  }
-
-  for (const variant of productVariants) {
-    if (!variant.color.trim()) return "Cada color necesita un nombre.";
-    if (variant.sizes.length === 0) {
-      return `Agrega al menos un talle para ${variant.color}.`;
-    }
-
-    for (const sizeItem of variant.sizes) {
-      if (!sizeItem.size.trim()) return "Cada talle necesita un nombre.";
-
-      const stock = Number(sizeItem.stock);
-
-      if (!Number.isInteger(stock) || stock < 0) {
-        return `El stock de ${sizeItem.size} debe ser 0 o mayor.`;
-      }
-    }
-  }
-
-  return "";
-}
-
-function getProductMutationError(error: {
-  code?: string;
-  message?: string;
-}) {
-  if (
-    error.code === "23505" ||
-    error.message?.toLowerCase().includes("duplicate")
-  ) {
-    return "Ya existe un producto con ese slug.";
-  }
-
-  return error.message || "No se pudo guardar el producto.";
-}
-
 
 useEffect(() => {
 
@@ -202,53 +138,17 @@ const createProduct = async () => {
     return;
   }
 
-  const processedVariants: {
-    color: string;
-    hex: string;
-    stock: number;
-    sizes: {
-        size: string;
-        stock: number;
-    }[];
-    images: string[];
-  }[] = [];
+  let processedVariants;
 
-  for (const variant of variants) {
-
-    const imageUrls: string[] = [];
-
-    for (const file of variant.images) {
-
-      const fileName = `${Date.now()}-${file.name}`;
-
-      const { error: uploadError } = await supabase.storage
-        .from("products")
-        .upload(fileName, file);
-
-      if (uploadError) {
-        setProductFormError(
-          `No se pudo subir una imagen: ${uploadError.message}`
-        );
-        return;
-      }
-
-      imageUrls.push(
-        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/products/${fileName}`
-      );
-
-    }
-
-    processedVariants.push({
-      color: variant.color,
-      hex: variant.hex,
-      stock: getVariantStock(variant),
-      sizes: variant.sizes.map((sizeItem) => ({
-        size: sizeItem.size,
-        stock: Number(sizeItem.stock),
-      })),
-      images: imageUrls,
-    });
-
+  try {
+    processedVariants = await prepareProductVariants(variants);
+  } catch (error) {
+    setProductFormError(
+      error instanceof Error
+        ? error.message
+        : "No se pudieron preparar las variantes."
+    );
+    return;
   }
 
   const { error } = await supabase
@@ -260,10 +160,7 @@ const createProduct = async () => {
         price: Number(price),
         category,
         description,
-        stock: processedVariants.reduce(
-          (total, variant) => total + variant.stock,
-          0
-        ),
+        stock: getProcessedVariantsStock(processedVariants),
 
         details: parseDetailsText(detailsText),
 
@@ -293,17 +190,7 @@ const createProduct = async () => {
     setCategory(categories[0].value);
 
     setVariants([
-        {
-            color: "Negro",
-            hex: "#000000",
-            sizes: [
-            {
-                size: "S",
-                stock: "",
-            },
-            ],
-            images: [],
-        },
+        createEmptyProductVariant(),
     ]);
 
     setSelectedVariantIndex(0);
@@ -400,64 +287,20 @@ const updateProduct = async () => {
       return;
     }
 
-    const processedVariants: {
-        color: string;
-        hex: string;
-        stock: number;
-        sizes: {
-            size: string;
-            stock: number;
-        }[];
-        images: string[];
-    }[] = [];
+    let processedVariants;
 
-    for (const variant of editingProduct.variants) {
-
-        const imageUrls = [];
-
-        for (const image of variant.images || []) {
-
-            if (typeof image === "string") {
-
-                imageUrls.push(image);
-
-                continue;
-
-            }
-
-            const fileName =
-                `${Date.now()}-${image.name}`;
-
-            const { error: uploadError } =
-                await supabase.storage
-                    .from("products")
-                    .upload(fileName, image);
-
-                if (uploadError) {
-                    setProductFormError(
-                      `No se pudo subir una imagen: ${uploadError.message}`
-                    );
-                    return;
-                }
-
-                imageUrls.push(
-                    `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/products/${fileName}`
-                );
-
-            }
-
-            processedVariants.push({
-                color: variant.color,
-                hex: variant.hex,
-                stock: getVariantStock(variant),
-                sizes: variant.sizes.map((sizeItem) => ({
-                    size: sizeItem.size,
-                    stock: Number(sizeItem.stock),
-                })),
-                images: imageUrls,
-            });
-
-        }
+    try {
+      processedVariants = await prepareProductVariants(
+        editingProduct.variants
+      );
+    } catch (error) {
+      setProductFormError(
+        error instanceof Error
+          ? error.message
+          : "No se pudieron preparar las variantes."
+      );
+      return;
+    }
 
   const { error } = await supabase
     .from("products")
@@ -469,10 +312,7 @@ const updateProduct = async () => {
       category: editingProduct.category,
       description: editingProduct.description,
       details: parseDetailsText(editingDetailsText),
-      stock: processedVariants.reduce(
-        (total, variant) => total + variant.stock,
-        0
-      ),
+      stock: getProcessedVariantsStock(processedVariants),
 
       variants: processedVariants,
 
@@ -507,7 +347,7 @@ const handleLogin = async (event: FormEvent<HTMLFormElement>) => {
   setIsSendingLogin(false);
 
   if (error) {
-    setAuthMessage(`No se pudo iniciar sesion: ${error.message}`);
+    setAuthMessage(`No se pudo iniciar sesión: ${error.message}`);
     return;
   }
 
@@ -540,10 +380,6 @@ const handleOrderStatusChange = async (
   }
 };
 
-const selectedVariant = variants[selectedVariantIndex];
-const editingVariant =
-  editingProduct?.variants?.[editingVariantIndex];
-
 if (isAuthLoading) {
   return (
     <main className="min-h-screen bg-black text-white px-6 pb-10 pt-32 md:px-10 flex items-center justify-center">
@@ -566,7 +402,7 @@ if (!session) {
         </h1>
 
         <p className="text-zinc-400 mt-3">
-          Entra con tu email y contrasena para administrar la tienda.
+          Entra con tu email y contraseña para administrar la tienda.
         </p>
 
         <input
@@ -695,769 +531,49 @@ if (!session) {
       </div>
 
 {showCreate && (
-
-  <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center"
-       onClick={() => {
-        setProductFormError("");
-        setShowCreate(false);
-       }}
-  >
-
-    <div className="bg-zinc-900 w-full max-w-2xl rounded-3xl p-8 max-h-[90vh] overflow-y-auto"
-         onClick={(e) => e.stopPropagation()}
-    >
-
-      <div className="flex items-center justify-between mb-8">
-
-        <h2 className="text-3xl font-bold">
-          Nuevo producto
-        </h2>
-
-        <button
-          onClick={() => {
-            setProductFormError("");
-            setShowCreate(false);
-          }}
-          className="text-zinc-400 hover:text-white transition cursor-pointer"
-        >
-          ✕
-        </button>
-
-      </div>
-
-      <div className="grid gap-5">
-        {productFormError && (
-          <p className="rounded-xl border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-300">
-            {productFormError}
-          </p>
-        )}
-
-        <input
-          type="text"
-          placeholder="Nombre"
-          value={name}
-          onChange={(e) => {
-            const nextName = e.target.value;
-
-            setName(nextName);
-
-            if (!isSlugEdited) {
-              setSlug(slugifyProductName(nextName));
-            }
-          }}
-          className="h-12 px-4 rounded-xl bg-zinc-800 outline-none"
-        />
-
-        <input
-          type="text"
-          placeholder="Slug"
-          value={slug}
-          onChange={(e) => {
-            setIsSlugEdited(true);
-            setSlug(slugifyProductName(e.target.value));
-          }}
-          className="h-12 px-4 rounded-xl bg-zinc-800 outline-none"
-        />
-
-        <input
-          type="number"
-          placeholder="Precio"
-          value={price}
-          onChange={(e) => setPrice(e.target.value)}
-          className="h-12 px-4 rounded-xl bg-zinc-800 outline-none"
-        />
-
-        <input
-            type="text"
-            placeholder="Color"
-            value={selectedVariant.color}
-            onChange={(e) => {
-
-                const updated = [...variants];
-
-                updated[selectedVariantIndex].color = e.target.value;
-
-                setVariants(updated);
-
-            }}
-            className="h-12 px-4 rounded-xl bg-zinc-800 outline-none"
-        />
-
-        <input
-            type="color"
-            value={selectedVariant.hex}
-            onChange={(e) => {
-
-                const updated = [...variants];
-
-                updated[selectedVariantIndex].hex = e.target.value;
-
-                setVariants(updated);
-
-            }}
-            className="w-20 h-12 rounded-xl overflow-hidden bg-transparent cursor-pointer"
-        />
-
-        <div className="flex flex-col gap-3">
-
-            {selectedVariant.sizes.map((sizeItem, index) => (
-
-                <div
-                key={index}
-                className="flex gap-3"
-                >
-
-                <input
-                    type="text"
-                    placeholder="Talle"
-                    value={sizeItem.size}
-                    onChange={(e) => {
-
-                    const updated = [...variants];
-
-                    updated[selectedVariantIndex]
-                        .sizes[index]
-                        .size = e.target.value;
-
-                    setVariants(updated);
-
-                    }}
-                    className="h-12 px-4 rounded-xl bg-zinc-800 outline-none flex-1"
-                />
-
-                <input
-                    type="number"
-                    placeholder="Stock"
-                    value={sizeItem.stock}
-                    onChange={(e) => {
-
-                    const updated = [...variants];
-
-                    updated[selectedVariantIndex]
-                        .sizes[index]
-                        .stock = e.target.value;
-
-                    setVariants(updated);
-
-                    }}
-                    className="h-12 px-4 rounded-xl bg-zinc-800 outline-none w-32"
-                />
-
-                <button
-                    type="button"
-                    onClick={() => {
-
-                    const updated = [...variants];
-
-                    updated[selectedVariantIndex].sizes =
-                        updated[selectedVariantIndex]
-                        .sizes
-                        .filter((_, i) => i !== index);
-
-                    setVariants(updated);
-
-                    }}
-                    className="w-12 rounded-xl bg-red-500"
-                >
-                    ✕
-                </button>
-
-                </div>
-
-            ))}
-
-            <button
-                type="button"
-                onClick={() => {
-
-                const updated = [...variants];
-
-                updated[selectedVariantIndex].sizes.push({
-                    size: "",
-                    stock: "",
-                });
-
-                setVariants(updated);
-
-                }}
-                className="h-11 rounded-xl border border-dashed border-zinc-600"
-            >
-                + Agregar talle
-            </button>
-
-        </div>
-
-        <input
-            type="file"
-            multiple
-            onChange={(e) => {
-
-                const updated = [...variants];
-
-                updated[selectedVariantIndex].images = Array.from(
-                e.target.files || []
-                );
-
-                setVariants(updated);
-
-            }}
-            className="text-sm text-zinc-400"
-        />
-
-        <div className="flex gap-3 flex-wrap">
-
-            {selectedVariant.images.map((file, index) => (
-
-                <div
-                    key={index}
-                    className="relative"
-                >
-
-                    <Image
-                        src={URL.createObjectURL(file)}
-                        alt=""
-                        width={80}
-                        height={80}
-                        unoptimized
-                        className="w-20 h-20 object-cover rounded-xl border border-zinc-700"
-                    />
-
-                    <button
-                        type="button"
-                        onClick={() => {
-
-                        const updated = [...variants];
-
-                        updated[selectedVariantIndex].images =
-                            updated[selectedVariantIndex].images.filter(
-                            (_, i) => i !== index
-                            );
-
-                        setVariants(updated);
-
-                        }}
-                        className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-red-500 text-white text-xs"
-                    >
-                        ✕
-                    </button>
-
-                </div>
-
-            ))}
-
-        </div>
-
-
-        <select
-            value={category}
-            onChange={(e) => setCategory(e.target.value)}
-            className="h-12 px-4 rounded-xl bg-zinc-800 outline-none"
-        >
-
-            {categories.map((categoryOption) => (
-                <option
-                    key={categoryOption.value}
-                    value={categoryOption.value}
-                >
-                    {categoryOption.label}
-                </option>
-            ))}
-
-        </select>
-
-        <div className="flex flex-wrap gap-2">
-
-            {variants.map((variant, index) => (
-
-                <button
-                    key={index}
-                    type="button"
-                    onClick={() => setSelectedVariantIndex(index)}
-                    className={`px-4 h-10 rounded-xl border transition cursor-pointer ${
-                        selectedVariantIndex === index
-                            ? "bg-white text-black border-white"
-                            : "bg-zinc-800 text-white border-zinc-700"
-                    }`}
-                >
-                    {variant.color || `Color ${index + 1}`}
-                </button>
-
-            ))}
-
-            <button
-                type="button"
-                onClick={() =>
-                    setVariants([
-                        ...variants,
-                        {
-                            color: "",
-                            hex: "#000000",
-                            sizes: [
-                                {
-                                size: "S",
-                                stock: "",
-                                },
-                            ],
-                            images: [],
-                        }
-                    ])
-                }
-                className="px-4 h-10 rounded-xl bg-zinc-800 border border-dashed border-zinc-600 hover:border-white transition cursor-pointer"
-            >
-                + Agregar color
-            </button>
-
-        </div>
-
-
-        <textarea
-            placeholder="Descripción"
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            className="min-h-[140px] p-4 rounded-xl bg-zinc-800 outline-none resize-none"
-        />
-
-        <textarea
-            placeholder="Detalles del producto, uno por linea"
-            value={detailsText}
-            onChange={(e) => setDetailsText(e.target.value)}
-            className="min-h-[110px] p-4 rounded-xl bg-zinc-800 outline-none resize-none"
-        />
-
-        <button
-          onClick={createProduct}
-          className="h-12 bg-white text-black rounded-xl font-semibold hover:opacity-90 transition cursor-pointer"
-        >
-          Crear producto
-        </button>
-
-      </div>
-
-    </div>
-
-  </div>
-
+  <CreateProductModal
+    productFormError={productFormError}
+    name={name}
+    setName={setName}
+    slug={slug}
+    setSlug={setSlug}
+    isSlugEdited={isSlugEdited}
+    setIsSlugEdited={setIsSlugEdited}
+    price={price}
+    setPrice={setPrice}
+    category={category}
+    setCategory={setCategory}
+    description={description}
+    setDescription={setDescription}
+    detailsText={detailsText}
+    setDetailsText={setDetailsText}
+    variants={variants}
+    setVariants={setVariants}
+    selectedVariantIndex={selectedVariantIndex}
+    setSelectedVariantIndex={setSelectedVariantIndex}
+    onClose={() => {
+      setProductFormError("");
+      setShowCreate(false);
+    }}
+    onCreate={createProduct}
+  />
 )}
 
 {editingProduct && (
-
-  <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center"
-       onClick={() => {
-        setProductFormError("");
-        setEditingProduct(null);
-       }}
-  >
-
-    <div className="bg-zinc-900 w-full max-w-2xl rounded-3xl p-8 max-h-[90vh] overflow-y-auto"
-         onClick={(e) => e.stopPropagation()}
-    >
-
-      <div className="flex items-center justify-between mb-8">
-
-        <h2 className="text-3xl font-bold">
-          Editar producto
-        </h2>
-
-        <button
-          onClick={() => {
-            setProductFormError("");
-            setEditingProduct(null);
-          }}
-          className="text-zinc-400 hover:text-white transition cursor-pointer"
-        >
-          ✕
-        </button>
-
-      </div>
-
-      <div className="grid gap-5">
-        {productFormError && (
-          <p className="rounded-xl border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-300">
-            {productFormError}
-          </p>
-        )}
-
-        <input
-          type="text"
-          value={editingProduct.name}
-          onChange={(e) =>
-            setEditingProduct({
-              ...editingProduct,
-              name: e.target.value,
-            })
-          }
-          className="h-12 px-4 rounded-xl bg-zinc-800 outline-none"
-        />
-
-        <input
-          type="text"
-          value={editingProduct.slug}
-          onChange={(e) =>
-            setEditingProduct({
-              ...editingProduct,
-              slug: e.target.value,
-            })
-          }
-          className="h-12 px-4 rounded-xl bg-zinc-800 outline-none"
-        />
-
-        <input
-          type="number"
-          value={editingProduct.price}
-          onChange={(e) =>
-            setEditingProduct({
-              ...editingProduct,
-              price: e.target.value,
-            })
-          }
-          className="h-12 px-4 rounded-xl bg-zinc-800 outline-none"
-        />
-
-        <select
-            value={editingProduct.category}
-            onChange={(e) =>
-                setEditingProduct({
-                ...editingProduct,
-                category: e.target.value,
-                })
-            }
-            className="h-12 px-4 rounded-xl bg-zinc-800 outline-none"
-        >
-
-            {categories.map((categoryOption) => (
-                <option
-                    key={categoryOption.value}
-                    value={categoryOption.value}
-                >
-                    {categoryOption.label}
-                </option>
-            ))}
-
-        </select>
-
-        <textarea
-            value={editingProduct.description}
-            onChange={(e) =>
-                setEditingProduct({
-                    ...editingProduct,
-                    description: e.target.value,
-                })
-            }
-            className="min-h-[140px] p-4 rounded-xl bg-zinc-800 outline-none resize-none"
-        />
-
-        <textarea
-            value={editingDetailsText}
-            onChange={(e) => setEditingDetailsText(e.target.value)}
-            placeholder="Detalles del producto, uno por linea"
-            className="min-h-[110px] p-4 rounded-xl bg-zinc-800 outline-none resize-none"
-        />
-
-        <div className="flex flex-wrap gap-2">
-
-            {editingProduct?.variants?.map((variant, index) => (
-
-                <button
-                    key={index}
-                    type="button"
-                    onClick={() => setEditingVariantIndex(index)}
-                    className={`px-4 h-10 rounded-xl border transition cursor-pointer ${
-                        editingVariantIndex === index
-                            ? "bg-white text-black border-white"
-                            : "bg-zinc-800 text-white border-zinc-700"
-                    }`}
-                >
-                    {variant.color || `Color ${index + 1}`}
-                </button>
-
-            ))}
-
-        </div>
-
-        <input
-            type="text"
-            value={editingVariant?.color || ""}
-            onChange={(e) => {
-
-                const updated = [...editingProduct.variants];
-
-                updated[editingVariantIndex].color = e.target.value;
-
-                setEditingProduct({
-                    ...editingProduct,
-                    variants: updated,
-                });
-
-            }}
-            className="h-12 px-4 rounded-xl bg-zinc-800 outline-none"
-        />
-
-        <input
-            type="color"
-            value={editingVariant?.hex || "#000000"}
-            onChange={(e) => {
-
-                const updated = [...editingProduct.variants];
-
-                updated[editingVariantIndex].hex = e.target.value;
-
-                setEditingProduct({
-                    ...editingProduct,
-                    variants: updated,
-                });
-
-            }}
-            className="w-20 h-12 rounded-xl overflow-hidden bg-transparent cursor-pointer"
-        />
-
-        <div className="flex flex-col gap-3">
-
-            {editingVariant?.sizes?.map(
-                (sizeItem, index) => (
-
-                <div
-                    key={index}
-                    className="flex gap-3"
-                >
-
-                    <input
-                    type="text"
-                    value={sizeItem.size}
-                    onChange={(e) => {
-
-                        const updated = [...editingProduct.variants];
-
-                        updated[editingVariantIndex]
-                        .sizes[index]
-                        .size = e.target.value;
-
-                        setEditingProduct({
-                        ...editingProduct,
-                        variants: updated,
-                        });
-
-                    }}
-                    className="h-12 px-4 rounded-xl bg-zinc-800 outline-none flex-1"
-                    />
-
-                    <input
-                    type="number"
-                    value={sizeItem.stock}
-                    onChange={(e) => {
-
-                        const updated = [...editingProduct.variants];
-
-                        updated[editingVariantIndex]
-                        .sizes[index]
-                        .stock = Number(e.target.value);
-
-                        setEditingProduct({
-                        ...editingProduct,
-                        variants: updated,
-                        });
-
-                    }}
-                    className="h-12 px-4 rounded-xl bg-zinc-800 outline-none w-32"
-                    />
-
-                    <button
-                    type="button"
-                    onClick={() => {
-
-                        const updated = [...editingProduct.variants];
-
-                        updated[editingVariantIndex].sizes =
-                        updated[editingVariantIndex]
-                            .sizes
-                            .filter((_, i) =>
-                            i !== index
-                            );
-
-                        setEditingProduct({
-                        ...editingProduct,
-                        variants: updated,
-                        });
-
-                    }}
-                    className="w-12 rounded-xl bg-red-500"
-                    >
-                    ✕
-                    </button>
-
-            </div>
-
-                )
-            )}
-
-            <button
-                type="button"
-                onClick={() => {
-
-                const updated = [...editingProduct.variants];
-
-                updated[editingVariantIndex].sizes.push({
-                    size: "",
-                    stock: 0,
-                });
-
-                setEditingProduct({
-                    ...editingProduct,
-                    variants: updated,
-                });
-
-                }}
-                className="h-11 rounded-xl border border-dashed border-zinc-600"
-            >
-                + Agregar talle
-            </button>
-
-            </div>
-
-
-  
-        <input
-            type="file"
-            multiple
-            onChange={(e) => {
-                const updated = [...editingProduct.variants];
-
-                updated[editingVariantIndex].images = [
-                    ...updated[editingVariantIndex].images,
-                    ...Array.from(e.target.files || []),
-                ];
-
-                setEditingProduct({
-                    ...editingProduct,
-                    variants: updated,
-                });
-            }}
-            className="text-sm text-zinc-400"
-        />        
-
-        <div className="flex gap-3 flex-wrap">
-
-            {editingVariant?.images?.map((image) => {
-                const imageUrl =
-                    typeof image === "string"
-                    ? image
-                    : URL.createObjectURL(image);
-
-                return (
-
-                <div
-                    key={imageUrl}
-                    className="relative"
-                >
-
-                    <Image
-                    src={imageUrl}
-                    alt=""
-                    width={80}
-                    height={80}
-                    unoptimized={typeof image !== "string"}
-                    className="w-20 h-20 object-cover rounded-xl border border-zinc-700"
-                    />
-
-                    <button
-                        onClick={() => {
-
-                            const updated = [...editingProduct.variants];
-
-                            updated[editingVariantIndex].images =
-                                updated[editingVariantIndex].images.filter(
-                                    (img) => img !== image
-                                );
-
-                            setEditingProduct({
-                                ...editingProduct,
-                                variants: updated,
-                            });
-
-                        }}
-                        className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-red-500 text-white text-xs hover:bg-red-400 transition cursor-pointer"
-                    >
-                        ✕
-                    </button>
-
-                    <div className="absolute bottom-1 left-1 flex gap-1">
-
-                        <button
-                            onClick={() => {
-
-                                const index = editingProduct.variants[editingVariantIndex].images.indexOf(image);
-
-                                if (index === 0) return;
-
-                                const updated = [...editingProduct.variants];
-
-                                const images = updated[editingVariantIndex].images;
-
-                                [images[index - 1], images[index]] =
-                                [images[index], images[index - 1]];
-
-                                setEditingProduct({
-                                    ...editingProduct,
-                                    variants: updated,
-                                });
-
-                            }}
-                            className="w-6 h-6 rounded-full bg-black/70 text-white text-xs"
-                        >
-                            ←
-                        </button>
-
-                        <button
-                            onClick={() => {
-
-                                const index =
-                                    editingProduct.variants[editingVariantIndex]
-                                    .images.indexOf(image);
-
-                                const updated = [...editingProduct.variants];
-
-                                const images = updated[editingVariantIndex].images;
-
-                                if (index === images.length - 1) return;
-
-                                [images[index + 1], images[index]] =
-                                [images[index], images[index + 1]];
-
-                                setEditingProduct({
-                                    ...editingProduct,
-                                    variants: updated,
-                                });
-
-                            }}
-                            className="w-6 h-6 rounded-full bg-black/70 text-white text-xs"
-                        >
-                            →
-                        </button>
-
-                    </div>
-
-
-
-
-                </div>
-
-                );
-            })}
-
-        </div>
-
-        <button
-          onClick={updateProduct}
-          className="h-12 bg-white text-black rounded-xl font-semibold hover:opacity-90 transition cursor-pointer"
-        >
-          Guardar cambios
-        </button>
-
-      </div>
-
-    </div>
-
-  </div>
-
+  <EditProductModal
+    product={editingProduct}
+    setProduct={setEditingProduct}
+    productFormError={productFormError}
+    detailsText={editingDetailsText}
+    setDetailsText={setEditingDetailsText}
+    editingVariantIndex={editingVariantIndex}
+    setEditingVariantIndex={setEditingVariantIndex}
+    onClose={() => {
+      setProductFormError("");
+      setEditingProduct(null);
+    }}
+    onSave={updateProduct}
+  />
 )}
 
 {activeSection === "orders" && (
@@ -1480,3 +596,5 @@ if (!session) {
     </main>
   );
 }
+
+

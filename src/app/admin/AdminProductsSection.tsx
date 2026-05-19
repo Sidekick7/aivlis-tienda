@@ -3,7 +3,7 @@
 import Image from "next/image";
 import { Search } from "lucide-react";
 import { useState } from "react";
-import { categories } from "@/config/store";
+import { categories, getCategoryLabel } from "@/config/store";
 import {
   currencyFormatter,
   getProductImage,
@@ -82,7 +82,7 @@ export default function AdminProductsSection({
 
           <input
             type="search"
-            placeholder="Buscar por nombre, slug, categoria o SKU"
+            placeholder="Buscar por nombre, slug, categoría o SKU"
             value={productSearch}
             onChange={(event) => setProductSearch(event.target.value)}
             className="h-12 w-full rounded-xl border border-zinc-800 bg-zinc-950 pl-11 pr-4 outline-none transition focus:border-zinc-500"
@@ -140,7 +140,7 @@ export default function AdminProductsSection({
 
       {visibleProducts.length === 0 && (
         <div className="rounded-2xl border border-zinc-800 bg-zinc-950 p-8 text-center text-zinc-400">
-          No hay productos que coincidan con la busqueda.
+          No hay productos que coincidan con la búsqueda.
         </div>
       )}
 
@@ -200,7 +200,7 @@ export default function AdminProductsSection({
               </p>
 
               <p className="mt-1 capitalize text-zinc-300">
-                {product.category}
+                {getCategoryLabel(product.category)}
               </p>
             </div>
 

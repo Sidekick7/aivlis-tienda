@@ -4,6 +4,7 @@ import Image from "next/image";
 import { useEffect, useState } from "react";
 import { useSearch } from "@/context/SearchContext";
 import { getProducts } from "@/lib/products";
+import { getProductImage } from "@/lib/productDisplay";
 import type { Product } from "@/types/product";
 import Link from "next/link";
 
@@ -16,14 +17,19 @@ export default function SearchModal() {
 
   const [query, setQuery] = useState("");
   const [products, setProducts] = useState<Product[]>([]);
+  const [productsError, setProductsError] = useState("");
 
   useEffect(() => {
     if (!isSearchOpen || products.length > 0) return;
 
     const fetchProducts = async () => {
-      const products = await getProducts();
+      try {
+        const products = await getProducts();
 
-      setProducts(products);
+        setProducts(products);
+      } catch {
+        setProductsError("No se pudo cargar la búsqueda.");
+      }
     };
 
     fetchProducts();
@@ -51,6 +57,11 @@ export default function SearchModal() {
         />
 
         <div className="mt-6 flex flex-col gap-3">
+          {productsError && (
+            <p className="text-zinc-400">
+              {productsError}
+            </p>
+          )}
 
           {filteredProducts.map((product) => (
 
@@ -63,7 +74,7 @@ export default function SearchModal() {
               <div className="flex items-center gap-4">
 
                 <Image
-                  src={product.variants[0].images[0]}
+                  src={getProductImage(product)}
                   alt={product.name}
                   width={80}
                   height={80}

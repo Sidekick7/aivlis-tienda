@@ -1,7 +1,5 @@
 export const storeConfig = {
-  whatsappNumber: "5491169366810",
-  defaultMinimumQuantity: 3,
-  fallbackMaxQuantity: 20,
+  whatsappNumber: process.env.NEXT_PUBLIC_WHATSAPP_NUMBER || "",
 };
 
 export const categories = [
@@ -18,14 +16,19 @@ export const categories = [
     value: "pantalones",
   },
   {
-    label: "Accesorios",
-    value: "accesorios",
+    label: "Shorts/Bermuda",
+    value: "shorts-bermuda",
   },
 ];
 
-export const mainNavCategories = categories.filter(
-  (category) => category.value !== "accesorios"
-);
+export const mainNavCategories = categories;
+
+export function getCategoryLabel(value: string) {
+  return (
+    categories.find((category) => category.value === value)?.label ??
+    value
+  );
+}
 
 export const editorialImages = [
   "/editorial/1.png",

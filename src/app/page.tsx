@@ -16,13 +16,17 @@ import type { Product } from "@/types/product";
 
 export default function Home() {
   const [dbProducts, setDbProducts] = useState<Product[]>([]);
+  const [productsError, setProductsError] = useState("");
     useEffect(() => {
 
     const fetchProducts = async () => {
+      try {
+        const products = await getProducts();
 
-      const products = await getProducts();
-
-      setDbProducts(products);
+        setDbProducts(products);
+      } catch {
+        setProductsError("No se pudo cargar el catálogo.");
+      }
 
     };
 
@@ -138,6 +142,11 @@ export default function Home() {
         </h2>
 
         <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-6">
+          {productsError && (
+            <p className="col-span-full text-zinc-500">
+              {productsError}
+            </p>
+          )}
 
           {[...dbProducts]
             .sort((a, b) =>

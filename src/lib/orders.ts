@@ -1,5 +1,6 @@
 import { supabase } from "@/lib/supabase";
 import { normalizeProduct } from "@/lib/products";
+import { findVariantSize } from "@/lib/stock";
 import type {
   AdminOrder,
   OrderStatus,
@@ -101,24 +102,20 @@ async function adjustStockForOrder(
     );
 
     for (const item of orderItems) {
-      const variantIndex = Math.max(
-        variants.findIndex(
-          (variant) => variant.color === item.variantColor
-        ),
-        0
-      );
-      const selectedVariant = variants[variantIndex];
-      const sizeIndex =
-        selectedVariant?.sizes.findIndex(
-          (size) => size.size === item.size
-        ) ?? -1;
+      const selectedStock = findVariantSize({
+        variants,
+        color: item.variantColor,
+        size: item.size,
+      });
 
-      if (!selectedVariant || sizeIndex < 0) {
+      if (!selectedStock) {
         throw new Error(
           `No se encontro stock para ${item.productName}.`
         );
       }
 
+      const { variant: selectedVariant, sizeIndex } =
+        selectedStock;
       const currentStock = selectedVariant.sizes[sizeIndex].stock;
       const nextStock =
         currentStock + direction * item.quantity;
@@ -176,49 +173,35 @@ export async function createOrderTicket({
   whatsappMessage,
 }: CreateOrderTicketInput): Promise<CreatedOrderTicket> {
   const orderId = crypto.randomUUID();
+  const { error } = await supabase.rpc("create_order_ticket", {
+    order_id: orderId,
+    order_number: orderNumber,
+    customer_name: customer.name,
+    customer_dni: customer.dni,
+    customer_whatsapp: customer.whatsapp,
+    customer_address: customer.address,
+    customer_city: customer.city,
+    customer_province: customer.province,
+    customer_zip: customer.zip,
+    customer_email: customer.email || "",
+    notes: customer.notes || "",
+    total,
+    whatsapp_message: whatsappMessage,
+    items: cart.map((item) => ({
+      product_id: item.id,
+      product_slug: item.slug,
+      product_name: item.name,
+      variant_color: item.selectedColor || "",
+      size: item.size || "",
+      quantity: item.quantity,
+      unit_price: item.price,
+      subtotal: item.price * item.quantity,
+      image_url: item.selectedImage || item.images?.[0] || "",
+    })),
+  });
 
-  const { error: orderError } = await supabase
-    .from("orders")
-    .insert({
-      id: orderId,
-      order_number: orderNumber,
-      status: "pending_payment",
-      customer_name: customer.name,
-      customer_dni: customer.dni,
-      customer_whatsapp: customer.whatsapp,
-      customer_address: customer.address,
-      customer_city: customer.city,
-      customer_province: customer.province,
-      customer_zip: customer.zip,
-      customer_email: customer.email || null,
-      notes: customer.notes || null,
-      total,
-      whatsapp_message: whatsappMessage,
-    });
-
-  if (orderError) {
-    throw orderError;
-  }
-
-  const { error: itemsError } = await supabase
-    .from("order_items")
-    .insert(
-      cart.map((item) => ({
-        order_id: orderId,
-        product_id: item.id,
-        product_slug: item.slug,
-        product_name: item.name,
-        variant_color: item.selectedColor || null,
-        size: item.size || null,
-        quantity: item.quantity,
-        unit_price: item.price,
-        subtotal: item.price * item.quantity,
-        image_url: item.selectedImage || item.images?.[0] || null,
-      }))
-    );
-
-  if (itemsError) {
-    throw itemsError;
+  if (error) {
+    throw error;
   }
 
   return {

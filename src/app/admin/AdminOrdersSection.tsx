@@ -155,7 +155,7 @@ export default function AdminOrdersSection({
 
       {!isLoading && orders.length === 0 && (
         <p className="text-zinc-400">
-          Todavia no hay tickets cargados.
+          Todavía no hay tickets cargados.
         </p>
       )}
 

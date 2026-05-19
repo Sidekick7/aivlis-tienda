@@ -3,25 +3,59 @@
 import Image from "next/image";
 import { useState } from "react";
 import Link from "next/link";
-import { storeConfig } from "@/config/store";
+import {
+  fallbackProductImage,
+  getCategoryLabel,
+} from "@/config/store";
 import { useCart } from "@/context/CartContext";
-import type { Product } from "@/types/product";
+import type { Product, ProductVariant } from "@/types/product";
 
 type Props = {
   product: Product;
 };
 
+function getDefaultSize(variant?: ProductVariant) {
+  return (
+    variant?.sizes.find((sizeItem) => sizeItem.stock > 0)?.size ||
+    variant?.sizes[0]?.size ||
+    ""
+  );
+}
+
 export default function ProductInfo({ product }: Props) {
+  const categoryLabel = getCategoryLabel(product.category);
+  const firstVariant = product.variants[0];
+  const firstImage =
+    firstVariant?.images[0] ||
+    product.images[0] ||
+    fallbackProductImage;
+  const thumbnails = [
+    ...product.images.map((image) => ({
+      image,
+      variant: null,
+    })),
+    ...product.variants.flatMap((variant) =>
+      variant.images.map((image) => ({
+        image,
+        variant,
+      }))
+    ),
+  ].filter(
+    (thumbnail, index, allThumbnails) =>
+      allThumbnails.findIndex(
+        (item) => item.image === thumbnail.image
+      ) === index
+  );
 
   const [selectedSize, setSelectedSize] = useState(
-    product.variants[0]?.sizes?.[0]?.size || ""
+    getDefaultSize(firstVariant)
   );
   const [quantity, setQuantity] = useState(1);
   const [selectedColor, setSelectedColor] = useState(
-    product.variants[0].color
+    firstVariant?.color || ""
   );
   const [selectedImage, setSelectedImage] = useState(
-    product.variants[0].images[0]
+    firstImage
   );
 
   const [zoomPosition, setZoomPosition] = useState({
@@ -34,16 +68,13 @@ export default function ProductInfo({ product }: Props) {
   const selectedVariant =
     product.variants.find(
       (variant) => variant.color === selectedColor
-    ) || product.variants[0];
+    ) || firstVariant;
 
   const selectedSizeData =
-    selectedVariant.sizes.find(
+    selectedVariant?.sizes.find(
       (item) => item.size === selectedSize
     );
-  const stockLimit = Math.min(
-    selectedSizeData?.stock || 0,
-    storeConfig.fallbackMaxQuantity
-  );
+  const stockLimit = selectedSizeData?.stock || 0;
   const quantityAlreadyInCart = cart
     .filter(
       (item) =>
@@ -59,6 +90,11 @@ export default function ProductInfo({ product }: Props) {
 
   const handleAddToCart = () => {
 
+    if (!selectedVariant || !selectedSizeData) {
+      alert("Este producto no tiene stock disponible");
+      return;
+    }
+
     if (
       quantity >
       availableToAdd
@@ -70,7 +106,7 @@ export default function ProductInfo({ product }: Props) {
     addToCart(
       {
         ...product,
-        selectedImage,
+        selectedImage: selectedImage || fallbackProductImage,
         selectedColor,
       },
       selectedSize,
@@ -102,7 +138,7 @@ export default function ProductInfo({ product }: Props) {
         }}
       >
       <Image
-        src={selectedImage}
+        src={selectedImage || fallbackProductImage}
         alt={product.name}
         width={700}
         height={800}
@@ -117,27 +153,29 @@ export default function ProductInfo({ product }: Props) {
     </div>
       <div className="flex flex-col gap-3 pt-2">
 
-        {product.variants.flatMap((variant) =>
-          variant.images.map((image) => (
+        {thumbnails.map((thumbnail) => (
 
           <button
-            key={image}
+            key={thumbnail.image}
             onClick={() => {
-              setSelectedImage(image);
-              setSelectedColor(variant.color);
-              setSelectedSize(
-                variant.sizes?.[0]?.size || ""
-              );
+              setSelectedImage(thumbnail.image);
+
+              if (thumbnail.variant) {
+                setSelectedColor(thumbnail.variant.color);
+                setSelectedSize(
+                  getDefaultSize(thumbnail.variant)
+                );
+              }
             }}
             className={`rounded-2xl overflow-hidden transition-all duration-300 ${
-              selectedImage === image
+              selectedImage === thumbnail.image
                 ? "ring-2 ring-white/80 scale-[1.02]"
                 : "opacity-70 hover:opacity-100 hover:scale-[1.02]"
             }`}
           >
 
             <Image
-              src={image}
+              src={thumbnail.image}
               alt=""
               width={96}
               height={128}
@@ -146,8 +184,7 @@ export default function ProductInfo({ product }: Props) {
 
           </button>
 
-        ))
-      )}
+        ))}
         
 
       </div>    
@@ -167,9 +204,9 @@ export default function ProductInfo({ product }: Props) {
 
         <Link
           href={`/category/${product.category}`}
-          className="hover:text-white transition capitalize"
+          className="hover:text-white transition"
         >
-          {product.category}
+          {categoryLabel}
         </Link>
 
         <span>/</span>
@@ -262,9 +299,13 @@ export default function ProductInfo({ product }: Props) {
               key={variant.color}
               onClick={() => {
                 setSelectedColor(variant.color);
-                setSelectedImage(variant.images[0]);
+                setSelectedImage(
+                  variant.images[0] ||
+                  product.images[0] ||
+                  fallbackProductImage
+                );
                 setSelectedSize(
-                  variant.sizes?.[0]?.size || ""
+                  getDefaultSize(variant)
                 );
               }}
               className={`w-8 h-8 rounded-full border-2 transition ${
@@ -371,7 +412,7 @@ export default function ProductInfo({ product }: Props) {
             </p>
 
             <p>
-              Categoría · {product.category}
+              Categoría · {categoryLabel}
             </p>
 
           </div>

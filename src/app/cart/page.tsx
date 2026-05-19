@@ -14,6 +14,7 @@ const {
   removeFromCart,
   increaseQuantity,
   deleteItem,
+  isCartReady,
 } = useCart();
 
   const total = getCartTotal(cart);
@@ -31,7 +32,15 @@ const {
       <div className="grid grid-cols-1 lg:grid-cols-[1fr_380px] gap-10 items-start">
       <div className="flex flex-col gap-5">
 
-        {cart.length === 0 && (
+        {!isCartReady && (
+          <div className="flex flex-col items-center justify-center border border-zinc-800 rounded-3xl py-24 px-6 text-center">
+            <p className="text-zinc-500">
+              Cargando carrito...
+            </p>
+          </div>
+        )}
+
+        {isCartReady && cart.length === 0 && (
 
           <div className="flex flex-col items-center justify-center border border-zinc-800 rounded-3xl py-24 px-6 text-center">
 
@@ -77,7 +86,7 @@ const {
 
         </div>        
 
-        {cart.map((item, index) => (
+        {isCartReady && cart.map((item, index) => (
 
           <div
             key={index}
@@ -192,7 +201,7 @@ const {
         ))}
 
         </div>
-        {cart.length > 0 && (
+        {isCartReady && cart.length > 0 && (
 
         <div className="sticky top-28 border border-zinc-800 rounded-3xl p-6 h-fit">
 

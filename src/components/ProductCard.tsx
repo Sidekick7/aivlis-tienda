@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
+import { getProductImage } from "@/lib/productDisplay";
 import type { Product } from "@/types/product";
 
 type Props = {
@@ -11,13 +12,22 @@ type Props = {
 export default function ProductCard({
   product,
 }: Props) {
+  const productImage = getProductImage(product);
+  const sizes = Array.from(
+    new Set(
+      product.variants.flatMap((variant) =>
+        variant.sizes.map((sizeItem) => sizeItem.size)
+      )
+    )
+  );
+
   return (
     <div className="bg-white rounded-2xl overflow-hidden transition duration-300 hover:-translate-y-2 hover:shadow-2xl hover:shadow-black/50">
 
       <Link href={`/product/${product.slug}`}>
 
         <Image
-          src={product.variants[0].images[0]}
+          src={productImage}
           alt={product.name}
           width={380}
           height={520}
@@ -56,13 +66,13 @@ export default function ProductCard({
 
       <div className="flex gap-2 mt-2">
 
-          {product.variants?.[0]?.sizes?.map((sizeItem) => (
+          {sizes.map((size) => (
 
             <div
-              key={sizeItem.size}
-              className="w-8 h-8 text-xs rounded-full border border-zinc-400 flex items-center justify-center text-xs text-zinc-600"
+              key={size}
+              className="w-8 h-8 rounded-full border border-zinc-400 flex items-center justify-center text-xs text-zinc-600"
             >
-              {sizeItem.size}
+              {size}
             </div>
 
           ))}

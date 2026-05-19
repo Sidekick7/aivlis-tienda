@@ -6,7 +6,7 @@ import {
   useEffect,
   useState,
 } from "react";
-import { storeConfig } from "@/config/store";
+import { getVariantSizeStock } from "@/lib/stock";
 import type { Product } from "@/types/product";
 
 export type CartItem = {
@@ -51,6 +51,7 @@ type CartContextType = {
     color?: string
   ) => void;
   clearCart: () => void;
+  isCartReady: boolean;
 
   isCartOpen: boolean;
   setIsCartOpen: (value: boolean) => void;
@@ -67,6 +68,7 @@ const fallbackCartContext: CartContextType = {
   increaseQuantity: () => {},
   deleteItem: () => {},
   clearCart: () => {},
+  isCartReady: false,
   isCartOpen: false,
   setIsCartOpen: () => {},
 };
@@ -80,16 +82,12 @@ function getStockForSelection(
   color?: string
 ) {
   const selectedColor = color ?? product.selectedColor;
-  const selectedVariant =
-    product.variants?.find(
-      (variant) => variant.color === selectedColor
-    ) ?? product.variants?.[0];
 
-  const selectedSize = selectedVariant?.sizes?.find(
-    (sizeItem) => sizeItem.size === size
-  );
-
-  return selectedSize?.stock ?? storeConfig.fallbackMaxQuantity;
+  return getVariantSizeStock({
+    variants: product.variants,
+    color: selectedColor,
+    size,
+  });
 }
 
 export function CartProvider({
@@ -248,7 +246,6 @@ const deleteItem = (
         item.selectedColor === color
       )
   );
-    cart.filter((item) => item.id !== id);
 
   setCart(updatedCart);
 
@@ -268,6 +265,7 @@ const clearCart = () => {
         increaseQuantity,
         deleteItem,
         clearCart,
+        isCartReady,
         isCartOpen,
         setIsCartOpen,
       }}

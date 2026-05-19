@@ -1,5 +1,6 @@
 import type { CartItem } from "@/context/CartContext";
 import { storeConfig } from "@/config/store";
+import { getVariantSizeStock } from "@/lib/stock";
 import type { CustomerInfo } from "@/types/order";
 import type { Product } from "@/types/product";
 
@@ -37,6 +38,10 @@ export function formatCartItemsForWhatsApp(cart: CartItem[]) {
 }
 
 export function buildWhatsAppUrl(message: string) {
+  if (!storeConfig.whatsappNumber) {
+    throw new Error("Falta configurar NEXT_PUBLIC_WHATSAPP_NUMBER.");
+  }
+
   return `https://wa.me/${storeConfig.whatsappNumber}?text=${encodeURIComponent(
     message
   )}`;
@@ -72,7 +77,7 @@ ${customer.dni}
 WhatsApp:
 ${customer.whatsapp}
 
-Direccion:
+Dirección:
 ${customer.address}
 
 Localidad / Ciudad:
@@ -81,7 +86,7 @@ ${customer.city}
 Provincia:
 ${customer.province}
 
-Codigo Postal:
+Código Postal:
 ${customer.zip}
 
 Correo electronico:
@@ -106,14 +111,11 @@ export function validateCartStock(
       return `${item.name} ya no esta disponible.`;
     }
 
-    const selectedVariant =
-      product.variants.find(
-        (variant) => variant.color === item.selectedColor
-      ) ?? product.variants[0];
-    const selectedSize = selectedVariant?.sizes.find(
-      (size) => size.size === item.size
-    );
-    const currentStock = selectedSize?.stock ?? 0;
+    const currentStock = getVariantSizeStock({
+      variants: product.variants,
+      color: item.selectedColor,
+      size: item.size,
+    });
 
     if (item.quantity > currentStock) {
       return `Stock insuficiente para ${getCartItemLabel(item)}. Disponible: ${currentStock}.`;

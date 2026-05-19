@@ -19,7 +19,6 @@ export type Product = {
   category: string;
   description: string;
   sku?: string;
-  minimum: number;
   details: string[];
   featured: boolean;
   images: string[];
@@ -28,11 +27,10 @@ export type Product = {
 };
 
 export type SupabaseProductRow = Partial<
-  Omit<Product, "variants" | "minimum" | "details" | "featured" | "images">
+  Omit<Product, "variants" | "details" | "featured" | "images">
 > & {
   id: number;
   variants?: unknown;
-  minimum?: number | null;
   details?: unknown;
   featured?: boolean | null;
   images?: unknown;

@@ -1,5 +1,6 @@
-import { fallbackProductImage } from "@/config/store";
+export { getProductImage } from "@/lib/productDisplay";
 import type { Product } from "@/types/product";
+import type { NewProductVariant } from "@/app/admin/adminTypes";
 
 export const currencyFormatter = new Intl.NumberFormat("es-AR", {
   style: "currency",
@@ -28,15 +29,6 @@ export function slugifyProductName(value: string) {
     .replace(/^-+|-+$/g, "");
 }
 
-export function getProductImage(product: Product) {
-  return (
-    product.images[0] ||
-    product.variants.find((variant) => variant.images.length > 0)
-      ?.images[0] ||
-    fallbackProductImage
-  );
-}
-
 export function getProductTotalStock(product: Product) {
   return product.variants.reduce(
     (total, variant) =>
@@ -56,4 +48,20 @@ export function getVariantStock(variant: {
     (total, sizeItem) => total + Number(sizeItem.stock || 0),
     0
   );
+}
+
+export function createEmptyProductVariant(
+  color = "Negro"
+): NewProductVariant {
+  return {
+    color,
+    hex: "#000000",
+    sizes: [
+      {
+        size: "S",
+        stock: "",
+      },
+    ],
+    images: [],
+  };
 }
