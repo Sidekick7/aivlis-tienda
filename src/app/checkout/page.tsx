@@ -15,7 +15,7 @@ import {
   createOrderTicket,
 } from "@/lib/orders";
 import { getProductsByIds } from "@/lib/products";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 const checkoutCustomerStorageKey = "checkout_customer";
 
@@ -44,10 +44,14 @@ export default function CheckoutPage() {
   const [notes, setNotes] = useState("");
   const [showError, setShowError] = useState(false);
   const [orderError, setOrderError] = useState("");
+  const [checkoutStockError, setCheckoutStockError] = useState("");
+  const [isCheckingCartStock, setIsCheckingCartStock] =
+    useState(false);
   const [createdOrderNumber, setCreatedOrderNumber] =
     useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [rememberCustomer, setRememberCustomer] = useState(false);
+  const isSubmittingRef = useRef(false);
 
   useEffect(() => {
 
@@ -93,6 +97,58 @@ export default function CheckoutPage() {
     (field) => !field.trim()
   );
   const hasNoProducts = isCartReady && cart.length === 0;
+  const visibleOrderError = checkoutStockError || orderError;
+
+  useEffect(() => {
+    let isCurrent = true;
+
+    if (!isCartReady || cart.length === 0) {
+      queueMicrotask(() => {
+        if (!isCurrent) return;
+
+        setCheckoutStockError("");
+        setIsCheckingCartStock(false);
+      });
+
+      return () => {
+        isCurrent = false;
+      };
+    }
+
+    queueMicrotask(() => {
+      if (!isCurrent) return;
+
+      setIsCheckingCartStock(true);
+      setCheckoutStockError("");
+    });
+
+    getProductsByIds(cart.map((item) => item.id))
+      .then((currentProducts) => {
+        if (!isCurrent) return;
+
+        setCheckoutStockError(
+          validateCartStock(cart, currentProducts) ?? ""
+        );
+      })
+      .catch((error) => {
+        if (!isCurrent) return;
+
+        setCheckoutStockError(
+          error instanceof Error
+            ? `No se pudo validar el stock: ${error.message}`
+            : "No se pudo validar el stock."
+        );
+      })
+      .finally(() => {
+        if (isCurrent) {
+          setIsCheckingCartStock(false);
+        }
+      });
+
+    return () => {
+      isCurrent = false;
+    };
+  }, [cart, isCartReady]);
 
   const syncSavedCustomer = () => {
     if (rememberCustomer) {
@@ -117,14 +173,17 @@ export default function CheckoutPage() {
   };
 
   const handleWhatsApp = async () => {
-    if (createdOrderNumber) return;
+    if (createdOrderNumber || isSubmittingRef.current) return;
 
     if (hasEmptyFields || hasNoProducts) {
       setShowError(true);
       return;
     }
 
+    if (checkoutStockError || isCheckingCartStock) return;
+
     setOrderError("");
+    isSubmittingRef.current = true;
     setIsSubmitting(true);
     syncSavedCustomer();
 
@@ -139,6 +198,7 @@ export default function CheckoutPage() {
 
       if (stockError) {
         setOrderError(stockError);
+        isSubmittingRef.current = false;
         setIsSubmitting(false);
         return;
       }
@@ -148,6 +208,7 @@ export default function CheckoutPage() {
           ? `No se pudo validar el stock: ${error.message}`
           : "No se pudo validar el stock."
       );
+      isSubmittingRef.current = false;
       setIsSubmitting(false);
       return;
     }
@@ -180,6 +241,7 @@ export default function CheckoutPage() {
           ? error.message
           : "No se pudo preparar el enlace de WhatsApp."
       );
+      isSubmittingRef.current = false;
       setIsSubmitting(false);
       return;
     }
@@ -203,6 +265,7 @@ export default function CheckoutPage() {
           : "No se pudo crear el ticket. Revisa Supabase."
       );
     } finally {
+      isSubmittingRef.current = false;
       setIsSubmitting(false);
     }
   };
@@ -432,10 +495,23 @@ export default function CheckoutPage() {
               </p>
             )}
 
-            {orderError && (
-              <p className="mt-4 text-red-500 text-sm">
-                {orderError}
+            {isCheckingCartStock && (
+              <p className="mt-4 text-zinc-500 text-sm">
+                Validando stock actual...
               </p>
+            )}
+
+            {visibleOrderError && (
+              <div className="mt-4 rounded-xl border border-red-500/30 bg-red-500/10 p-4 text-red-300 text-sm">
+                <p>{visibleOrderError}</p>
+
+                <Link
+                  href="/cart"
+                  className="mt-4 inline-flex h-10 items-center justify-center rounded-xl bg-white px-4 font-semibold text-black transition hover:opacity-90"
+                >
+                  Revisar carrito
+                </Link>
+              </div>
             )}
 
             {createdOrderNumber && (
@@ -459,6 +535,8 @@ export default function CheckoutPage() {
                 hasNoProducts ||
                 !isCartReady ||
                 isSubmitting ||
+                isCheckingCartStock ||
+                Boolean(checkoutStockError) ||
                 Boolean(createdOrderNumber)
               }
               className="mt-6 w-full bg-green-500 py-4 rounded-xl font-semibold hover:opacity-90 transition disabled:opacity-40 disabled:cursor-not-allowed"
@@ -467,6 +545,8 @@ export default function CheckoutPage() {
                 ? "Ticket creado"
                 : isSubmitting
                   ? "Creando ticket..."
+                  : isCheckingCartStock
+                    ? "Validando stock..."
                   : "Enviar pedido por WhatsApp"}
             </button>
           </div>

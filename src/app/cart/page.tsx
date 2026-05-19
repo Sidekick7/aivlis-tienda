@@ -2,10 +2,17 @@
 
 import { useCart } from "@/context/CartContext";
 import { fallbackProductImage } from "@/config/store";
-import { getCartTotal } from "@/lib/order";
+import {
+  getCartTotal,
+  validateCartStock,
+} from "@/lib/order";
+import { getProductsByIds } from "@/lib/products";
+import { getVariantSizeStock } from "@/lib/stock";
+import { useEffect, useMemo, useState } from "react";
 import { Trash2 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
+import type { Product } from "@/types/product";
 
 export default function CartPage() {
 
@@ -18,6 +25,71 @@ const {
 } = useCart();
 
   const total = getCartTotal(cart);
+  const [currentProducts, setCurrentProducts] = useState<Product[]>([]);
+  const [isCheckingStock, setIsCheckingStock] = useState(false);
+  const [stockError, setStockError] = useState("");
+  const currentProductsById = useMemo(
+    () =>
+      new Map(
+        currentProducts.map((product) => [
+          product.id,
+          product,
+        ])
+      ),
+    [currentProducts]
+  );
+  const isCheckoutBlocked = isCheckingStock || Boolean(stockError);
+
+  useEffect(() => {
+    let isCurrent = true;
+
+    if (!isCartReady || cart.length === 0) {
+      queueMicrotask(() => {
+        if (!isCurrent) return;
+
+        setCurrentProducts([]);
+        setStockError("");
+        setIsCheckingStock(false);
+      });
+
+      return () => {
+        isCurrent = false;
+      };
+    }
+
+    queueMicrotask(() => {
+      if (!isCurrent) return;
+
+      setIsCheckingStock(true);
+      setStockError("");
+    });
+
+    getProductsByIds(cart.map((item) => item.id))
+      .then((products) => {
+        if (!isCurrent) return;
+
+        setCurrentProducts(products);
+        setStockError(validateCartStock(cart, products) ?? "");
+      })
+      .catch((error) => {
+        if (!isCurrent) return;
+
+        setStockError(
+          error instanceof Error
+            ? `No se pudo validar el stock: ${error.message}`
+            : "No se pudo validar el stock."
+        );
+      })
+      .finally(() => {
+        if (isCurrent) {
+          setIsCheckingStock(false);
+        }
+      });
+
+    return () => {
+      isCurrent = false;
+    };
+  }, [cart, isCartReady]);
 
   return (
 
@@ -86,10 +158,23 @@ const {
 
         </div>        
 
-        {isCartReady && cart.map((item, index) => (
+        {isCartReady && cart.map((item) => {
+          const currentProduct = currentProductsById.get(item.id);
+          const stockLimit = getVariantSizeStock({
+            variants: currentProduct?.variants ?? item.variants,
+            color: item.selectedColor,
+            size: item.size,
+          });
+          const canIncrease =
+            !isCheckingStock &&
+            !stockError &&
+            stockLimit > 0 &&
+            item.quantity < stockLimit;
+
+          return (
 
           <div
-            key={index}
+            key={`${item.id}-${item.selectedColor}-${item.size}`}
             className="grid grid-cols-1 lg:grid-cols-[1.8fr_.5fr_.7fr_.7fr_.2fr] gap-6 items-center border-b border-zinc-800 py-6"
           >
 
@@ -164,12 +249,21 @@ const {
                         item.selectedColor
                       )
                     }
-                    className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-zinc-800 transition text-zinc-400 hover:text-white"
+                    disabled={!canIncrease}
+                    className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-zinc-800 transition text-zinc-400 hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
                 >
                     +
                 </button>
 
               </div>
+
+              {!canIncrease && (
+                <p className="mt-2 text-xs text-zinc-500">
+                  {stockLimit > 0
+                    ? "Stock maximo en carrito"
+                    : "Sin stock disponible"}
+                </p>
+              )}
 
             </div>
 
@@ -198,7 +292,8 @@ const {
          
           </div>
 
-        ))}
+          );
+        })}
 
         </div>
         {isCartReady && cart.length > 0 && (
@@ -233,11 +328,26 @@ const {
 
             </div>
 
+            {(isCheckingStock || stockError) && (
+              <p className="mb-4 rounded-xl border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-300">
+                {isCheckingStock
+                  ? "Validando stock actual..."
+                  : stockError}
+              </p>
+            )}
+
             <Link
                 href="/checkout"
-                className="w-full flex items-center justify-center bg-white text-black py-4 rounded-2xl font-semibold hover:opacity-90 transition"
+                aria-disabled={isCheckoutBlocked}
+                className={`w-full flex items-center justify-center py-4 rounded-2xl font-semibold transition ${
+                  isCheckoutBlocked
+                    ? "pointer-events-none bg-zinc-800 text-zinc-500"
+                    : "bg-white text-black hover:opacity-90"
+                }`}
             >
-                Finalizar compra
+                {isCheckingStock
+                  ? "Validando stock..."
+                  : "Finalizar compra"}
             </Link>
 
             </div>
