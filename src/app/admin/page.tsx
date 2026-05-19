@@ -51,6 +51,17 @@ const orderStatusClasses: Record<OrderStatus, string> = {
   cancelled: "bg-red-500/15 text-red-300 border-red-500/30",
 };
 
+function parseDetailsText(value: string) {
+  return value
+    .split("\n")
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
+function formatDetailsText(details: string[]) {
+  return details.join("\n");
+}
+
 function getVariantStock(variant: {
   sizes: { stock: string | number }[];
 }) {
@@ -78,8 +89,10 @@ const [isOrdersLoading, setIsOrdersLoading] = useState(false);
 const [orderError, setOrderError] = useState("");
 const [editingProduct, setEditingProduct] =
   useState<EditableProduct | null>(null);
+const [editingDetailsText, setEditingDetailsText] = useState("");
 const [category, setCategory] = useState(categories[0].value);
 const [description, setDescription] = useState("");
+const [detailsText, setDetailsText] = useState("");
 
 const [editingVariantIndex, setEditingVariantIndex] = useState(0);
 
@@ -213,11 +226,7 @@ const createProduct = async () => {
           0
         ),
 
-        details: [
-          "Algodón premium",
-          "Fit oversized",
-          "Industria argentina",
-        ],
+        details: parseDetailsText(detailsText),
 
         featured: false,
 
@@ -240,6 +249,7 @@ const createProduct = async () => {
     setSlug("");
     setPrice("");
     setDescription("");
+    setDetailsText("");
     setCategory(categories[0].value);
 
     setVariants([
@@ -352,6 +362,7 @@ const updateProduct = async () => {
 
       category: editingProduct.category,
       description: editingProduct.description,
+      details: parseDetailsText(editingDetailsText),
       stock: processedVariants.reduce(
         (total, variant) => total + variant.stock,
         0
@@ -848,6 +859,13 @@ if (!session) {
             className="min-h-[140px] p-4 rounded-xl bg-zinc-800 outline-none resize-none"
         />
 
+        <textarea
+            placeholder="Detalles del producto, uno por linea"
+            value={detailsText}
+            onChange={(e) => setDetailsText(e.target.value)}
+            className="min-h-[110px] p-4 rounded-xl bg-zinc-800 outline-none resize-none"
+        />
+
         <button
           onClick={createProduct}
           className="h-12 bg-white text-black rounded-xl font-semibold hover:opacity-90 transition cursor-pointer"
@@ -957,6 +975,13 @@ if (!session) {
                 })
             }
             className="min-h-[140px] p-4 rounded-xl bg-zinc-800 outline-none resize-none"
+        />
+
+        <textarea
+            value={editingDetailsText}
+            onChange={(e) => setEditingDetailsText(e.target.value)}
+            placeholder="Detalles del producto, uno por linea"
+            className="min-h-[110px] p-4 rounded-xl bg-zinc-800 outline-none resize-none"
         />
 
         <div className="flex flex-wrap gap-2">
@@ -1488,6 +1513,10 @@ if (!session) {
 
                     setEditingProduct(
                         JSON.parse(JSON.stringify(product))
+                    );
+
+                    setEditingDetailsText(
+                        formatDetailsText(product.details)
                     );
 
                     setEditingVariantIndex(0);

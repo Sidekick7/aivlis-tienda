@@ -354,16 +354,14 @@ export default function ProductInfo({ product }: Props) {
           <div className="mt-10 flex flex-col gap-3 text-sm text-zinc-400">
 
             <p>
-              ✓ Compra mínima: {product.minimum} unidades
-            </p>
-
-            <p>
               ✓ Envíos a todo el país
             </p>
 
-            <p>
-              ✓ Calidad premium
-            </p>
+            {product.details.map((detail) => (
+              <p key={detail}>
+                ✓ {detail}
+              </p>
+            ))}
 
           </div>
           <div className="mt-20 flex flex-col gap-2 text-sm text-zinc-500 uppercase tracking-wide">
