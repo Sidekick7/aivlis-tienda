@@ -36,6 +36,15 @@ const orderStatusClasses: Record<OrderStatus, string> = {
   cancelled: "bg-red-500/15 text-red-300 border-red-500/30",
 };
 
+const orderStatusButtonClasses: Record<OrderStatus, string> = {
+  pending_payment:
+    "border-yellow-500/30 bg-yellow-500/15 text-yellow-200 hover:bg-yellow-500/25",
+  confirmed:
+    "border-emerald-500/30 bg-emerald-500/15 text-emerald-200 hover:bg-emerald-500/25",
+  cancelled:
+    "border-red-500/30 bg-red-500/15 text-red-200 hover:bg-red-500/25",
+};
+
 export default function AdminOrdersSection({
   orders,
   isLoading,
@@ -229,10 +238,10 @@ export default function AdminOrdersSection({
                         type="button"
                         onClick={() => onStatusChange(order, status)}
                         disabled={order.status === status}
-                        className={`h-10 px-4 rounded-xl text-sm font-semibold transition cursor-pointer disabled:cursor-default ${
+                        className={`h-10 px-4 rounded-xl border text-sm font-semibold transition cursor-pointer disabled:cursor-default ${
                           order.status === status
-                            ? "bg-white text-black"
-                            : "bg-zinc-700 text-white hover:bg-zinc-600"
+                            ? "bg-white text-black border-white"
+                            : orderStatusButtonClasses[status]
                         }`}
                       >
                         {orderStatusLabels[status]}

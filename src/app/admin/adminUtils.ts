@@ -18,6 +18,16 @@ export function formatDetailsText(details: string[]) {
   return details.join("\n");
 }
 
+export function slugifyProductName(value: string) {
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
 export function getProductImage(product: Product) {
   return (
     product.images[0] ||

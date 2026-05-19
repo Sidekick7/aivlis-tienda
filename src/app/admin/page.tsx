@@ -12,6 +12,7 @@ import {
   formatDetailsText,
   getVariantStock,
   parseDetailsText,
+  slugifyProductName,
 } from "@/app/admin/adminUtils";
 import type {
   AdminSection,
@@ -35,6 +36,7 @@ const [activeSection, setActiveSection] =
 const [showCreate, setShowCreate] = useState(false);
 const [name, setName] = useState("");
 const [slug, setSlug] = useState("");
+const [isSlugEdited, setIsSlugEdited] = useState(false);
 const [price, setPrice] = useState("");
 const [products, setProducts] = useState<Product[]>([]);
 const [orders, setOrders] = useState<AdminOrder[]>([]);
@@ -200,6 +202,7 @@ const createProduct = async () => {
 
     setName("");
     setSlug("");
+    setIsSlugEdited(false);
     setPrice("");
     setDescription("");
     setDetailsText("");
@@ -591,7 +594,15 @@ if (!session) {
           type="text"
           placeholder="Nombre"
           value={name}
-          onChange={(e) => setName(e.target.value)}
+          onChange={(e) => {
+            const nextName = e.target.value;
+
+            setName(nextName);
+
+            if (!isSlugEdited) {
+              setSlug(slugifyProductName(nextName));
+            }
+          }}
           className="h-12 px-4 rounded-xl bg-zinc-800 outline-none"
         />
 
@@ -599,7 +610,10 @@ if (!session) {
           type="text"
           placeholder="Slug"
           value={slug}
-          onChange={(e) => setSlug(e.target.value)}
+          onChange={(e) => {
+            setIsSlugEdited(true);
+            setSlug(slugifyProductName(e.target.value));
+          }}
           className="h-12 px-4 rounded-xl bg-zinc-800 outline-none"
         />
 
