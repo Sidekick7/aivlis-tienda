@@ -3,87 +3,28 @@
 import Image from "next/image";
 import { type FormEvent, useEffect, useState } from "react";
 import { Search } from "lucide-react";
-import { categories, fallbackProductImage } from "@/config/store";
+import { categories } from "@/config/store";
 import { supabase } from "@/lib/supabase";
 import { getProducts } from "@/lib/products";
 import { getAdminOrders, updateOrderStatus } from "@/lib/orders";
 import AdminOrdersSection from "@/app/admin/AdminOrdersSection";
-import type { Product, ProductVariantSize } from "@/types/product";
+import {
+  currencyFormatter,
+  formatDetailsText,
+  getProductImage,
+  getProductTotalStock,
+  getVariantStock,
+  parseDetailsText,
+} from "@/app/admin/adminUtils";
+import type {
+  AdminSection,
+  EditableProduct,
+  NewProductVariant,
+  ProductFilter,
+} from "@/app/admin/adminTypes";
+import type { Product } from "@/types/product";
 import type { AdminOrder, OrderStatus } from "@/types/order";
 import type { Session } from "@supabase/supabase-js";
-
-
-type NewProductVariant = {
-  color: string;
-  hex: string;
-  sizes: {
-    size: string;
-    stock: string;
-  }[];
-  images: File[];
-};
-
-type EditableVariant = {
-  color: string;
-  hex: string;
-  sizes: ProductVariantSize[];
-  images: (string | File)[];
-};
-
-type EditableProduct = Omit<Product, "price" | "variants"> & {
-  price: number | string;
-  variants: EditableVariant[];
-};
-
-type AdminSection = "products" | "orders";
-type ProductFilter = "all" | "featured" | "in_stock" | "out_of_stock";
-
-const currencyFormatter = new Intl.NumberFormat("es-AR", {
-  style: "currency",
-  currency: "ARS",
-  maximumFractionDigits: 0,
-});
-
-function parseDetailsText(value: string) {
-  return value
-    .split("\n")
-    .map((item) => item.trim())
-    .filter(Boolean);
-}
-
-function formatDetailsText(details: string[]) {
-  return details.join("\n");
-}
-
-function getProductImage(product: Product) {
-  return (
-    product.images[0] ||
-    product.variants.find((variant) => variant.images.length > 0)
-      ?.images[0] ||
-    fallbackProductImage
-  );
-}
-
-function getProductTotalStock(product: Product) {
-  return product.variants.reduce(
-    (total, variant) =>
-      total +
-      variant.sizes.reduce(
-        (variantTotal, size) => variantTotal + size.stock,
-        0
-      ),
-    0
-  );
-}
-
-function getVariantStock(variant: {
-  sizes: { stock: string | number }[];
-}) {
-  return variant.sizes.reduce(
-    (total, sizeItem) => total + Number(sizeItem.stock || 0),
-    0
-  );
-}
 
 export default function AdminPage() {
 
