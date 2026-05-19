@@ -28,7 +28,7 @@ type SavedCheckoutCustomer = {
 };
 
 export default function CheckoutPage() {
-  const { cart } = useCart();
+  const { cart, clearCart } = useCart();
 
   const [name, setName] = useState("");
   const [dni, setDni] = useState("");
@@ -41,6 +41,8 @@ export default function CheckoutPage() {
   const [notes, setNotes] = useState("");
   const [showError, setShowError] = useState(false);
   const [orderError, setOrderError] = useState("");
+  const [createdOrderNumber, setCreatedOrderNumber] =
+    useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [rememberCustomer, setRememberCustomer] = useState(false);
 
@@ -112,6 +114,8 @@ export default function CheckoutPage() {
   };
 
   const handleWhatsApp = async () => {
+    if (createdOrderNumber) return;
+
     if (hasEmptyFields || hasNoProducts) {
       setShowError(true);
       return;
@@ -179,9 +183,13 @@ ${notes || "-"}`;
       });
 
       window.open(buildWhatsAppUrl(message), "_blank");
-    } catch {
+      setCreatedOrderNumber(orderNumber);
+      clearCart();
+    } catch (error) {
       setOrderError(
-        "No se pudo crear el ticket. Revisa que las tablas de pedidos existan en Supabase."
+        error instanceof Error
+          ? `No se pudo crear el ticket: ${error.message}`
+          : "No se pudo crear el ticket. Revisa Supabase."
       );
     } finally {
       setIsSubmitting(false);
@@ -413,14 +421,26 @@ ${notes || "-"}`;
               </p>
             )}
 
+            {createdOrderNumber && (
+              <div className="mt-4 rounded-xl border border-green-500/30 bg-green-500/10 p-4 text-green-300 text-sm">
+                Ticket {createdOrderNumber} creado. Ya abrimos WhatsApp para enviar el pedido.
+              </div>
+            )}
+
             <button
               onClick={handleWhatsApp}
-              disabled={hasNoProducts || isSubmitting}
+              disabled={
+                hasNoProducts ||
+                isSubmitting ||
+                Boolean(createdOrderNumber)
+              }
               className="mt-6 w-full bg-green-500 py-4 rounded-xl font-semibold hover:opacity-90 transition disabled:opacity-40 disabled:cursor-not-allowed"
             >
-              {isSubmitting
-                ? "Creando ticket..."
-                : "Enviar pedido por WhatsApp"}
+              {createdOrderNumber
+                ? "Ticket creado"
+                : isSubmitting
+                  ? "Creando ticket..."
+                  : "Enviar pedido por WhatsApp"}
             </button>
           </div>
         </div>

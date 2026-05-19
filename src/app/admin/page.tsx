@@ -5,7 +5,9 @@ import { type FormEvent, useEffect, useState } from "react";
 import { categories } from "@/config/store";
 import { supabase } from "@/lib/supabase";
 import { getProducts } from "@/lib/products";
+import { getAdminOrders, updateOrderStatus } from "@/lib/orders";
 import type { Product, ProductVariantSize } from "@/types/product";
+import type { AdminOrder, OrderStatus } from "@/types/order";
 import type { Session } from "@supabase/supabase-js";
 
 
@@ -31,6 +33,24 @@ type EditableProduct = Omit<Product, "price" | "variants"> & {
   variants: EditableVariant[];
 };
 
+const currencyFormatter = new Intl.NumberFormat("es-AR", {
+  style: "currency",
+  currency: "ARS",
+  maximumFractionDigits: 0,
+});
+
+const orderStatusLabels: Record<OrderStatus, string> = {
+  pending_payment: "Pendiente de pago",
+  confirmed: "Confirmado",
+  cancelled: "Cancelado",
+};
+
+const orderStatusClasses: Record<OrderStatus, string> = {
+  pending_payment: "bg-yellow-500/15 text-yellow-300 border-yellow-500/30",
+  confirmed: "bg-emerald-500/15 text-emerald-300 border-emerald-500/30",
+  cancelled: "bg-red-500/15 text-red-300 border-red-500/30",
+};
+
 function getVariantStock(variant: {
   sizes: { stock: string | number }[];
 }) {
@@ -53,6 +73,9 @@ const [name, setName] = useState("");
 const [slug, setSlug] = useState("");
 const [price, setPrice] = useState("");
 const [products, setProducts] = useState<Product[]>([]);
+const [orders, setOrders] = useState<AdminOrder[]>([]);
+const [isOrdersLoading, setIsOrdersLoading] = useState(false);
+const [orderError, setOrderError] = useState("");
 const [editingProduct, setEditingProduct] =
   useState<EditableProduct | null>(null);
 const [category, setCategory] = useState(categories[0].value);
@@ -100,11 +123,33 @@ const refreshProducts = async () => {
   setProducts(products);
 };
 
+const refreshOrders = async () => {
+  setIsOrdersLoading(true);
+  setOrderError("");
+
+  try {
+    const orders = await getAdminOrders();
+
+    setOrders(orders);
+  } catch (error) {
+    setOrderError(
+      error instanceof Error
+        ? error.message
+        : "No se pudieron cargar los pedidos"
+    );
+  } finally {
+    setIsOrdersLoading(false);
+  }
+};
+
 useEffect(() => {
 
-  getProducts().then(setProducts);
+  if (!session) return;
 
-}, []);
+  getProducts().then(setProducts);
+  Promise.resolve().then(refreshOrders);
+
+}, [session]);
 
 const createProduct = async () => {
 
@@ -354,6 +399,27 @@ const handleLogin = async (event: FormEvent<HTMLFormElement>) => {
 const handleLogout = async () => {
   await supabase.auth.signOut();
   setSession(null);
+  setOrders([]);
+  setProducts([]);
+};
+
+const handleOrderStatusChange = async (
+  order: AdminOrder,
+  status: OrderStatus
+) => {
+  try {
+    await updateOrderStatus(order, status);
+    await Promise.all([
+      refreshOrders(),
+      refreshProducts(),
+    ]);
+  } catch (error) {
+    alert(
+      error instanceof Error
+        ? error.message
+        : "No se pudo actualizar el pedido"
+    );
+  }
 };
 
 const selectedVariant = variants[selectedVariantIndex];
@@ -443,7 +509,7 @@ if (!session) {
         </button>
       </div>
       
-      <div className="grid grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
 
         <div className="bg-zinc-900 rounded-2xl p-6">
             <h2 className="text-2xl font-semibold">
@@ -461,6 +527,22 @@ if (!session) {
             </button>
             
             
+        </div>
+
+        <div className="bg-zinc-900 rounded-2xl p-6">
+            <h2 className="text-2xl font-semibold">
+            Pedidos
+            </h2>
+
+            <p className="text-zinc-400 mt-2">
+            {orders.length} tickets cargados
+            </p>
+            <button
+                onClick={refreshOrders}
+                className="mt-6 bg-zinc-800 text-white px-5 h-11 rounded-xl font-semibold hover:bg-zinc-700 transition cursor-pointer"
+            >
+                Actualizar
+            </button>
         </div>
 
       </div>
@@ -1183,6 +1265,165 @@ if (!session) {
   </div>
 
 )}
+
+<section className="mt-10 bg-zinc-900 rounded-3xl p-6">
+
+  <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between mb-6">
+    <div>
+      <h2 className="text-3xl font-bold">
+        Pedidos
+      </h2>
+
+      <p className="text-zinc-400 mt-2">
+        Tickets generados antes del pago externo.
+      </p>
+    </div>
+
+    <button
+      type="button"
+      onClick={refreshOrders}
+      className="h-11 px-5 rounded-xl bg-zinc-800 text-white font-semibold hover:bg-zinc-700 transition cursor-pointer"
+    >
+      Actualizar pedidos
+    </button>
+  </div>
+
+  {orderError && (
+    <p className="mb-4 rounded-xl border border-red-500/30 bg-red-500/10 p-4 text-red-300">
+      {orderError}
+    </p>
+  )}
+
+  {isOrdersLoading && (
+    <p className="text-zinc-400">
+      Cargando pedidos...
+    </p>
+  )}
+
+  {!isOrdersLoading && orders.length === 0 && (
+    <p className="text-zinc-400">
+      Todavia no hay tickets cargados.
+    </p>
+  )}
+
+  <div className="flex flex-col gap-4">
+
+    {orders.map((order) => (
+
+      <article
+        key={order.id}
+        className="bg-zinc-800 rounded-2xl p-5"
+      >
+
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+
+          <div>
+            <div className="flex flex-wrap items-center gap-3">
+              <h3 className="text-xl font-semibold">
+                {order.orderNumber}
+              </h3>
+
+              <span
+                className={`text-xs px-3 py-1 rounded-full border ${orderStatusClasses[order.status]}`}
+              >
+                {orderStatusLabels[order.status]}
+              </span>
+            </div>
+
+            <p className="text-zinc-400 mt-2">
+              {new Date(order.createdAt).toLocaleString("es-AR")} · {currencyFormatter.format(order.total)}
+            </p>
+
+            <p className="text-zinc-300 mt-4">
+              {order.customerName} · DNI {order.customerDni}
+            </p>
+
+            <p className="text-zinc-400 text-sm mt-1">
+              {order.customerAddress}, {order.customerCity}, {order.customerProvince} ({order.customerZip})
+            </p>
+
+            <p className="text-zinc-400 text-sm mt-1">
+              WhatsApp: {order.customerWhatsapp}
+              {order.customerEmail ? ` · Email: ${order.customerEmail}` : ""}
+            </p>
+
+            {order.notes && (
+              <p className="text-zinc-300 text-sm mt-3">
+                Nota: {order.notes}
+              </p>
+            )}
+          </div>
+
+          <div className="flex flex-wrap gap-2">
+            {(["pending_payment", "confirmed", "cancelled"] as OrderStatus[]).map(
+              (status) => (
+                <button
+                  key={status}
+                  type="button"
+                  onClick={() => handleOrderStatusChange(order, status)}
+                  disabled={order.status === status}
+                  className={`h-10 px-4 rounded-xl text-sm font-semibold transition cursor-pointer disabled:cursor-default ${
+                    order.status === status
+                      ? "bg-white text-black"
+                      : "bg-zinc-700 text-white hover:bg-zinc-600"
+                  }`}
+                >
+                  {orderStatusLabels[status]}
+                </button>
+              )
+            )}
+          </div>
+
+        </div>
+
+        <div className="mt-5 grid gap-3">
+
+          {order.items.map((item) => (
+
+            <div
+              key={item.id}
+              className="flex items-center justify-between gap-4 border-t border-zinc-700 pt-3"
+            >
+
+              <div className="flex items-center gap-3 min-w-0">
+                {item.imageUrl && (
+                  <Image
+                    src={item.imageUrl}
+                    alt={item.productName}
+                    width={56}
+                    height={56}
+                    className="h-14 w-14 rounded-xl object-cover"
+                  />
+                )}
+
+                <div className="min-w-0">
+                  <p className="font-medium truncate">
+                    {item.productName}
+                  </p>
+
+                  <p className="text-zinc-400 text-sm">
+                    {item.variantColor || "Sin color"} · Talle {item.size || "-"} · x{item.quantity}
+                  </p>
+                </div>
+              </div>
+
+              <p className="text-zinc-300 font-semibold shrink-0">
+                {currencyFormatter.format(item.subtotal)}
+              </p>
+
+            </div>
+
+          ))}
+
+        </div>
+
+      </article>
+
+    ))}
+
+  </div>
+
+</section>
 
 <div className="mt-10 bg-zinc-900 rounded-3xl p-6">
 

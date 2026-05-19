@@ -1,12 +1,11 @@
 "use client";
 
 import Image from "next/image";
+import Link from "next/link";
 import { fallbackProductImage } from "@/config/store";
 import { Trash2 } from "lucide-react";
 import type { CartItem } from "@/context/CartContext";
 import {
-  buildWhatsAppUrl,
-  formatCartItemsForWhatsApp,
   getCartItemLabel,
   getCartTotal,
 } from "@/lib/order";
@@ -27,18 +26,6 @@ export default function Cart({
   onClose,
 }: Props) {
   const total = getCartTotal(cart);
-
-  const sendWhatsApp = () => {
-    if (cart.length === 0) return;
-
-    const message = `Hola! Quiero hacer este pedido:
-
-${formatCartItemsForWhatsApp(cart)}
-
-TOTAL: $${total}`;
-
-    window.open(buildWhatsAppUrl(message), "_blank");
-  };
 
   return (
     <div className="w-[330px] bg-[#111] border border-zinc-800 rounded-2xl p-6 shadow-2xl flex flex-col">
@@ -105,13 +92,18 @@ TOTAL: $${total}`;
         </p>
       </div>
 
-      <button
-        onClick={sendWhatsApp}
-        disabled={cart.length === 0}
-        className="w-full mt-5 bg-green-500 py-3 rounded-xl font-bold hover:opacity-90 transition disabled:opacity-40 disabled:cursor-not-allowed"
+      <Link
+        href="/cart"
+        onClick={onClose}
+        aria-disabled={cart.length === 0}
+        className={`w-full mt-5 text-center py-3 rounded-xl font-bold transition ${
+          cart.length === 0
+            ? "bg-zinc-700 text-zinc-400 pointer-events-none"
+            : "bg-white text-black hover:opacity-90"
+        }`}
       >
-        Enviar por WhatsApp
-      </button>
+        Ir al carrito
+      </Link>
     </div>
   );
 }

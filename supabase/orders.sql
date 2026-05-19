@@ -46,19 +46,25 @@ alter table public.order_items enable row level security;
 drop policy if exists "Allow anonymous order creation"
   on public.orders;
 
-create policy "Allow anonymous order creation"
+drop policy if exists "Allow public order creation"
+  on public.orders;
+
+create policy "Allow public order creation"
   on public.orders
   for insert
-  to anon
+  to anon, authenticated
   with check (true);
 
 drop policy if exists "Allow anonymous order item creation"
   on public.order_items;
 
-create policy "Allow anonymous order item creation"
+drop policy if exists "Allow public order item creation"
+  on public.order_items;
+
+create policy "Allow public order item creation"
   on public.order_items
   for insert
-  to anon
+  to anon, authenticated
   with check (true);
 
 -- No SELECT policy is intentionally created here.

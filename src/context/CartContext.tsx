@@ -50,6 +50,7 @@ type CartContextType = {
     size?: string,
     color?: string
   ) => void;
+  clearCart: () => void;
 
   isCartOpen: boolean;
   setIsCartOpen: (value: boolean) => void;
@@ -65,6 +66,7 @@ const fallbackCartContext: CartContextType = {
   removeFromCart: () => {},
   increaseQuantity: () => {},
   deleteItem: () => {},
+  clearCart: () => {},
   isCartOpen: false,
   setIsCartOpen: () => {},
 };
@@ -252,6 +254,11 @@ const deleteItem = (
 
 };
 
+const clearCart = () => {
+  setCart([]);
+  setIsCartOpen(false);
+};
+
   return (
     <CartContext.Provider
       value={{
@@ -260,6 +267,7 @@ const deleteItem = (
         removeFromCart,
         increaseQuantity,
         deleteItem,
+        clearCart,
         isCartOpen,
         setIsCartOpen,
       }}
