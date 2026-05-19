@@ -37,11 +37,6 @@ export const editorialImages = [
 
 export const fallbackProductImage = "/window.svg";
 
-export const productBenefits = [
-  "Envios a todo el pais",
-  "Calidad premium",
-];
-
 export const provinces = [
   "Buenos Aires",
   "Ciudad Autonoma de Buenos Aires",

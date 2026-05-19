@@ -2,9 +2,10 @@
 
 import { useCart } from "@/context/CartContext";
 import { provinces } from "@/config/store";
+import Link from "next/link";
 import {
   buildWhatsAppUrl,
-  formatCartItemsForWhatsApp,
+  buildOrderWhatsAppMessage,
   getCartItemLabel,
   getCartTotal,
 } from "@/lib/order";
@@ -126,58 +127,29 @@ export default function CheckoutPage() {
     syncSavedCustomer();
 
     const orderNumber = createOrderNumber();
-    const message = `Hola! Quiero realizar este pedido:
-
-Ticket: ${orderNumber}
-
-${formatCartItemsForWhatsApp(cart)}
-
-TOTAL: $${total}
-
-DATOS DEL CLIENTE
-
-Nombre y apellido:
-${name}
-
-DNI o CUIT:
-${dni}
-
-WhatsApp:
-${whatsapp}
-
-Direccion:
-${address}
-
-Localidad / Ciudad:
-${city}
-
-Provincia:
-${province}
-
-Codigo Postal:
-${zip}
-
-Correo electronico:
-${email || "-"}
-
-Notas adicionales:
-${notes || "-"}`;
+    const customer = {
+      name,
+      dni,
+      whatsapp,
+      address,
+      city,
+      province,
+      zip,
+      email,
+      notes,
+    };
+    const message = buildOrderWhatsAppMessage({
+      orderNumber,
+      cart,
+      customer,
+      total,
+    });
 
     try {
       await createOrderTicket({
         orderNumber,
         cart,
-        customer: {
-          name,
-          dni,
-          whatsapp,
-          address,
-          city,
-          province,
-          zip,
-          email,
-          notes,
-        },
+        customer,
         total,
         whatsappMessage: message,
       });
@@ -423,7 +395,16 @@ ${notes || "-"}`;
 
             {createdOrderNumber && (
               <div className="mt-4 rounded-xl border border-green-500/30 bg-green-500/10 p-4 text-green-300 text-sm">
-                Ticket {createdOrderNumber} creado. Ya abrimos WhatsApp para enviar el pedido.
+                <p>
+                  Ticket {createdOrderNumber} creado. Ya abrimos WhatsApp para enviar el pedido.
+                </p>
+
+                <Link
+                  href="/"
+                  className="mt-4 inline-flex h-11 items-center justify-center rounded-xl bg-white px-5 font-semibold text-black transition hover:opacity-90"
+                >
+                  Seguir comprando
+                </Link>
               </div>
             )}
 
