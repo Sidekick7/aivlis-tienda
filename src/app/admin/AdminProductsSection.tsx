@@ -12,6 +12,8 @@ import type { ProductFilter } from "@/app/admin/adminTypes";
 import type { StoreCategory } from "@/types/category";
 import type { Product } from "@/types/product";
 
+const PRODUCTS_PER_PAGE = 12;
+
 type Props = {
   products: Product[];
   categories: StoreCategory[];
@@ -41,6 +43,7 @@ export default function AdminProductsSection({
     useState<ProductFilter>("all");
   const [productCategoryFilter, setProductCategoryFilter] =
     useState("all");
+  const [productPage, setProductPage] = useState(1);
   const getCategoryLabel = (categoryValue: string) =>
     categories.find(
       (categoryOption) => categoryOption.value === categoryValue
@@ -77,6 +80,18 @@ export default function AdminProductsSection({
 
     return true;
   });
+  const totalProductPages = Math.max(
+    1,
+    Math.ceil(visibleProducts.length / PRODUCTS_PER_PAGE)
+  );
+  const currentProductPage = Math.min(
+    productPage,
+    totalProductPages
+  );
+  const paginatedProducts = visibleProducts.slice(
+    (currentProductPage - 1) * PRODUCTS_PER_PAGE,
+    currentProductPage * PRODUCTS_PER_PAGE
+  );
 
   return (
     <div className="mt-10 bg-zinc-900 rounded-3xl p-6">
@@ -102,7 +117,10 @@ export default function AdminProductsSection({
               type="search"
               placeholder="Buscar por nombre, slug, categoria o SKU"
               value={productSearch}
-              onChange={(event) => setProductSearch(event.target.value)}
+              onChange={(event) => {
+                setProductSearch(event.target.value);
+                setProductPage(1);
+              }}
               className="h-12 w-full rounded-xl border border-zinc-800 bg-zinc-950 pl-11 pr-4 outline-none transition focus:border-zinc-500"
             />
           </div>
@@ -131,6 +149,7 @@ export default function AdminProductsSection({
             type="button"
             onClick={() => {
               setProductFilter(value);
+              setProductPage(1);
 
               if (value === "all") {
                 setProductCategoryFilter("all");
@@ -155,6 +174,7 @@ export default function AdminProductsSection({
             onClick={() => {
               setProductCategoryFilter(categoryOption.value);
               setProductFilter("all");
+              setProductPage(1);
             }}
             className={`h-10 rounded-xl px-4 text-sm font-semibold transition cursor-pointer ${
               productCategoryFilter === categoryOption.value
@@ -173,132 +193,152 @@ export default function AdminProductsSection({
         </div>
       )}
 
-      <div className="flex flex-col gap-4">
-        {visibleProducts.map((product) => {
+      <div className="flex flex-col gap-3">
+        {paginatedProducts.map((product) => {
           const isSavingProduct =
             savingProductAction?.id === product.id;
+          const totalStock = getProductTotalStock(product);
 
           return (
             <div
               key={product.id}
-              className="grid gap-4 rounded-2xl bg-zinc-800 p-4 lg:grid-cols-[minmax(260px,1fr)_130px_120px_130px_220px] lg:items-center"
+              className="grid gap-3 rounded-2xl bg-zinc-800 p-3 xl:grid-cols-[minmax(340px,1fr)_260px] xl:items-center"
             >
-            <div className="flex items-center gap-4 min-w-0">
+            <div className="flex items-center gap-3 min-w-0">
               <Image
                 src={getProductImage(product)}
                 alt={product.name}
-                width={72}
-                height={72}
-                className="h-[72px] w-[72px] rounded-xl object-cover bg-zinc-900"
+                width={60}
+                height={60}
+                className="h-[60px] w-[60px] shrink-0 rounded-xl object-cover bg-zinc-900"
               />
 
-              <div className="min-w-0">
-                <h3 className="truncate text-xl font-semibold">
-                  {product.name}
-                </h3>
+              <div className="min-w-0 flex-1">
+                <div className="flex flex-wrap items-center gap-2">
+                  <h3 className="max-w-full truncate text-lg font-semibold">
+                    {product.name}
+                  </h3>
 
-                <p className="mt-1 truncate text-sm text-zinc-500">
+                  <button
+                    type="button"
+                    onClick={() => onToggleActive(product)}
+                    disabled={isSavingProduct}
+                    className={`rounded-full px-3 py-1 text-xs font-semibold transition cursor-pointer disabled:cursor-not-allowed disabled:opacity-60 ${
+                    product.active
+                      ? "bg-green-500/15 text-green-200"
+                      : "bg-zinc-700 text-zinc-300"
+                  }`}>
+                    {isSavingProduct &&
+                    savingProductAction.action === "active"
+                      ? "Guardando..."
+                      : product.active
+                        ? "Publicado"
+                        : "Oculto"}
+                  </button>
+                </div>
+
+                <p className="mt-1 truncate text-xs text-zinc-500">
                   /product/{product.slug}
                 </p>
 
-                <p className="mt-1 text-sm text-zinc-400">
-                  {product.variants.length} colores
-                </p>
+                <div className="mt-2 flex flex-wrap gap-2 text-sm">
+                  <span className="rounded-lg bg-zinc-900 px-3 py-1.5 font-semibold text-zinc-100">
+                    {currencyFormatter.format(product.price)}
+                  </span>
+
+                  <span className="rounded-lg bg-zinc-900 px-3 py-1.5 text-zinc-200">
+                    Stock {totalStock}
+                  </span>
+
+                  <span className="rounded-lg bg-zinc-900 px-3 py-1.5 text-zinc-200">
+                    {getCategoryLabel(product.category)}
+                  </span>
+
+                  <span className="rounded-lg bg-zinc-900 px-3 py-1.5 text-zinc-300">
+                    {product.variants.length} colores
+                  </span>
+                </div>
               </div>
             </div>
 
-            <div>
-              <p className="text-xs uppercase text-zinc-500">
-                Precio
-              </p>
-
-              <p className="mt-1 font-semibold">
-                {currencyFormatter.format(product.price)}
-              </p>
-            </div>
-
-            <div>
-              <p className="text-xs uppercase text-zinc-500">
-                Stock
-              </p>
-
-              <p className="mt-1 font-semibold">
-                {getProductTotalStock(product)}
-              </p>
-            </div>
-
-            <div>
-              <p className="text-xs uppercase text-zinc-500">
-                Categoria
-              </p>
-
-              <p className="mt-1 capitalize text-zinc-300">
-                {getCategoryLabel(product.category)}
-              </p>
-
-              <p className="mt-1 text-xs text-zinc-500">
-                {product.active ? "Publicado" : "Oculto"}
-              </p>
-            </div>
-
-            <div className="flex flex-wrap items-center gap-3 lg:justify-end">
+            <div className="grid w-fit grid-cols-2 gap-2 xl:ml-auto">
               <button
-                onClick={() => onToggleActive(product)}
+                onClick={() => onEdit(product)}
                 disabled={isSavingProduct}
-                className={`px-4 h-10 rounded-xl font-medium transition cursor-pointer disabled:cursor-not-allowed disabled:opacity-60 ${
-                  product.active
-                    ? "bg-green-600 text-white"
-                    : "bg-zinc-700 text-white"
-                }`}
+                className="h-10 min-w-28 rounded-lg bg-white px-4 text-sm font-semibold text-black transition hover:opacity-90 cursor-pointer disabled:cursor-not-allowed disabled:opacity-60"
               >
-                {isSavingProduct &&
-                savingProductAction.action === "active"
-                  ? "Guardando..."
-                  : product.active
-                    ? "Publicado"
-                    : "Oculto"}
+                Editar
               </button>
 
-              <button
-                onClick={() => onToggleFeatured(product)}
-                disabled={isSavingProduct}
-                className={`px-4 h-10 rounded-xl font-medium transition cursor-pointer disabled:cursor-not-allowed disabled:opacity-60 ${
-                  product.featured
-                    ? "bg-white text-black"
-                    : "bg-zinc-700 text-white"
-                }`}
-              >
-                {isSavingProduct &&
-                savingProductAction.action === "featured"
-                  ? "Guardando..."
-                  : product.featured
-                    ? "Destacado"
-                    : "No destacado"}
-              </button>
+                <button
+                  onClick={() => onToggleFeatured(product)}
+                  disabled={isSavingProduct}
+                  className={`h-10 min-w-28 rounded-lg px-4 text-sm font-semibold transition cursor-pointer disabled:cursor-not-allowed disabled:opacity-60 ${
+                    product.featured
+                      ? "bg-white text-black"
+                      : "bg-zinc-700 text-white"
+                  }`}
+                >
+                  {isSavingProduct &&
+                  savingProductAction.action === "featured"
+                    ? "Guardando..."
+                    : product.featured
+                      ? "Destacado"
+                      : "Normal"}
+                </button>
 
               <button
                 onClick={() => onDelete(product.id)}
                 disabled={isSavingProduct}
-                className="text-red-500 hover:text-red-400 transition cursor-pointer disabled:cursor-not-allowed disabled:opacity-60"
+                className="col-span-2 h-10 min-w-28 justify-self-end rounded-lg border border-red-500/30 px-4 text-sm font-semibold text-red-300 transition hover:bg-red-500/15 cursor-pointer disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {isSavingProduct &&
                 savingProductAction.action === "delete"
                   ? "Eliminando..."
                   : "Eliminar"}
               </button>
-
-              <button
-                onClick={() => onEdit(product)}
-                disabled={isSavingProduct}
-                className="text-blue-500 hover:text-blue-400 transition cursor-pointer disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                Editar
-              </button>
             </div>
           </div>
           );
         })}
       </div>
+
+      {visibleProducts.length > PRODUCTS_PER_PAGE && (
+        <div className="mt-6 flex flex-col gap-3 border-t border-zinc-800 pt-4 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-sm text-zinc-400">
+            Pagina {currentProductPage} de {totalProductPages} - Mostrando{" "}
+            {paginatedProducts.length} de {visibleProducts.length}
+          </p>
+
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={() =>
+                setProductPage((currentPage) =>
+                  Math.max(1, currentPage - 1)
+                )
+              }
+              disabled={currentProductPage === 1}
+              className="h-10 rounded-xl bg-zinc-800 px-4 text-sm font-semibold text-white transition hover:bg-zinc-700 cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              Anterior
+            </button>
+
+            <button
+              type="button"
+              onClick={() =>
+                setProductPage((currentPage) =>
+                  Math.min(totalProductPages, currentPage + 1)
+                )
+              }
+              disabled={currentProductPage === totalProductPages}
+              className="h-10 rounded-xl bg-zinc-800 px-4 text-sm font-semibold text-white transition hover:bg-zinc-700 cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              Siguiente
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -141,64 +141,92 @@ export default function AdminCategoriesSection({
           return (
             <div
               key={category.id ?? category.value}
-              className="grid gap-3 rounded-2xl bg-zinc-800 p-4 lg:grid-cols-[1fr_1fr_110px_110px_220px] lg:items-center"
+              className="grid gap-4 rounded-2xl bg-zinc-800 p-4 xl:grid-cols-[minmax(320px,auto)_220px] xl:items-center xl:justify-between"
             >
-              <input
-                type="text"
-                value={draft.label}
-                disabled={!canMutate || isSaving}
-                onChange={(event) =>
-                  updateDraft(category, {
-                    label: event.target.value,
-                  })
-                }
-                className="h-11 rounded-xl bg-zinc-950 px-4 outline-none disabled:opacity-60"
-              />
+              <div className="grid gap-3">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+                  <label className="grid gap-1 sm:w-72">
+                    <span className="text-xs font-semibold uppercase text-zinc-500">
+                      Nombre visible
+                    </span>
 
-              <input
-                type="text"
-                value={draft.value}
-                disabled={!canMutate || isSaving}
-                onChange={(event) =>
-                  updateDraft(category, {
-                    value: slugifyCategoryValue(event.target.value),
-                  })
-                }
-                className="h-11 rounded-xl bg-zinc-950 px-4 outline-none disabled:opacity-60"
-              />
+                    <input
+                      type="text"
+                      value={draft.label}
+                      disabled={!canMutate || isSaving}
+                      onChange={(event) =>
+                        updateDraft(category, {
+                          label: event.target.value,
+                        })
+                      }
+                      className="h-11 rounded-xl bg-zinc-950 px-4 text-lg font-semibold outline-none disabled:opacity-60"
+                    />
+                  </label>
 
-              <input
-                type="number"
-                value={draft.sortOrder}
-                disabled={!canMutate || isSaving}
-                onChange={(event) =>
-                  updateDraft(category, {
-                    sortOrder: Number(event.target.value),
-                  })
-                }
-                className="h-11 rounded-xl bg-zinc-950 px-4 outline-none disabled:opacity-60"
-              />
+                  <div className="flex h-11 items-center rounded-xl bg-zinc-900 px-4 text-sm text-zinc-300">
+                    {productCount} productos
+                  </div>
+                </div>
 
-              <label className="flex items-center gap-2 text-sm text-zinc-300">
-                <input
-                  type="checkbox"
-                  checked={draft.active}
-                  disabled={!canMutate || isSaving}
-                  onChange={(event) =>
-                    updateDraft(category, {
-                      active: event.target.checked,
-                    })
-                  }
-                  className="h-4 w-4 accent-white"
-                />
-                Activa
-              </label>
+                <div className="grid gap-4 md:grid-cols-[260px_auto] md:items-end">
+                  <label className="grid gap-1">
+                    <span className="text-xs font-semibold uppercase text-zinc-500">
+                      Slug
+                    </span>
 
-              <div className="flex flex-wrap items-center gap-3 lg:justify-end">
-                <span className="text-sm text-zinc-500">
-                  {productCount} productos
-                </span>
+                    <input
+                      type="text"
+                      value={draft.value}
+                      disabled={!canMutate || isSaving}
+                      onChange={(event) =>
+                        updateDraft(category, {
+                          value: slugifyCategoryValue(event.target.value),
+                        })
+                      }
+                      className="h-10 rounded-xl bg-zinc-950 px-4 text-sm outline-none disabled:opacity-60"
+                    />
+                  </label>
 
+                  <div className="flex flex-wrap items-end gap-8">
+                    <label className="grid w-24 gap-1">
+                      <span className="text-xs font-semibold uppercase text-zinc-500">
+                        Orden
+                      </span>
+
+                      <input
+                        type="text"
+                        inputMode="numeric"
+                        value={draft.sortOrder}
+                        disabled={!canMutate || isSaving}
+                        onChange={(event) =>
+                          updateDraft(category, {
+                            sortOrder: Number(event.target.value),
+                          })
+                        }
+                        className="h-10 rounded-xl bg-zinc-950 px-3 text-sm outline-none disabled:opacity-60"
+                      />
+                    </label>
+
+                    <label className="flex h-10 w-fit items-center gap-2 rounded-xl border border-zinc-700 bg-zinc-900 px-4 text-sm text-zinc-300">
+                      <input
+                        type="checkbox"
+                        checked={draft.active}
+                        disabled={!canMutate || isSaving}
+                        onChange={(event) =>
+                          updateDraft(category, {
+                            active: event.target.checked,
+                          })
+                        }
+                        className="h-4 w-4 accent-white"
+                      />
+                      Activa
+                    </label>
+                  </div>
+
+                </div>
+              </div>
+
+              <div className="flex flex-wrap gap-2 xl:justify-end">
                 <button
                   type="button"
                   disabled={!canMutate || isSaving}
@@ -210,7 +238,7 @@ export default function AdminCategoriesSection({
                       id: category.id,
                     });
                   }}
-                  className="text-blue-400 transition hover:text-blue-300 disabled:cursor-not-allowed disabled:opacity-40"
+                  className="h-10 rounded-lg bg-white px-4 text-sm font-semibold text-black transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
                 >
                   Guardar
                 </button>
@@ -226,9 +254,9 @@ export default function AdminCategoriesSection({
                       id: category.id,
                     });
                   }}
-                  className="text-red-400 transition hover:text-red-300 disabled:cursor-not-allowed disabled:opacity-40"
+                  className="h-10 rounded-lg border border-red-500/30 px-4 text-sm font-semibold text-red-300 transition hover:bg-red-500/15 disabled:cursor-not-allowed disabled:opacity-40"
                 >
-                  Eliminar
+                  {productCount > 0 ? "Con productos" : "Eliminar"}
                 </button>
               </div>
             </div>
