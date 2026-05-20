@@ -145,11 +145,11 @@ function ShopPageContent() {
             </div>
           </div>
 
-          <div className="mb-10 flex flex-wrap gap-2">
+          <div className="-mx-6 mb-8 flex gap-2 overflow-x-auto px-6 pb-2 md:mx-0 md:mb-10 md:flex-wrap md:overflow-visible md:px-0 md:pb-0">
             <button
               type="button"
               onClick={() => updateCategory("all")}
-              className={`h-10 rounded-full px-4 text-sm font-semibold transition ${
+              className={`h-10 shrink-0 rounded-full px-4 text-sm font-semibold transition ${
                 categoryFilter === "all"
                   ? "bg-black text-white"
                   : "bg-white text-zinc-700 hover:bg-zinc-200"
@@ -161,7 +161,7 @@ function ShopPageContent() {
             <button
               type="button"
               onClick={() => updateCategory("featured")}
-              className={`h-10 rounded-full px-4 text-sm font-semibold transition ${
+              className={`h-10 shrink-0 rounded-full px-4 text-sm font-semibold transition ${
                 categoryFilter === "featured"
                   ? "bg-black text-white"
                   : "bg-white text-zinc-700 hover:bg-zinc-200"
@@ -175,7 +175,7 @@ function ShopPageContent() {
                 key={category.value}
                 type="button"
                 onClick={() => updateCategory(category.value)}
-                className={`h-10 rounded-full px-4 text-sm font-semibold transition ${
+                className={`h-10 shrink-0 rounded-full px-4 text-sm font-semibold transition ${
                   categoryFilter === category.value
                     ? "bg-black text-white"
                     : "bg-white text-zinc-700 hover:bg-zinc-200"
@@ -207,25 +207,38 @@ function ShopPageContent() {
             {!isProductsLoading &&
               !productsError &&
               visibleProducts.length === 0 && (
-                <div className="col-span-full rounded-lg border border-zinc-200 bg-white p-8 text-center">
-                  <p className="text-lg font-semibold">
+                <div className="col-span-full rounded-lg border border-zinc-200 bg-white px-6 py-12 text-center">
+                  <p className="text-2xl font-bold">
                     No hay productos para este filtro.
                   </p>
 
-                  <p className="mt-2 text-sm text-zinc-500">
-                    Proba con otra categoria o volve a ver todos los
-                    productos.
+                  <p className="mx-auto mt-3 max-w-md text-sm leading-6 text-zinc-500">
+                    Cambia la categoria, limpia el filtro o volve a ver
+                    todos los productos disponibles.
                   </p>
 
-                  {categoryFilter !== "all" && (
+                  <div className="mt-6 flex flex-col items-center justify-center gap-3 sm:flex-row">
+                    {categoryFilter !== "all" && (
                     <button
                       type="button"
                       onClick={() => updateCategory("all")}
-                      className="mt-5 inline-flex h-11 items-center justify-center rounded-full bg-black px-5 text-sm font-semibold text-white transition hover:bg-zinc-800"
+                      className="inline-flex h-11 items-center justify-center rounded-full bg-black px-5 text-sm font-semibold text-white transition hover:bg-zinc-800"
                     >
                       Ver todos
                     </button>
-                  )}
+
+                    )}
+
+                    {sortBy && (
+                      <button
+                        type="button"
+                        onClick={() => setSortBy("")}
+                        className="inline-flex h-11 items-center justify-center rounded-full border border-zinc-300 px-5 text-sm font-semibold text-zinc-700 transition hover:bg-zinc-100"
+                      >
+                        Limpiar orden
+                      </button>
+                    )}
+                  </div>
                 </div>
               )}
 
