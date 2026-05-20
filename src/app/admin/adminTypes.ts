@@ -25,10 +25,16 @@ export type EditableProduct = Omit<Product, "price" | "variants"> & {
   variants: EditableVariant[];
 };
 
-export type AdminSection = "products" | "orders";
+export type AdminSection =
+  | "products"
+  | "orders"
+  | "categories"
+  | "home";
 
 export type ProductFilter =
   | "all"
+  | "active"
+  | "inactive"
   | "featured"
   | "in_stock"
   | "out_of_stock";

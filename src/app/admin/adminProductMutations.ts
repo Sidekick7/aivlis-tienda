@@ -238,3 +238,16 @@ export async function updateAdminProductFeatured(product: Product) {
     throw error;
   }
 }
+
+export async function updateAdminProductActive(product: Product) {
+  const { error } = await supabase
+    .from("products")
+    .update({
+      active: !product.active,
+    })
+    .eq("id", product.id);
+
+  if (error) {
+    throw error;
+  }
+}

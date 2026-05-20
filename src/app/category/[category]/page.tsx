@@ -3,7 +3,7 @@
 import ProductCard from "@/components/ProductCard";
 import { use, useEffect, useState } from "react";
 import { getProductsByCategory } from "@/lib/products";
-import { getCategoryLabel } from "@/config/store";
+import { getCategories } from "@/lib/categories";
 import type { Product } from "@/types/product";
 
 export default function CategoryPage({
@@ -15,7 +15,7 @@ export default function CategoryPage({
   const { category } = use(params);
   const [products, setProducts] = useState<Product[]>([]);
   const [productsError, setProductsError] = useState("");
-  const categoryLabel = getCategoryLabel(category);
+  const [categoryLabel, setCategoryLabel] = useState(category);
 
   useEffect(() => {
 
@@ -26,8 +26,15 @@ export default function CategoryPage({
         const products = await getProductsByCategory(
           category
         );
+        const categories = await getCategories();
 
         setProducts(products);
+        setCategoryLabel(
+          categories.find(
+            (categoryOption) =>
+              categoryOption.value === category
+          )?.label ?? category
+        );
       } catch {
         setProductsError("No se pudo cargar esta categoría.");
       }

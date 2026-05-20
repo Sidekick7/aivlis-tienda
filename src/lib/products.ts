@@ -97,13 +97,18 @@ export function normalizeProduct(row: SupabaseProductRow): Product {
     sku: row.sku,
     details: toStringArray(row.details),
     featured: Boolean(row.featured),
+    active: row.active ?? true,
     images: toStringArray(row.images),
     stock,
     variants,
   };
 }
 
-export async function getProducts(): Promise<Product[]> {
+export async function getProducts({
+  includeInactive = false,
+}: {
+  includeInactive?: boolean;
+} = {}): Promise<Product[]> {
   const { data, error } = await supabase
     .from("products")
     .select("*")
@@ -113,13 +118,20 @@ export async function getProducts(): Promise<Product[]> {
     throw error;
   }
 
-  return (data ?? []).map((row) =>
-    normalizeProduct(row as SupabaseProductRow)
-  );
+  return (data ?? [])
+    .map((row) =>
+      normalizeProduct(row as SupabaseProductRow)
+    )
+    .filter((product) => includeInactive || product.active);
 }
 
 export async function getProductsByCategory(
-  category: string
+  category: string,
+  {
+    includeInactive = false,
+  }: {
+    includeInactive?: boolean;
+  } = {}
 ): Promise<Product[]> {
   const { data, error } = await supabase
     .from("products")
@@ -131,13 +143,20 @@ export async function getProductsByCategory(
     throw error;
   }
 
-  return (data ?? []).map((row) =>
-    normalizeProduct(row as SupabaseProductRow)
-  );
+  return (data ?? [])
+    .map((row) =>
+      normalizeProduct(row as SupabaseProductRow)
+    )
+    .filter((product) => includeInactive || product.active);
 }
 
 export async function getProductBySlug(
-  slug: string
+  slug: string,
+  {
+    includeInactive = false,
+  }: {
+    includeInactive?: boolean;
+  } = {}
 ): Promise<Product | null> {
   const { data, error } = await supabase
     .from("products")
@@ -152,13 +171,24 @@ export async function getProductBySlug(
 
   const product = data?.[0];
 
-  return product
-    ? normalizeProduct(product as SupabaseProductRow)
-    : null;
+  if (!product) return null;
+
+  const normalizedProduct = normalizeProduct(
+    product as SupabaseProductRow
+  );
+
+  if (!includeInactive && !normalizedProduct.active) return null;
+
+  return normalizedProduct;
 }
 
 export async function getProductsByIds(
-  productIds: number[]
+  productIds: number[],
+  {
+    includeInactive = false,
+  }: {
+    includeInactive?: boolean;
+  } = {}
 ): Promise<Product[]> {
   if (productIds.length === 0) {
     return [];
@@ -174,7 +204,9 @@ export async function getProductsByIds(
     throw error;
   }
 
-  return (data ?? []).map((row) =>
-    normalizeProduct(row as SupabaseProductRow)
-  );
+  return (data ?? [])
+    .map((row) =>
+      normalizeProduct(row as SupabaseProductRow)
+    )
+    .filter((product) => includeInactive || product.active);
 }

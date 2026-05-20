@@ -55,3 +55,45 @@ input[type="number"]::-webkit-outer-spin-button {
 input[type="number"] {
   -moz-appearance: textfield;
 }
+
+.desktop-category-bar {
+  display: block;
+}
+
+.desktop-info-links {
+  display: flex;
+}
+
+.mobile-menu-trigger {
+  display: none;
+}
+
+.mobile-menu-overlay {
+  display: none;
+}
+
+.home-main-offset {
+  padding-top: 96px;
+}
+
+@media (max-width: 640px) {
+  .desktop-category-bar {
+    display: none;
+  }
+
+  .desktop-info-links {
+    display: none;
+  }
+
+  .mobile-menu-trigger {
+    display: inline-flex;
+  }
+
+  .mobile-menu-overlay {
+    display: block;
+  }
+
+  .home-main-offset {
+    padding-top: 60px;
+  }
+}

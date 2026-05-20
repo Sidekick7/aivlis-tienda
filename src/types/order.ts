@@ -56,6 +56,7 @@ export type AdminOrder = {
   customerZip: string;
   customerEmail?: string | null;
   notes?: string | null;
+  internalNotes?: string | null;
   total: number;
   whatsappMessage: string;
   createdAt: string;
@@ -89,6 +90,7 @@ export type SupabaseOrderRow = {
   customer_zip: string;
   customer_email?: string | null;
   notes?: string | null;
+  internal_notes?: string | null;
   total: number | string;
   whatsapp_message: string;
   created_at: string;

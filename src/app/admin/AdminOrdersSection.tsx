@@ -1,11 +1,16 @@
 "use client";
 
 import Image from "next/image";
-import { Search } from "lucide-react";
+import { Copy, Search, Trash2 } from "lucide-react";
 import { useState } from "react";
+import { formatOrderNumber } from "@/lib/orderNumber";
 import type { AdminOrder, OrderStatus } from "@/types/order";
 
 type OrderFilter = "all" | OrderStatus;
+type OrderDateFilter = "all" | "today" | "last_7_days" | "this_month";
+type OrderSort = "newest" | "oldest";
+
+const ORDERS_PER_PAGE = 10;
 
 type Props = {
   orders: AdminOrder[];
@@ -16,6 +21,12 @@ type Props = {
     order: AdminOrder,
     status: OrderStatus
   ) => Promise<void>;
+  onUpdateInternalNotes: (
+    orderId: string,
+    internalNotes: string
+  ) => Promise<void>;
+  onDelete: (order: AdminOrder) => Promise<void>;
+  onDeleteMany: (orders: AdminOrder[]) => Promise<void>;
 };
 
 const currencyFormatter = new Intl.NumberFormat("es-AR", {
@@ -45,22 +56,89 @@ const orderStatusButtonClasses: Record<OrderStatus, string> = {
     "border-red-500/30 bg-red-500/15 text-red-200 hover:bg-red-500/25",
 };
 
+const orderStatusActionLabels: Record<OrderStatus, string> = {
+  pending_payment: "Pendiente",
+  confirmed: "Confirmado",
+  cancelled: "Cancelado",
+};
+
+function formatCustomerData(order: AdminOrder) {
+  return [
+    `Pedido: ${formatOrderNumber(order.orderNumber)}`,
+    `Nombre: ${order.customerName}`,
+    `DNI/CUIT: ${order.customerDni}`,
+    `WhatsApp: ${order.customerWhatsapp}`,
+    `Direccion: ${order.customerAddress}`,
+    `Localidad: ${order.customerCity}`,
+    `Provincia: ${order.customerProvince}`,
+    `Codigo Postal: ${order.customerZip}`,
+    `Email: ${order.customerEmail || "-"}`,
+    `Notas: ${order.notes || "-"}`,
+  ].join("\n");
+}
+
 export default function AdminOrdersSection({
   orders,
   isLoading,
   error,
   onRefresh,
   onStatusChange,
+  onUpdateInternalNotes,
+  onDelete,
+  onDeleteMany,
 }: Props) {
   const [orderSearch, setOrderSearch] = useState("");
   const [orderFilter, setOrderFilter] =
     useState<OrderFilter>("all");
+  const [orderDateFilter, setOrderDateFilter] =
+    useState<OrderDateFilter>("all");
+  const [orderSort, setOrderSort] =
+    useState<OrderSort>("newest");
+  const [orderPage, setOrderPage] = useState(1);
   const [expandedOrderId, setExpandedOrderId] =
     useState<string | null>(null);
   const [savingStatus, setSavingStatus] = useState<{
     orderId: string;
     status: OrderStatus;
   } | null>(null);
+  const [deletingOrderId, setDeletingOrderId] =
+    useState<string | null>(null);
+  const [isDeletingSelected, setIsDeletingSelected] =
+    useState(false);
+  const [selectedOrderIds, setSelectedOrderIds] = useState<string[]>([]);
+  const [noteDrafts, setNoteDrafts] = useState<Record<string, string>>({});
+  const [savingNoteOrderId, setSavingNoteOrderId] =
+    useState<string | null>(null);
+  const [editingNoteOrderId, setEditingNoteOrderId] =
+    useState<string | null>(null);
+  const [copiedAction, setCopiedAction] = useState<{
+    orderId: string;
+    action: "customer" | "message";
+  } | null>(null);
+
+  const copyOrderText = async (
+    order: AdminOrder,
+    action: "customer" | "message"
+  ) => {
+    const text =
+      action === "customer"
+        ? formatCustomerData(order)
+        : order.whatsappMessage;
+
+    await navigator.clipboard.writeText(text);
+    setCopiedAction({
+      orderId: order.id,
+      action,
+    });
+
+    window.setTimeout(() => {
+      setCopiedAction((current) =>
+        current?.orderId === order.id && current.action === action
+          ? null
+          : current
+      );
+    }, 1800);
+  };
 
   const handleStatusChange = async (
     order: AdminOrder,
@@ -80,27 +158,139 @@ export default function AdminOrdersSection({
     }
   };
 
+  const handleDeleteOrder = async (order: AdminOrder) => {
+    if (savingStatus || deletingOrderId || isDeletingSelected) return;
+
+    const shouldDelete = window.confirm(
+      order.status === "confirmed"
+        ? "Este pedido esta confirmado. Si lo eliminas, se devuelve el stock. Continuar?"
+        : "Seguro que queres eliminar este pedido?"
+    );
+
+    if (!shouldDelete) return;
+
+    setDeletingOrderId(order.id);
+
+    try {
+      await onDelete(order);
+    } finally {
+      setDeletingOrderId(null);
+    }
+  };
+
+  const handleDeleteSelectedOrders = async () => {
+    if (savingStatus || deletingOrderId || isDeletingSelected) return;
+
+    const selectedOrders = orders.filter((order) =>
+      selectedOrderIds.includes(order.id)
+    );
+
+    if (selectedOrders.length === 0) return;
+
+    const hasConfirmedOrder = selectedOrders.some(
+      (order) => order.status === "confirmed"
+    );
+    const shouldDelete = window.confirm(
+      hasConfirmedOrder
+        ? `Vas a eliminar ${selectedOrders.length} pedidos. Los confirmados devuelven stock. Continuar?`
+        : `Seguro que queres eliminar ${selectedOrders.length} pedidos?`
+    );
+
+    if (!shouldDelete) return;
+
+    setIsDeletingSelected(true);
+
+    try {
+      await onDeleteMany(selectedOrders);
+      setSelectedOrderIds([]);
+    } finally {
+      setIsDeletingSelected(false);
+    }
+  };
+
+  const handleSaveInternalNotes = async (order: AdminOrder) => {
+    if (savingNoteOrderId) return;
+
+    const nextNotes = noteDrafts[order.id] ?? order.internalNotes ?? "";
+
+    setSavingNoteOrderId(order.id);
+
+    try {
+      await onUpdateInternalNotes(order.id, nextNotes);
+      setNoteDrafts((currentDrafts) => {
+        const nextDrafts = { ...currentDrafts };
+        delete nextDrafts[order.id];
+
+        return nextDrafts;
+      });
+      setEditingNoteOrderId(null);
+    } finally {
+      setSavingNoteOrderId(null);
+    }
+  };
+
   const normalizedOrderSearch = orderSearch
     .trim()
     .toLowerCase();
+  const now = new Date();
+  const todayStart = new Date(
+    now.getFullYear(),
+    now.getMonth(),
+    now.getDate()
+  );
+  const last7DaysStart = new Date(todayStart);
+  last7DaysStart.setDate(last7DaysStart.getDate() - 6);
+  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+
   const visibleOrders = orders.filter((order) => {
     const matchesFilter =
       orderFilter === "all" || order.status === orderFilter;
+    const orderDate = new Date(order.createdAt);
+    const matchesDate =
+      orderDateFilter === "all" ||
+      (orderDateFilter === "today" && orderDate >= todayStart) ||
+      (orderDateFilter === "last_7_days" && orderDate >= last7DaysStart) ||
+      (orderDateFilter === "this_month" && orderDate >= monthStart);
     const matchesSearch =
       !normalizedOrderSearch ||
       [
         order.orderNumber,
+        formatOrderNumber(order.orderNumber),
         order.customerName,
         order.customerDni,
         order.customerWhatsapp,
         order.customerEmail ?? "",
+        order.internalNotes ?? "",
       ]
         .join(" ")
         .toLowerCase()
         .includes(normalizedOrderSearch);
 
-    return matchesFilter && matchesSearch;
+    return matchesFilter && matchesDate && matchesSearch;
+  }).sort((firstOrder, secondOrder) => {
+    const firstTime = new Date(firstOrder.createdAt).getTime();
+    const secondTime = new Date(secondOrder.createdAt).getTime();
+
+    return orderSort === "newest"
+      ? secondTime - firstTime
+      : firstTime - secondTime;
   });
+  const totalOrderPages = Math.max(
+    1,
+    Math.ceil(visibleOrders.length / ORDERS_PER_PAGE)
+  );
+  const currentOrderPage = Math.min(orderPage, totalOrderPages);
+  const paginatedOrders = visibleOrders.slice(
+    (currentOrderPage - 1) * ORDERS_PER_PAGE,
+    currentOrderPage * ORDERS_PER_PAGE
+  );
+  const toggleOrderSelection = (orderId: string) => {
+    setSelectedOrderIds((currentIds) =>
+      currentIds.includes(orderId)
+        ? currentIds.filter((selectedId) => selectedId !== orderId)
+        : [...currentIds, orderId]
+    );
+  };
 
   return (
     <section className="mt-10 bg-zinc-900 rounded-3xl p-6">
@@ -126,7 +316,10 @@ export default function AdminOrdersSection({
               type="search"
               placeholder="Buscar ticket, cliente o WhatsApp"
               value={orderSearch}
-              onChange={(event) => setOrderSearch(event.target.value)}
+              onChange={(event) => {
+                setOrderSearch(event.target.value);
+                setOrderPage(1);
+              }}
               className="h-11 w-full rounded-xl border border-zinc-800 bg-zinc-950 pl-11 pr-4 outline-none transition focus:border-zinc-500"
             />
           </div>
@@ -151,7 +344,10 @@ export default function AdminOrdersSection({
           <button
             key={value}
             type="button"
-            onClick={() => setOrderFilter(value)}
+            onClick={() => {
+              setOrderFilter(value);
+              setOrderPage(1);
+            }}
             className={`h-10 rounded-xl px-4 text-sm font-semibold transition cursor-pointer ${
               orderFilter === value
                 ? "bg-white text-black"
@@ -161,6 +357,40 @@ export default function AdminOrdersSection({
             {label}
           </button>
         ))}
+      </div>
+
+      <div className="mb-6 grid gap-3 md:grid-cols-2">
+        <label className="grid gap-2 text-sm text-zinc-400">
+          Ordenar por fecha
+          <select
+            value={orderSort}
+            onChange={(event) => {
+              setOrderSort(event.target.value as OrderSort);
+              setOrderPage(1);
+            }}
+            className="h-11 rounded-xl border border-zinc-800 bg-zinc-950 px-4 text-white outline-none transition focus:border-zinc-500"
+          >
+            <option value="newest">Mas recientes primero</option>
+            <option value="oldest">Mas antiguos primero</option>
+          </select>
+        </label>
+
+        <label className="grid gap-2 text-sm text-zinc-400">
+          Filtrar por fecha
+          <select
+            value={orderDateFilter}
+            onChange={(event) => {
+              setOrderDateFilter(event.target.value as OrderDateFilter);
+              setOrderPage(1);
+            }}
+            className="h-11 rounded-xl border border-zinc-800 bg-zinc-950 px-4 text-white outline-none transition focus:border-zinc-500"
+          >
+            <option value="all">Todos los dias</option>
+            <option value="today">Hoy</option>
+            <option value="last_7_days">Ultimos 7 dias</option>
+            <option value="this_month">Este mes</option>
+          </select>
+        </label>
       </div>
 
       {error && (
@@ -187,62 +417,103 @@ export default function AdminOrdersSection({
         </p>
       )}
 
-      <div className="flex flex-col gap-4">
-        {visibleOrders.map((order) => {
+      {!isLoading && selectedOrderIds.length > 0 && (
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-zinc-800 bg-zinc-950 p-3">
+          <span className="text-sm text-zinc-400">
+            {selectedOrderIds.length} seleccionados
+          </span>
+
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setSelectedOrderIds([])}
+              className="h-9 rounded-lg bg-zinc-800 px-3 text-xs font-semibold text-white transition hover:bg-zinc-700"
+            >
+              Limpiar
+            </button>
+
+            <button
+              type="button"
+              onClick={handleDeleteSelectedOrders}
+              disabled={isDeletingSelected}
+              className="h-9 rounded-lg bg-red-500/15 px-3 text-xs font-semibold text-red-200 transition hover:bg-red-500/25 cursor-pointer disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {isDeletingSelected ? "Eliminando..." : "Eliminar seleccionados"}
+            </button>
+          </div>
+        </div>
+      )}
+
+      <div className="flex flex-col gap-3">
+        {paginatedOrders.map((order) => {
           const isExpanded = expandedOrderId === order.id;
           const isSavingOrder =
             savingStatus?.orderId === order.id;
+          const isSelected = selectedOrderIds.includes(order.id);
+          const internalNoteValue =
+            noteDrafts[order.id] ?? order.internalNotes ?? "";
+          const hasInternalNoteChanges =
+            internalNoteValue.trim() !== (order.internalNotes ?? "").trim();
+          const isEditingInternalNote =
+            editingNoteOrderId === order.id;
+          const orderItemsCount = order.items.reduce(
+            (total, item) => total + item.quantity,
+            0
+          );
 
           return (
             <article
               key={order.id}
-              className="bg-zinc-800 rounded-2xl p-4"
+              className={`rounded-2xl p-3 ${
+                isSelected
+                  ? "bg-zinc-800 ring-1 ring-white/40"
+                  : "bg-zinc-800"
+              }`}
             >
-              <div className="grid gap-4 lg:grid-cols-[1.2fr_.8fr_1fr] lg:items-center">
-                <div>
-                  <div className="flex flex-wrap items-center gap-3">
-                    <h3 className="font-semibold">
-                      {order.orderNumber}
-                    </h3>
+              <div className="grid gap-3 xl:grid-cols-[minmax(320px,1fr)_auto_auto] xl:items-center">
+                <div className="flex min-w-0 gap-3">
+                  <input
+                    type="checkbox"
+                    aria-label={`Seleccionar pedido ${formatOrderNumber(order.orderNumber)}`}
+                    checked={isSelected}
+                    onChange={() => toggleOrderSelection(order.id)}
+                    className="mt-1 h-4 w-4 shrink-0 accent-white"
+                  />
 
-                    <span
-                      className={`text-xs px-3 py-1 rounded-full border ${orderStatusClasses[order.status]}`}
-                    >
-                      {orderStatusLabels[order.status]}
-                    </span>
-                  </div>
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <h3 className="font-semibold">
+                        {formatOrderNumber(order.orderNumber)}
+                      </h3>
 
-                  <p className="text-zinc-400 mt-2">
-                    {new Date(order.createdAt).toLocaleString("es-AR")} - {currencyFormatter.format(order.total)}
-                  </p>
+                      <span
+                        className={`text-xs px-3 py-1 rounded-full border ${orderStatusClasses[order.status]}`}
+                      >
+                        {orderStatusLabels[order.status]}
+                      </span>
 
-                  <p className="text-zinc-300 mt-4">
-                    {order.customerName} - DNI {order.customerDni}
-                  </p>
+                      <span className="rounded-full bg-zinc-700 px-2 py-1 text-xs text-zinc-300">
+                        {orderItemsCount} un.
+                      </span>
 
-                  {isExpanded && (
-                    <>
-                      <p className="text-zinc-400 text-sm mt-1">
-                        {order.customerAddress}, {order.customerCity}, {order.customerProvince} ({order.customerZip})
-                      </p>
-
-                      <p className="text-zinc-400 text-sm mt-1">
-                        WhatsApp: {order.customerWhatsapp}
-                        {order.customerEmail ? ` - Email: ${order.customerEmail}` : ""}
-                      </p>
-
-                      {order.notes && (
-                        <p className="text-zinc-300 text-sm mt-3">
-                          Nota: {order.notes}
-                        </p>
+                      {order.internalNotes && (
+                        <span className="rounded-full bg-sky-500/15 px-2 py-1 text-xs text-sky-200">
+                          Nota interna
+                        </span>
                       )}
-                    </>
-                  )}
+                    </div>
+
+                    <p className="mt-1 text-sm text-zinc-400">
+                      {new Date(order.createdAt).toLocaleString("es-AR")} - {currencyFormatter.format(order.total)}
+                    </p>
+
+                    <p className="mt-1 truncate text-sm text-zinc-300">
+                      {order.customerName} - DNI {order.customerDni} - {order.customerWhatsapp}
+                    </p>
+                  </div>
                 </div>
 
-                <div />
-
-                <div className="flex flex-wrap gap-2 lg:justify-end">
+                <div className="flex flex-wrap gap-2 xl:justify-start">
                   <button
                     type="button"
                     onClick={() =>
@@ -250,7 +521,7 @@ export default function AdminOrdersSection({
                         currentId === order.id ? null : order.id
                       )
                     }
-                    className="h-10 px-4 rounded-xl text-sm font-semibold bg-zinc-700 text-white hover:bg-zinc-600 transition cursor-pointer"
+                    className="h-9 rounded-lg bg-zinc-700 px-3 text-xs font-semibold text-white transition hover:bg-zinc-600 cursor-pointer"
                   >
                     {isExpanded ? "Ocultar" : "Ver detalle"}
                   </button>
@@ -264,7 +535,7 @@ export default function AdminOrdersSection({
                         disabled={
                           order.status === status || isSavingOrder
                         }
-                        className={`h-10 px-4 rounded-xl border text-sm font-semibold transition cursor-pointer disabled:cursor-default ${
+                        className={`h-9 rounded-lg border px-3 text-xs font-semibold transition cursor-pointer disabled:cursor-default ${
                           order.status === status
                             ? "bg-white text-black border-white"
                             : isSavingOrder
@@ -275,15 +546,118 @@ export default function AdminOrdersSection({
                         {savingStatus?.orderId === order.id &&
                         savingStatus.status === status
                           ? "Guardando..."
-                          : orderStatusLabels[status]}
+                          : orderStatusActionLabels[status]}
                       </button>
                     )
                   )}
                 </div>
+
+                <div className="flex xl:justify-end">
+                  <button
+                    type="button"
+                    onClick={() => handleDeleteOrder(order)}
+                    disabled={deletingOrderId === order.id}
+                    className="flex h-9 items-center gap-2 rounded-lg bg-red-500/15 px-3 text-xs font-semibold text-red-200 transition hover:bg-red-500/25 cursor-pointer disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    <Trash2 size={16} />
+                    {deletingOrderId === order.id ? "Eliminando..." : "Eliminar"}
+                  </button>
+                </div>
               </div>
 
               {isExpanded && (
-                <div className="mt-5 grid gap-3">
+                <div className="mt-4 grid gap-3 border-t border-zinc-700 pt-3">
+                  <div className="grid gap-1 text-sm text-zinc-400 md:grid-cols-2">
+                    <p>
+                      {order.customerAddress}, {order.customerCity}, {order.customerProvince} ({order.customerZip})
+                    </p>
+
+                    <p>
+                      WhatsApp: {order.customerWhatsapp}
+                      {order.customerEmail ? ` - Email: ${order.customerEmail}` : ""}
+                    </p>
+
+                    {order.notes && (
+                      <p className="text-zinc-300 md:col-span-2">
+                        Nota: {order.notes}
+                      </p>
+                    )}
+                  </div>
+
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setEditingNoteOrderId((currentOrderId) =>
+                          currentOrderId === order.id ? null : order.id
+                        )
+                      }
+                      className="flex h-9 items-center gap-2 rounded-lg bg-sky-500/15 px-3 text-xs font-semibold text-sky-200 transition hover:bg-sky-500/25"
+                    >
+                      {isEditingInternalNote
+                        ? "Ocultar nota"
+                        : order.internalNotes
+                          ? "Editar nota interna"
+                          : "Nota interna"}
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => copyOrderText(order, "customer")}
+                      className="flex h-9 items-center gap-2 rounded-lg bg-zinc-700 px-3 text-xs font-semibold text-white transition hover:bg-zinc-600"
+                    >
+                      <Copy size={16} />
+                      {copiedAction?.orderId === order.id &&
+                      copiedAction.action === "customer"
+                        ? "Copiado"
+                        : "Copiar cliente"}
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => copyOrderText(order, "message")}
+                      className="flex h-9 items-center gap-2 rounded-lg bg-zinc-700 px-3 text-xs font-semibold text-white transition hover:bg-zinc-600"
+                    >
+                      <Copy size={16} />
+                      {copiedAction?.orderId === order.id &&
+                      copiedAction.action === "message"
+                        ? "Copiado"
+                        : "Copiar mensaje"}
+                    </button>
+
+                  </div>
+
+                  {isEditingInternalNote && (
+                    <div className="grid gap-2 rounded-2xl border border-zinc-700 bg-zinc-900 p-3">
+                      <textarea
+                        value={internalNoteValue}
+                        onChange={(event) =>
+                          setNoteDrafts((currentDrafts) => ({
+                            ...currentDrafts,
+                            [order.id]: event.target.value,
+                          }))
+                        }
+                        rows={2}
+                        placeholder="Ej: esperando transferencia, retira el viernes..."
+                        className="min-h-20 rounded-xl border border-zinc-700 bg-zinc-950 p-3 text-sm text-white outline-none transition focus:border-zinc-500"
+                      />
+
+                      <div className="flex justify-end">
+                        <button
+                          type="button"
+                          onClick={() => handleSaveInternalNotes(order)}
+                          disabled={
+                            savingNoteOrderId === order.id ||
+                            !hasInternalNoteChanges
+                          }
+                          className="h-9 rounded-lg bg-white px-3 text-xs font-semibold text-black transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
+                        >
+                          {savingNoteOrderId === order.id ? "Guardando..." : "Guardar nota"}
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
                   {order.items.map((item) => (
                     <div
                       key={item.id}
@@ -294,9 +668,9 @@ export default function AdminOrdersSection({
                           <Image
                             src={item.imageUrl}
                             alt={item.productName}
-                            width={56}
-                            height={56}
-                            className="h-14 w-14 rounded-xl object-cover"
+                            width={48}
+                            height={48}
+                            className="h-12 w-12 rounded-lg object-cover"
                           />
                         )}
 
@@ -322,6 +696,43 @@ export default function AdminOrdersSection({
           );
         })}
       </div>
+
+      {!isLoading && visibleOrders.length > ORDERS_PER_PAGE && (
+        <div className="mt-6 flex flex-col gap-3 border-t border-zinc-800 pt-4 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-sm text-zinc-400">
+            Pagina {currentOrderPage} de {totalOrderPages} - Mostrando{" "}
+            {paginatedOrders.length} de {visibleOrders.length}
+          </p>
+
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={() =>
+                setOrderPage((currentPage) =>
+                  Math.max(1, currentPage - 1)
+                )
+              }
+              disabled={currentOrderPage === 1}
+              className="h-10 rounded-xl bg-zinc-800 px-4 text-sm font-semibold text-white transition hover:bg-zinc-700 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              Anterior
+            </button>
+
+            <button
+              type="button"
+              onClick={() =>
+                setOrderPage((currentPage) =>
+                  Math.min(totalOrderPages, currentPage + 1)
+                )
+              }
+              disabled={currentOrderPage === totalOrderPages}
+              className="h-10 rounded-xl bg-zinc-800 px-4 text-sm font-semibold text-white transition hover:bg-zinc-700 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              Siguiente
+            </button>
+          </div>
+        </div>
+      )}
     </section>
   );
 }

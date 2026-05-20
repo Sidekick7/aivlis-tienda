@@ -15,6 +15,7 @@ import {
   createOrderTicket,
 } from "@/lib/orders";
 import { getProductsByIds } from "@/lib/products";
+import { formatOrderNumber } from "@/lib/orderNumber";
 import { useEffect, useRef, useState } from "react";
 
 const checkoutCustomerStorageKey = "checkout_customer";
@@ -408,7 +409,7 @@ export default function CheckoutPage() {
 
           <div>
             <p className="mb-2 text-sm text-zinc-300">
-              Correo electronico (opcional)
+              Correo electrónico (opcional)
             </p>
 
             <input
@@ -440,7 +441,7 @@ export default function CheckoutPage() {
               }
               className="w-4 h-4 accent-white"
             />
-            Recordar mis datos para proximos pedidos
+            Recordar mis datos para próximos pedidos
           </label>
 
           <div className="border-t border-zinc-800 pt-6 mt-4">
@@ -517,7 +518,7 @@ export default function CheckoutPage() {
             {createdOrderNumber && (
               <div className="mt-4 rounded-xl border border-green-500/30 bg-green-500/10 p-4 text-green-300 text-sm">
                 <p>
-                  Ticket {createdOrderNumber} creado. Ya abrimos WhatsApp para enviar el pedido.
+                  Pedido {formatOrderNumber(createdOrderNumber)} creado. Ya abrimos WhatsApp para enviar el pedido.
                 </p>
 
                 <Link

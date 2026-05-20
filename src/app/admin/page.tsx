@@ -1,10 +1,30 @@
 "use client";
 
 import { type FormEvent, useEffect, useState } from "react";
-import { categories } from "@/config/store";
 import { supabase } from "@/lib/supabase";
+import {
+  createCategory,
+  deleteCategory,
+  getCategories,
+  getFallbackCategories,
+  updateCategory,
+} from "@/lib/categories";
 import { getProducts } from "@/lib/products";
-import { getAdminOrders, updateOrderStatus } from "@/lib/orders";
+import {
+  fallbackHomeContent,
+  getHomeContent,
+  updateHomeContent,
+  uploadHomeImage,
+} from "@/lib/homeContent";
+import {
+  deleteOrder,
+  getAdminOrders,
+  updateOrderInternalNotes,
+  updateOrderStatus,
+} from "@/lib/orders";
+import { formatOrderNumber } from "@/lib/orderNumber";
+import AdminCategoriesSection from "@/app/admin/AdminCategoriesSection";
+import AdminHomeSection from "@/app/admin/AdminHomeSection";
 import AdminOrdersSection from "@/app/admin/AdminOrdersSection";
 import AdminProductsSection from "@/app/admin/AdminProductsSection";
 import CreateProductModal from "@/app/admin/CreateProductModal";
@@ -19,6 +39,7 @@ import {
   deleteAdminProduct,
   getProductFormError,
   getProductMutationError,
+  updateAdminProductActive,
   updateAdminProduct,
   updateAdminProductFeatured,
 } from "@/app/admin/adminProductMutations";
@@ -27,6 +48,8 @@ import type {
   EditableProduct,
   NewProductVariant,
 } from "@/app/admin/adminTypes";
+import type { StoreCategory } from "@/types/category";
+import type { HomeContent } from "@/types/homeContent";
 import type { Product } from "@/types/product";
 import type { AdminOrder, OrderStatus } from "@/types/order";
 import type { Session } from "@supabase/supabase-js";
@@ -38,7 +61,7 @@ type AdminNotice = {
 
 type SavingProductAction = {
   id: number;
-  action: "featured" | "delete";
+  action: "featured" | "active" | "delete";
 };
 
 const orderStatusLabels: Record<OrderStatus, string> = {
@@ -64,6 +87,16 @@ const [slug, setSlug] = useState("");
 const [isSlugEdited, setIsSlugEdited] = useState(false);
 const [price, setPrice] = useState("");
 const [products, setProducts] = useState<Product[]>([]);
+const [categoryOptions, setCategoryOptions] = useState<StoreCategory[]>(
+  getFallbackCategories()
+);
+const [categoryError, setCategoryError] = useState("");
+const [isSavingCategory, setIsSavingCategory] = useState(false);
+const [homeContent, setHomeContent] =
+  useState<HomeContent>(fallbackHomeContent);
+const [homeContentError, setHomeContentError] = useState("");
+const [isSavingHomeContent, setIsSavingHomeContent] = useState(false);
+const [isUploadingHomeImage, setIsUploadingHomeImage] = useState(false);
 const [orders, setOrders] = useState<AdminOrder[]>([]);
 const [isOrdersLoading, setIsOrdersLoading] = useState(false);
 const [orderError, setOrderError] = useState("");
@@ -76,7 +109,9 @@ const [savingProductAction, setSavingProductAction] =
 const [editingProduct, setEditingProduct] =
   useState<EditableProduct | null>(null);
 const [editingDetailsText, setEditingDetailsText] = useState("");
-const [category, setCategory] = useState(categories[0].value);
+const [category, setCategory] = useState(
+  getFallbackCategories()[0]?.value ?? ""
+);
 const [description, setDescription] = useState("");
 const [detailsText, setDetailsText] = useState("");
 
@@ -106,9 +141,41 @@ useEffect(() => {
 }, []);
 
 const refreshProducts = async () => {
-  const products = await getProducts();
+  const products = await getProducts({
+    includeInactive: true,
+  });
 
   setProducts(products);
+};
+
+const refreshCategories = async () => {
+  setCategoryError("");
+
+  try {
+    const categories = await getCategories({
+      includeInactive: true,
+      fallbackToStatic: false,
+    });
+
+    setCategoryOptions(categories);
+    setCategory((currentCategory) =>
+      categories.some(
+        (categoryOption) =>
+          categoryOption.value === currentCategory &&
+          categoryOption.active
+      )
+        ? currentCategory
+        : categories.find((categoryOption) => categoryOption.active)
+            ?.value ?? ""
+    );
+  } catch (error) {
+    setCategoryOptions(getFallbackCategories());
+    setCategoryError(
+      error instanceof Error
+        ? `No se pudieron cargar categorias desde Supabase: ${error.message}. Ejecuta supabase/categories.sql.`
+        : "No se pudieron cargar categorias desde Supabase. Ejecuta supabase/categories.sql."
+    );
+  }
 };
 
 const refreshOrders = async () => {
@@ -130,14 +197,47 @@ const refreshOrders = async () => {
   }
 };
 
+const refreshHomeContent = async () => {
+  setHomeContentError("");
+
+  try {
+    const content = await getHomeContent({
+      fallbackToStatic: false,
+    });
+
+    setHomeContent(content);
+  } catch (error) {
+    setHomeContent(fallbackHomeContent);
+    setHomeContentError(
+      error instanceof Error
+        ? `No se pudo cargar Home desde Supabase: ${error.message}. Ejecuta supabase/home-content.sql.`
+        : "No se pudo cargar Home desde Supabase. Ejecuta supabase/home-content.sql."
+    );
+  }
+};
+
 useEffect(() => {
 
   if (!session) return;
 
-  getProducts().then(setProducts);
+  getProducts({
+    includeInactive: true,
+  }).then(setProducts);
+  Promise.resolve().then(refreshCategories);
+  Promise.resolve().then(refreshHomeContent);
   Promise.resolve().then(refreshOrders);
 
 }, [session]);
+
+useEffect(() => {
+  if (!adminNotice) return;
+
+  const timeout = window.setTimeout(() => {
+    setAdminNotice(null);
+  }, 3000);
+
+  return () => window.clearTimeout(timeout);
+}, [adminNotice]);
 
 const createProduct = async () => {
   if (isCreatingProduct) return;
@@ -187,7 +287,10 @@ const createProduct = async () => {
     setPrice("");
     setDescription("");
     setDetailsText("");
-    setCategory(categories[0].value);
+    setCategory(
+      categoryOptions.find((categoryOption) => categoryOption.active)
+        ?.value ?? ""
+    );
 
     setVariants([
         createEmptyProductVariant(),
@@ -209,6 +312,153 @@ const createProduct = async () => {
     setIsCreatingProduct(false);
   }
 
+};
+
+const createStoreCategory = async (
+  nextCategory: Omit<StoreCategory, "id">
+) => {
+  setIsSavingCategory(true);
+  setAdminNotice(null);
+
+  try {
+    await createCategory(nextCategory);
+    await refreshCategories();
+    setAdminNotice({
+      type: "success",
+      message: "Categoria creada.",
+    });
+  } catch (error) {
+    setAdminNotice({
+      type: "error",
+      message:
+        error instanceof Error
+          ? `No se pudo crear la categoria: ${error.message}`
+          : "No se pudo crear la categoria.",
+    });
+  } finally {
+    setIsSavingCategory(false);
+  }
+};
+
+const updateStoreCategory = async (
+  nextCategory: StoreCategory & { id: number }
+) => {
+  setIsSavingCategory(true);
+  setAdminNotice(null);
+
+  try {
+    await updateCategory(nextCategory);
+    await refreshCategories();
+    setAdminNotice({
+      type: "success",
+      message: "Categoria actualizada.",
+    });
+  } catch (error) {
+    setAdminNotice({
+      type: "error",
+      message:
+        error instanceof Error
+          ? `No se pudo actualizar la categoria: ${error.message}`
+          : "No se pudo actualizar la categoria.",
+    });
+  } finally {
+    setIsSavingCategory(false);
+  }
+};
+
+const deleteStoreCategory = async (
+  nextCategory: StoreCategory & { id: number }
+) => {
+  if (
+    products.some(
+      (product) => product.category === nextCategory.value
+    )
+  ) {
+    setAdminNotice({
+      type: "error",
+      message:
+        "No se puede eliminar una categoria con productos asociados.",
+    });
+    return;
+  }
+
+  setIsSavingCategory(true);
+  setAdminNotice(null);
+
+  try {
+    await deleteCategory(nextCategory.id);
+    await refreshCategories();
+    setAdminNotice({
+      type: "success",
+      message: "Categoria eliminada.",
+    });
+  } catch (error) {
+    setAdminNotice({
+      type: "error",
+      message:
+        error instanceof Error
+          ? `No se pudo eliminar la categoria: ${error.message}`
+          : "No se pudo eliminar la categoria.",
+    });
+  } finally {
+    setIsSavingCategory(false);
+  }
+};
+
+const saveHomeContent = async (nextHomeContent: HomeContent) => {
+  setIsSavingHomeContent(true);
+  setAdminNotice(null);
+
+  try {
+    await updateHomeContent(nextHomeContent);
+    await refreshHomeContent();
+    setAdminNotice({
+      type: "success",
+      message: "Home actualizado.",
+    });
+  } catch (error) {
+    setAdminNotice({
+      type: "error",
+      message:
+        error instanceof Error
+          ? `No se pudo actualizar Home: ${error.message}`
+          : "No se pudo actualizar Home.",
+    });
+  } finally {
+    setIsSavingHomeContent(false);
+  }
+};
+
+const uploadHomeImages = async (files: File[]) => {
+  setIsUploadingHomeImage(true);
+  setAdminNotice(null);
+
+  try {
+    const urls: string[] = [];
+
+    for (const file of files) {
+      urls.push(await uploadHomeImage(file));
+    }
+
+    setAdminNotice({
+      type: "success",
+      message: "Imagenes subidas.",
+    });
+
+    return urls;
+  } catch (error) {
+    setAdminNotice({
+      type: "error",
+      message:
+        error instanceof Error
+          ? error.message
+          : "No se pudieron subir las imagenes.",
+    });
+
+    return [];
+  } finally {
+    setIsUploadingHomeImage(false);
+  }
 };
 
 
@@ -279,6 +529,37 @@ const toggleFeaturedProduct = async (product: Product) => {
         error instanceof Error
           ? `No se pudo actualizar destacado: ${error.message}`
           : "No se pudo actualizar destacado.",
+    });
+  } finally {
+    setSavingProductAction(null);
+  }
+};
+
+const toggleActiveProduct = async (product: Product) => {
+  if (savingProductAction) return;
+
+  setSavingProductAction({
+    id: product.id,
+    action: "active",
+  });
+
+  try {
+    await updateAdminProductActive(product);
+
+    await refreshProducts();
+    setAdminNotice({
+      type: "success",
+      message: product.active
+        ? "Producto ocultado de la tienda."
+        : "Producto publicado en la tienda.",
+    });
+  } catch (error) {
+    setAdminNotice({
+      type: "error",
+      message:
+        error instanceof Error
+          ? `No se pudo actualizar publicacion: ${error.message}`
+          : "No se pudo actualizar publicacion.",
     });
   } finally {
     setSavingProductAction(null);
@@ -402,7 +683,7 @@ const handleOrderStatusChange = async (
     ]);
     setAdminNotice({
       type: "success",
-      message: `Pedido ${order.orderNumber}: ${orderStatusLabels[previousStatus]} -> ${orderStatusLabels[status]}.`,
+      message: `Pedido ${formatOrderNumber(order.orderNumber)}: ${orderStatusLabels[previousStatus]} -> ${orderStatusLabels[status]}.`,
     });
   } catch (error) {
     setAdminNotice({
@@ -411,6 +692,75 @@ const handleOrderStatusChange = async (
         error instanceof Error
           ? error.message
           : "No se pudo actualizar el pedido.",
+    });
+  }
+};
+
+const handleDeleteOrder = async (order: AdminOrder) => {
+  try {
+    await deleteOrder(order);
+    await Promise.all([
+      refreshOrders(),
+      refreshProducts(),
+    ]);
+    setAdminNotice({
+      type: "success",
+      message: `Pedido ${formatOrderNumber(order.orderNumber)} eliminado.`,
+    });
+  } catch (error) {
+    setAdminNotice({
+      type: "error",
+      message:
+        error instanceof Error
+          ? error.message
+          : "No se pudo eliminar el pedido.",
+    });
+  }
+};
+
+const handleDeleteOrders = async (selectedOrders: AdminOrder[]) => {
+  try {
+    for (const order of selectedOrders) {
+      await deleteOrder(order);
+    }
+
+    await Promise.all([
+      refreshOrders(),
+      refreshProducts(),
+    ]);
+    setAdminNotice({
+      type: "success",
+      message: `${selectedOrders.length} pedidos eliminados.`,
+    });
+  } catch (error) {
+    setAdminNotice({
+      type: "error",
+      message:
+        error instanceof Error
+          ? error.message
+          : "No se pudieron eliminar los pedidos.",
+    });
+  }
+};
+
+const handleUpdateOrderInternalNotes = async (
+  orderId: string,
+  internalNotes: string
+) => {
+  try {
+    await updateOrderInternalNotes(orderId, internalNotes);
+    await refreshOrders();
+    setAdminNotice({
+      type: "success",
+      message: "Nota interna guardada.",
+    });
+  } catch (error) {
+    setAdminNotice({
+      type: "error",
+      message:
+        error instanceof Error
+          ? error.message
+          : "No se pudo guardar la nota interna.",
     });
   }
 };
@@ -522,64 +872,30 @@ if (!session) {
         >
           Pedidos ({orders.length})
         </button>
-      </div>
 
-      {adminNotice && (
-        <div
-          role="status"
-          style={{
-            backgroundColor:
-              adminNotice.type === "success" ? "#16a34a" : "#dc2626",
-            borderColor:
-              adminNotice.type === "success" ? "#86efac" : "#fca5a5",
-            color: "#ffffff",
-          }}
-          className="mb-8 rounded-2xl border p-4 text-sm font-semibold"
+        <button
+          type="button"
+          onClick={() => setActiveSection("categories")}
+          className={`h-11 flex-1 rounded-xl px-5 font-semibold transition cursor-pointer md:flex-none ${
+            activeSection === "categories"
+              ? "bg-white text-black"
+              : "text-zinc-400 hover:text-white"
+          }`}
         >
-          {adminNotice.message}
-        </div>
-      )}
+          Categorias ({categoryOptions.length})
+        </button>
 
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-
-        <div className="bg-zinc-900 rounded-2xl p-6">
-            <h2 className="text-2xl font-semibold">
-            Productos
-            </h2>
-
-            <p className="text-zinc-400 mt-2">
-            Administrar catálogo
-            </p>
-            <button
-                onClick={() => {
-                  setProductFormError("");
-                  setAdminNotice(null);
-                  setShowCreate(true);
-                }}
-                className="mt-6 bg-white text-black px-5 h-11 rounded-xl font-semibold hover:opacity-90 transition cursor-pointer"
-            >
-                Nuevo producto
-            </button>
-            
-            
-        </div>
-
-        <div className="bg-zinc-900 rounded-2xl p-6">
-            <h2 className="text-2xl font-semibold">
-            Pedidos
-            </h2>
-
-            <p className="text-zinc-400 mt-2">
-            {orders.length} tickets cargados
-            </p>
-            <button
-                onClick={refreshOrders}
-                className="mt-6 bg-zinc-800 text-white px-5 h-11 rounded-xl font-semibold hover:bg-zinc-700 transition cursor-pointer"
-            >
-                Actualizar
-            </button>
-        </div>
-
+        <button
+          type="button"
+          onClick={() => setActiveSection("home")}
+          className={`h-11 flex-1 rounded-xl px-5 font-semibold transition cursor-pointer md:flex-none ${
+            activeSection === "home"
+              ? "bg-white text-black"
+              : "text-zinc-400 hover:text-white"
+          }`}
+        >
+          Home
+        </button>
       </div>
 
 {showCreate && (
@@ -595,6 +911,9 @@ if (!session) {
     setPrice={setPrice}
     category={category}
     setCategory={setCategory}
+    categories={categoryOptions.filter(
+      (categoryOption) => categoryOption.active
+    )}
     description={description}
     setDescription={setDescription}
     detailsText={detailsText}
@@ -619,6 +938,11 @@ if (!session) {
     productFormError={productFormError}
     detailsText={editingDetailsText}
     setDetailsText={setEditingDetailsText}
+    categories={categoryOptions.filter(
+      (categoryOption) =>
+        categoryOption.active ||
+        categoryOption.value === editingProduct.category
+    )}
     editingVariantIndex={editingVariantIndex}
     setEditingVariantIndex={setEditingVariantIndex}
     isSaving={isUpdatingProduct}
@@ -637,15 +961,47 @@ if (!session) {
     error={orderError}
     onRefresh={refreshOrders}
     onStatusChange={handleOrderStatusChange}
+    onUpdateInternalNotes={handleUpdateOrderInternalNotes}
+    onDelete={handleDeleteOrder}
+    onDeleteMany={handleDeleteOrders}
   />
 )}
 {activeSection === "products" && (
   <AdminProductsSection
     products={products}
+    categories={categoryOptions}
     savingProductAction={savingProductAction}
     onToggleFeatured={toggleFeaturedProduct}
+    onToggleActive={toggleActiveProduct}
     onDelete={deleteProduct}
     onEdit={startEditingProduct}
+    onCreateProduct={() => {
+      setProductFormError("");
+      setAdminNotice(null);
+      setShowCreate(true);
+    }}
+  />
+)}
+{activeSection === "categories" && (
+  <AdminCategoriesSection
+    categories={categoryOptions}
+    products={products}
+    error={categoryError}
+    isSaving={isSavingCategory}
+    onCreate={createStoreCategory}
+    onUpdate={updateStoreCategory}
+    onDelete={deleteStoreCategory}
+  />
+)}
+{activeSection === "home" && (
+  <AdminHomeSection
+    key={JSON.stringify(homeContent)}
+    content={homeContent}
+    error={homeContentError}
+    isSaving={isSavingHomeContent}
+    isUploading={isUploadingHomeImage}
+    onSave={saveHomeContent}
+    onUploadHeroImages={uploadHomeImages}
   />
 )}
 

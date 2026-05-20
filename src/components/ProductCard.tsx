@@ -9,9 +9,7 @@ type Props = {
   product: Product;
 };
 
-export default function ProductCard({
-  product,
-}: Props) {
+export default function ProductCard({ product }: Props) {
   const productImage = getProductImage(product);
   const sizes = Array.from(
     new Set(
@@ -22,68 +20,51 @@ export default function ProductCard({
   );
 
   return (
-    <div className="bg-white rounded-2xl overflow-hidden transition duration-300 hover:-translate-y-2 hover:shadow-2xl hover:shadow-black/50">
-
+    <div className="flex h-full flex-col overflow-hidden rounded-2xl bg-white transition duration-300 hover:-translate-y-2 hover:shadow-2xl hover:shadow-black/50">
       <Link href={`/product/${product.slug}`}>
-
         <Image
           src={productImage}
           alt={product.name}
           width={380}
           height={520}
-          className="max-w-[380px] w-full h-[520px] object-cover transition duration-500 hover:scale-105"
+          className="h-[420px] w-full object-cover transition duration-500 hover:scale-105 sm:h-[480px] lg:h-[520px]"
         />
-
       </Link>
 
-        <div className="p-5">
-        <Link href={`/product/${product.slug}`}>  
-          <h2 className="inline-block text-2xl font-semibold">
+      <div className="flex min-h-[170px] flex-1 flex-col p-5">
+        <Link href={`/product/${product.slug}`}>
+          <h2 className="line-clamp-2 text-2xl font-semibold">
             {product.name}
           </h2>
-        </Link>  
+        </Link>
 
-          <p className="mt-2 text-zinc-600">
-            ${product.price}
-          </p>
+        <p className="mt-2 text-zinc-600">
+          ${product.price}
+        </p>
 
-
-      <div className="flex items-center gap-2 mt-2">
-
+        <div className="mt-2 flex items-center gap-2">
           {product.variants?.map((variant) => (
-
             <div
               key={variant.color}
-              className="w-4 h-4 rounded-full border border-zinc-400"
+              className="h-4 w-4 rounded-full border border-zinc-400"
               style={{
                 backgroundColor: variant.hex,
               }}
             />
-
           ))}
+        </div>
 
-      </div>  
-
-      <div className="flex gap-2 mt-2">
-
+        <div className="mt-2 flex flex-wrap gap-2">
           {sizes.map((size) => (
-
             <div
               key={size}
-              className="w-8 h-8 rounded-full border border-zinc-400 flex items-center justify-center text-xs text-zinc-600"
+              className="flex h-8 w-8 items-center justify-center rounded-full border border-zinc-400 text-xs text-zinc-600"
             >
               {size}
             </div>
-
           ))}
-
-      </div>
-
-
         </div>
-
-        
-
+      </div>
     </div>
   );
 }

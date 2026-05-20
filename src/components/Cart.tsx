@@ -12,6 +12,7 @@ import {
 
 type Props = {
   cart: CartItem[];
+  isCartReady: boolean;
   deleteItem: (
     id: number,
     size?: string,
@@ -22,6 +23,7 @@ type Props = {
 
 export default function Cart({
   cart,
+  isCartReady,
   deleteItem,
   onClose,
 }: Props) {
@@ -30,6 +32,7 @@ export default function Cart({
   return (
     <div className="w-[330px] bg-[#111] border border-zinc-800 rounded-2xl p-6 shadow-2xl flex flex-col">
       <button
+        type="button"
         onClick={onClose}
         className="absolute top-3 right-3 text-zinc-400"
       >
@@ -37,15 +40,21 @@ export default function Cart({
       </button>
 
       <div className="flex flex-col gap-3">
-        {cart.length === 0 && (
+        {!isCartReady && (
           <p className="text-zinc-400">
-            No hay productos
+            Cargando carrito...
           </p>
         )}
 
-        {cart.map((item, index) => (
+        {isCartReady && cart.length === 0 && (
+          <p className="text-zinc-400">
+            No hay productos en el carrito.
+          </p>
+        )}
+
+        {isCartReady && cart.map((item) => (
           <div
-            key={index}
+            key={`${item.id}-${item.selectedColor}-${item.size}`}
             className="flex items-start gap-4 py-4 border-b border-zinc-800"
           >
             <Image
@@ -71,6 +80,7 @@ export default function Cart({
             </div>
 
             <button
+              type="button"
               onClick={() =>
                 deleteItem(
                   item.id,
@@ -95,9 +105,9 @@ export default function Cart({
       <Link
         href="/cart"
         onClick={onClose}
-        aria-disabled={cart.length === 0}
+        aria-disabled={!isCartReady || cart.length === 0}
         className={`w-full mt-5 text-center py-3 rounded-xl font-bold transition ${
-          cart.length === 0
+          !isCartReady || cart.length === 0
             ? "bg-zinc-700 text-zinc-400 pointer-events-none"
             : "bg-white text-black hover:opacity-90"
         }`}

@@ -2,12 +2,12 @@
 
 import Image from "next/image";
 import type { Dispatch, SetStateAction } from "react";
-import { categories } from "@/config/store";
 import {
   createEmptyProductVariant,
   slugifyProductName,
 } from "@/app/admin/adminUtils";
 import type { NewProductVariant } from "@/app/admin/adminTypes";
+import type { StoreCategory } from "@/types/category";
 
 type Props = {
   productFormError: string;
@@ -21,6 +21,7 @@ type Props = {
   setPrice: Dispatch<SetStateAction<string>>;
   category: string;
   setCategory: Dispatch<SetStateAction<string>>;
+  categories: StoreCategory[];
   description: string;
   setDescription: Dispatch<SetStateAction<string>>;
   detailsText: string;
@@ -46,6 +47,7 @@ export default function CreateProductModal({
   setPrice,
   category,
   setCategory,
+  categories,
   description,
   setDescription,
   detailsText,

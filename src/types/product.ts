@@ -21,6 +21,7 @@ export type Product = {
   sku?: string;
   details: string[];
   featured: boolean;
+  active: boolean;
   images: string[];
   stock?: number;
   variants: ProductVariant[];
@@ -33,6 +34,7 @@ export type SupabaseProductRow = Partial<
   variants?: unknown;
   details?: unknown;
   featured?: boolean | null;
+  active?: boolean | null;
   images?: unknown;
   sizes?: unknown;
   stock?: number | null;

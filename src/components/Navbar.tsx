@@ -1,147 +1,184 @@
 "use client";
 
-import { Menu, Search, X, ShoppingBag, } from "lucide-react";
-import { useState } from "react";
+import { Menu, Search, ShoppingBag, X } from "lucide-react";
 import Link from "next/link";
-import { mainNavCategories } from "@/config/store";
+import { useEffect, useState } from "react";
+import Cart from "@/components/Cart";
 import { useCart } from "@/context/CartContext";
 import { useSearch } from "@/context/SearchContext";
-import Cart from "@/components/Cart";
+import { getCategories, getFallbackCategories } from "@/lib/categories";
+import type { StoreCategory } from "@/types/category";
+
+const infoNavLinks = [
+  { label: "Contacto", href: "/contacto" },
+  { label: "Local", href: "/local" },
+  { label: "Preguntas", href: "/preguntas" },
+  { label: "Tienda", href: "/tienda" },
+];
 
 export default function Navbar() {
-
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const [isMiniCartOpen, setIsMiniCartOpen] =
-  useState(false);
+  const [isMiniCartOpen, setIsMiniCartOpen] = useState(false);
+  const [navCategories, setNavCategories] = useState<StoreCategory[]>(
+    getFallbackCategories()
+  );
   const { setIsSearchOpen } = useSearch();
-  const {
-  cart,
-  deleteItem,
-} = useCart();
+  const { cart, deleteItem, isCartReady } = useCart();
+
+  useEffect(() => {
+    getCategories().then(setNavCategories);
+  }, []);
 
   return (
     <>
+      <nav className="fixed left-0 top-0 z-50 w-full border-b border-zinc-800 bg-black text-white">
+        <div className="grid h-[60px] grid-cols-[1fr_auto_1fr] items-center px-5 md:px-10">
+          <div className="flex items-center gap-5">
+            <button
+              type="button"
+              onClick={() => setIsMenuOpen(true)}
+              className="mobile-menu-trigger text-zinc-300 transition hover:text-white"
+              aria-label="Abrir menú"
+            >
+              <Menu size={26} />
+            </button>
 
-      <nav className="fixed top-0 left-0 w-full z-50 bg-black/80 backdrop-blur-md flex items-center justify-between px-5 md:px-10 py-6 border-b border-zinc-800">
-
-        <div className="flex items-center gap-4">
-
-          <button
-            onClick={() => setIsMenuOpen(true)}
-            className="text-zinc-300 hover:text-white transition"
-          >
-            <Menu size={24} />
-          </button>
-
-          <button
-            onClick={() => setIsSearchOpen(true)}
-            className="text-zinc-300 hover:text-white transition"
-          >
-            <Search size={22} />
-          </button>
-
-        </div>
-
-        <Link
-          href="/"
-          className="text-2xl font-bold tracking-[0.3em] hover:opacity-80 transition"
-        >
-          AIVLIS
-        </Link>
-
-        <div
-          className="relative flex items-center"
-          onMouseEnter={() => setIsMiniCartOpen(true)}
-          onMouseLeave={() => setIsMiniCartOpen(false)}
-        >
+            <div className="desktop-info-links items-center gap-6">
+              {infoNavLinks.map((link) => (
+                <Link
+                  key={link.href}
+                  href={link.href}
+                  className="text-sm font-semibold uppercase tracking-wide text-zinc-300 transition hover:text-white"
+                >
+                  {link.label}
+                </Link>
+              ))}
+            </div>
+          </div>
 
           <Link
-            href="/cart"
-            className="text-zinc-300 hover:text-white transition relative"
+            href="/"
+            className="text-2xl font-bold tracking-[0.3em] transition hover:opacity-80"
           >
-            <ShoppingBag size={22} />
-
-            {cart.length > 0 && (
-              <span className="absolute -top-2 -right-4 bg-white text-black text-xs w-5 h-5 rounded-full flex items-center justify-center">
-                {cart.reduce(
-                  (acc, item) => acc + item.quantity,
-                  0
-                )}
-              </span>
-            )}
+            AIVLIS
           </Link>
 
-          {isMiniCartOpen && cart.length > 0 && (
+          <div
+            className="relative flex items-center justify-end gap-5"
+            onMouseEnter={() => setIsMiniCartOpen(true)}
+            onMouseLeave={() => setIsMiniCartOpen(false)}
+          >
+            <button
+              type="button"
+              onClick={() => setIsSearchOpen(true)}
+              className="text-zinc-300 transition hover:text-white"
+              aria-label="Buscar productos"
+            >
+              <Search size={24} />
+            </button>
 
-            <div className="absolute top-full right-0 pt-2">
+            <Link
+              href="/cart"
+              className="relative text-zinc-300 transition hover:text-white"
+              aria-label="Ir al carrito"
+            >
+              <ShoppingBag size={24} />
 
-              <Cart
-                cart={cart}
-                deleteItem={deleteItem}
-                onClose={() => setIsMiniCartOpen(false)}
-                
-              />
+              {cart.length > 0 && (
+                <span className="absolute -right-4 -top-2 flex h-5 w-5 items-center justify-center rounded-full bg-white text-xs text-black">
+                  {cart.reduce(
+                    (acc, item) => acc + item.quantity,
+                    0
+                  )}
+                </span>
+              )}
+            </Link>
 
-            </div>
-
-          )}
-
+            {isMiniCartOpen && cart.length > 0 && (
+              <div className="absolute right-0 top-full pt-2">
+                <Cart
+                  cart={cart}
+                  isCartReady={isCartReady}
+                  deleteItem={deleteItem}
+                  onClose={() => setIsMiniCartOpen(false)}
+                />
+              </div>
+            )}
+          </div>
         </div>
 
+        <div className="desktop-category-bar border-t border-zinc-800 px-5 md:px-10">
+          <div className="mx-auto flex max-w-7xl items-center justify-center gap-6 py-2 lg:gap-12">
+            {navCategories.map((category) => (
+              <Link
+                key={category.value}
+                href={`/tienda?categoria=${category.value}`}
+                className="text-sm font-semibold uppercase tracking-wide text-zinc-300 transition hover:text-white"
+              >
+                {category.label}
+              </Link>
+            ))}
+          </div>
+        </div>
       </nav>
 
       <div
         onClick={() => setIsMenuOpen(false)}
-        className={`fixed inset-0 z-50 bg-black/50 transition-opacity duration-500 ${
+        className={`mobile-menu-overlay fixed inset-0 z-50 bg-black/50 transition-opacity duration-500 ${
           isMenuOpen
-            ? "opacity-100 pointer-events-auto"
-            : "opacity-0 pointer-events-none"
+            ? "pointer-events-auto opacity-100"
+            : "pointer-events-none opacity-0"
         }`}
       >
-          <div
-            onClick={(e) => e.stopPropagation()}
-            className={`w-[300px] h-full bg-black/70 backdrop-blur-[0px] border-r border-zinc-800 p-6 transform transition-transform duration-400 ease-in-out ${
-              isMenuOpen
-                ? "translate-x-0"
-                : "-translate-x-full"
-            }`}
-          >
+        <div
+          onClick={(event) => event.stopPropagation()}
+          className={`h-full w-[300px] border-r border-zinc-800 bg-black p-6 text-white transition-transform duration-300 ease-in-out ${
+            isMenuOpen ? "translate-x-0" : "-translate-x-full"
+          }`}
+        >
+          <div className="mb-10 flex items-center justify-between">
+            <h2 className="text-xl font-bold">
+              Menú
+            </h2>
 
-            <div className="flex items-center justify-between mb-10">
+            <button
+              type="button"
+              onClick={() => setIsMenuOpen(false)}
+              aria-label="Cerrar menú"
+            >
+              <X />
+            </button>
+          </div>
 
-              <h2 className="text-xl font-bold">
-                Menú
-              </h2>
-
-              <button
+          <div className="mb-8 flex flex-col gap-6 text-lg">
+            {infoNavLinks.map((link) => (
+              <Link
+                key={link.href}
+                href={link.href}
                 onClick={() => setIsMenuOpen(false)}
+                className="w-fit transition hover:text-zinc-400"
               >
-                <X />
-              </button>
+                {link.label}
+              </Link>
+            ))}
+          </div>
 
-            </div>
-
+          <div className="border-t border-zinc-800 pt-8">
             <div className="flex flex-col gap-6 text-lg">
-
-              {mainNavCategories.map((category) => (
+              {navCategories.map((category) => (
                 <Link
                   key={category.value}
-                  href={`/category/${category.value}`}
+                  href={`/tienda?categoria=${category.value}`}
                   onClick={() => setIsMenuOpen(false)}
-                  className="w-fit hover:text-zinc-400 transition"
+                  className="w-fit transition hover:text-zinc-400"
                 >
                   {category.label}
                 </Link>
               ))}
-
             </div>
-
           </div>
-
         </div>
-
-      
-
+      </div>
     </>
   );
 }

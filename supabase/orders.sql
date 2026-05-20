@@ -13,6 +13,7 @@ create table if not exists public.orders (
   customer_zip text not null,
   customer_email text,
   notes text,
+  internal_notes text,
   total numeric(12, 2) not null default 0,
   whatsapp_message text not null,
   created_at timestamptz not null default now(),

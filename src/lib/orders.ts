@@ -40,6 +40,7 @@ function normalizeOrder(row: SupabaseOrderRow): AdminOrder {
     customerZip: row.customer_zip,
     customerEmail: row.customer_email,
     notes: row.notes,
+    internalNotes: row.internal_notes,
     total: Number(row.total),
     whatsappMessage: row.whatsapp_message,
     createdAt: row.created_at,
@@ -245,6 +246,38 @@ export async function updateOrderStatus(
       status,
       updated_at: new Date().toISOString(),
     })
+    .eq("id", order.id);
+
+  if (error) {
+    throw error;
+  }
+}
+
+export async function updateOrderInternalNotes(
+  orderId: string,
+  internalNotes: string
+) {
+  const { error } = await supabase
+    .from("orders")
+    .update({
+      internal_notes: internalNotes.trim() || null,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", orderId);
+
+  if (error) {
+    throw error;
+  }
+}
+
+export async function deleteOrder(order: AdminOrder) {
+  if (order.status === "confirmed") {
+    await adjustStockForOrder(order, 1);
+  }
+
+  const { error } = await supabase
+    .from("orders")
+    .delete()
     .eq("id", order.id);
 
   if (error) {

@@ -225,6 +225,7 @@ const {
               <div className="flex items-center gap-4 border border-zinc-800 rounded-xl px-4 py-2 w-fit">
 
                 <button
+                    type="button"
                     onClick={() =>
                       removeFromCart(
                         item.id,
@@ -242,6 +243,7 @@ const {
                 </span>
 
                 <button
+                    type="button"
                     onClick={() =>
                       increaseQuantity(
                         item.id,
@@ -260,7 +262,7 @@ const {
               {!canIncrease && (
                 <p className="mt-2 text-xs text-zinc-500">
                   {stockLimit > 0
-                    ? "Stock maximo en carrito"
+                    ? "Stock máximo en carrito"
                     : "Sin stock disponible"}
                 </p>
               )}
@@ -278,6 +280,7 @@ const {
 
 
             <button
+              type="button"
               onClick={() =>
                 deleteItem(
                   item.id,

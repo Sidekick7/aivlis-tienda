@@ -10,6 +10,7 @@ export default function CartWrapper() {
     isCartOpen,
     setIsCartOpen,
     deleteItem,
+    isCartReady,
   } = useCart();
 
   return (
@@ -17,6 +18,7 @@ export default function CartWrapper() {
       {isCartOpen && (
         <Cart
           cart={cart}
+          isCartReady={isCartReady}
           onClose={() => setIsCartOpen(false)}
           deleteItem={deleteItem}
         />

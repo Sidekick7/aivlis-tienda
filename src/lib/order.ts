@@ -1,5 +1,6 @@
 import type { CartItem } from "@/context/CartContext";
 import { storeConfig } from "@/config/store";
+import { formatOrderNumber } from "@/lib/orderNumber";
 import { getVariantSizeStock } from "@/lib/stock";
 import type { CustomerInfo } from "@/types/order";
 import type { Product } from "@/types/product";
@@ -60,7 +61,7 @@ export function buildOrderWhatsAppMessage({
 }) {
   return `Hola! Quiero realizar este pedido:
 
-Ticket: ${orderNumber}
+Pedido ${formatOrderNumber(orderNumber)}
 
 ${formatCartItemsForWhatsApp(cart)}
 
@@ -89,7 +90,7 @@ ${customer.province}
 Código Postal:
 ${customer.zip}
 
-Correo electronico:
+Correo electrónico:
 ${customer.email || "-"}
 
 Notas adicionales:

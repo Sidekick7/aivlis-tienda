@@ -1,13 +1,11 @@
 "use client";
 
 import Image from "next/image";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
-import {
-  fallbackProductImage,
-  getCategoryLabel,
-} from "@/config/store";
+import { fallbackProductImage } from "@/config/store";
 import { useCart } from "@/context/CartContext";
+import { getCategories } from "@/lib/categories";
 import type { Product, ProductVariant } from "@/types/product";
 
 type Props = {
@@ -23,23 +21,23 @@ function getDefaultSize(variant?: ProductVariant) {
 }
 
 export default function ProductInfo({ product }: Props) {
-  const categoryLabel = getCategoryLabel(product.category);
+  const [categoryLabel, setCategoryLabel] = useState(product.category);
   const firstVariant = product.variants[0];
   const firstImage =
     firstVariant?.images[0] ||
     product.images[0] ||
     fallbackProductImage;
   const thumbnails = [
-    ...product.images.map((image) => ({
-      image,
-      variant: null,
-    })),
     ...product.variants.flatMap((variant) =>
       variant.images.map((image) => ({
         image,
         variant,
       }))
     ),
+    ...product.images.map((image) => ({
+      image,
+      variant: null,
+    })),
   ].filter(
     (thumbnail, index, allThumbnails) =>
       allThumbnails.findIndex(
@@ -66,6 +64,16 @@ export default function ProductInfo({ product }: Props) {
   });
 
   const { addToCart, cart } = useCart();
+
+  useEffect(() => {
+    getCategories().then((categories) => {
+      setCategoryLabel(
+        categories.find(
+          (category) => category.value === product.category
+        )?.label ?? product.category
+      );
+    });
+  }, [product.category]);
 
   const selectedVariant =
     product.variants.find(
@@ -231,7 +239,7 @@ export default function ProductInfo({ product }: Props) {
         <span>/</span>
 
         <Link
-          href={`/category/${product.category}`}
+          href={`/tienda?categoria=${product.category}`}
           className="hover:text-white transition"
         >
           {categoryLabel}

@@ -2,11 +2,11 @@
 
 import Image from "next/image";
 import type { Dispatch, SetStateAction } from "react";
-import { categories } from "@/config/store";
 import type {
   EditableProduct,
   EditableVariant,
 } from "@/app/admin/adminTypes";
+import type { StoreCategory } from "@/types/category";
 
 type Props = {
   product: EditableProduct;
@@ -14,6 +14,7 @@ type Props = {
   productFormError: string;
   detailsText: string;
   setDetailsText: Dispatch<SetStateAction<string>>;
+  categories: StoreCategory[];
   editingVariantIndex: number;
   setEditingVariantIndex: Dispatch<SetStateAction<number>>;
   isSaving: boolean;
@@ -33,6 +34,7 @@ export default function EditProductModal({
   productFormError,
   detailsText,
   setDetailsText,
+  categories,
   editingVariantIndex,
   setEditingVariantIndex,
   isSaving,

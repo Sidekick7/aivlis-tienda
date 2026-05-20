@@ -4,6 +4,7 @@ import "./globals.css";
 import Navbar from "@/components/Navbar";
 import { CartProvider } from "@/context/CartContext";
 import CartWrapper from "@/components/CartWrapper";
+import Footer from "@/components/Footer";
 import { SearchProvider } from "@/context/SearchContext";
 import SearchModal from "@/components/SearchModal";
 
@@ -46,6 +47,8 @@ export default function RootLayout({
           <SearchModal />
 
           {children}
+
+          <Footer />
 
         </CartProvider>
 

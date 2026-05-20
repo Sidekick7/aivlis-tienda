@@ -3,38 +3,48 @@
 import Image from "next/image";
 import { Search } from "lucide-react";
 import { useState } from "react";
-import { categories, getCategoryLabel } from "@/config/store";
 import {
   currencyFormatter,
   getProductImage,
   getProductTotalStock,
 } from "@/app/admin/adminUtils";
 import type { ProductFilter } from "@/app/admin/adminTypes";
+import type { StoreCategory } from "@/types/category";
 import type { Product } from "@/types/product";
 
 type Props = {
   products: Product[];
+  categories: StoreCategory[];
   savingProductAction: {
     id: number;
-    action: "featured" | "delete";
+    action: "featured" | "active" | "delete";
   } | null;
   onToggleFeatured: (product: Product) => Promise<void>;
+  onToggleActive: (product: Product) => Promise<void>;
   onDelete: (productId: number) => Promise<void>;
   onEdit: (product: Product) => void;
+  onCreateProduct: () => void;
 };
 
 export default function AdminProductsSection({
   products,
+  categories,
   savingProductAction,
   onToggleFeatured,
+  onToggleActive,
   onDelete,
   onEdit,
+  onCreateProduct,
 }: Props) {
   const [productSearch, setProductSearch] = useState("");
   const [productFilter, setProductFilter] =
     useState<ProductFilter>("all");
   const [productCategoryFilter, setProductCategoryFilter] =
     useState("all");
+  const getCategoryLabel = (categoryValue: string) =>
+    categories.find(
+      (categoryOption) => categoryOption.value === categoryValue
+    )?.label ?? categoryValue;
 
   const normalizedProductSearch = productSearch
     .trim()
@@ -59,6 +69,8 @@ export default function AdminProductsSection({
       product.category === productCategoryFilter;
 
     if (!matchesCategory) return false;
+    if (productFilter === "active") return product.active;
+    if (productFilter === "inactive") return !product.active;
     if (productFilter === "featured") return product.featured;
     if (productFilter === "in_stock") return totalStock > 0;
     if (productFilter === "out_of_stock") return totalStock <= 0;
@@ -79,25 +91,37 @@ export default function AdminProductsSection({
           </p>
         </div>
 
-        <div className="relative w-full lg:max-w-sm">
-          <Search
-            size={18}
-            className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500"
-          />
+        <div className="flex w-full flex-col gap-3 sm:flex-row lg:w-auto lg:items-center">
+          <div className="relative w-full lg:w-80">
+            <Search
+              size={18}
+              className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500"
+            />
 
-          <input
-            type="search"
-            placeholder="Buscar por nombre, slug, categoría o SKU"
-            value={productSearch}
-            onChange={(event) => setProductSearch(event.target.value)}
-            className="h-12 w-full rounded-xl border border-zinc-800 bg-zinc-950 pl-11 pr-4 outline-none transition focus:border-zinc-500"
-          />
+            <input
+              type="search"
+              placeholder="Buscar por nombre, slug, categoria o SKU"
+              value={productSearch}
+              onChange={(event) => setProductSearch(event.target.value)}
+              className="h-12 w-full rounded-xl border border-zinc-800 bg-zinc-950 pl-11 pr-4 outline-none transition focus:border-zinc-500"
+            />
+          </div>
+
+          <button
+            type="button"
+            onClick={onCreateProduct}
+            className="h-12 rounded-xl bg-white px-5 font-semibold text-black transition hover:opacity-90 cursor-pointer"
+          >
+            Nuevo producto
+          </button>
         </div>
       </div>
 
       <div className="mb-6 flex flex-wrap gap-2">
         {([
           ["all", "Todos"],
+          ["active", "Publicados"],
+          ["inactive", "Ocultos"],
           ["featured", "Destacados"],
           ["in_stock", "Con stock"],
           ["out_of_stock", "Sin stock"],
@@ -145,7 +169,7 @@ export default function AdminProductsSection({
 
       {visibleProducts.length === 0 && (
         <div className="rounded-2xl border border-zinc-800 bg-zinc-950 p-8 text-center text-zinc-400">
-          No hay productos que coincidan con la búsqueda.
+          No hay productos que coincidan con la busqueda.
         </div>
       )}
 
@@ -211,9 +235,30 @@ export default function AdminProductsSection({
               <p className="mt-1 capitalize text-zinc-300">
                 {getCategoryLabel(product.category)}
               </p>
+
+              <p className="mt-1 text-xs text-zinc-500">
+                {product.active ? "Publicado" : "Oculto"}
+              </p>
             </div>
 
             <div className="flex flex-wrap items-center gap-3 lg:justify-end">
+              <button
+                onClick={() => onToggleActive(product)}
+                disabled={isSavingProduct}
+                className={`px-4 h-10 rounded-xl font-medium transition cursor-pointer disabled:cursor-not-allowed disabled:opacity-60 ${
+                  product.active
+                    ? "bg-green-600 text-white"
+                    : "bg-zinc-700 text-white"
+                }`}
+              >
+                {isSavingProduct &&
+                savingProductAction.action === "active"
+                  ? "Guardando..."
+                  : product.active
+                    ? "Publicado"
+                    : "Oculto"}
+              </button>
+
               <button
                 onClick={() => onToggleFeatured(product)}
                 disabled={isSavingProduct}
