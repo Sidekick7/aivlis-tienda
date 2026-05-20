@@ -205,7 +205,7 @@ export default function ProductInfo({ product }: Props) {
             }}
             className={`rounded-2xl overflow-hidden transition-all duration-300 ${
               selectedImage === thumbnail.image
-                ? "ring-2 ring-white/80 scale-[1.02]"
+                ? "ring-2 ring-black/70 scale-[1.02]"
                 : "opacity-70 hover:opacity-100 hover:scale-[1.02]"
             }`}
           >
@@ -227,11 +227,11 @@ export default function ProductInfo({ product }: Props) {
   </div>
       <div className="lg:sticky lg:top-28">
 
-      <div className="flex items-center gap-2 text-sm text-zinc-500 mb-6">
+      <div className="mb-6 flex flex-wrap items-center gap-2 text-sm text-zinc-500">
 
         <Link
           href="/"
-          className="hover:text-white transition"
+          className="rounded-full bg-white px-3 py-1.5 transition hover:text-black"
         >
           Inicio
         </Link>
@@ -240,14 +240,14 @@ export default function ProductInfo({ product }: Props) {
 
         <Link
           href={`/tienda?categoria=${product.category}`}
-          className="hover:text-white transition"
+          className="rounded-full bg-white px-3 py-1.5 transition hover:text-black"
         >
           {categoryLabel}
         </Link>
 
         <span>/</span>
 
-        <span className="text-zinc-300">
+        <span className="rounded-full bg-zinc-200 px-3 py-1.5 text-zinc-700">
           {product.name}
         </span>
 
@@ -261,7 +261,7 @@ export default function ProductInfo({ product }: Props) {
         ${product.price}
       </p>
       
-      <p className="mt-2 text-zinc-400">
+      <p className="mt-2 text-zinc-600">
         Precio mayorista
       </p>
       {selectedSizeData &&
@@ -277,22 +277,22 @@ export default function ProductInfo({ product }: Props) {
       {(!selectedSizeData ||
         selectedSizeData.stock <= 0) && (
 
-        <p className="mt-4 text-sm text-zinc-500">
+        <p className="mt-4 text-sm text-zinc-600">
           Agotado
         </p>
 
       )}
-      <p className="mt-8 text-zinc-300 leading-relaxed whitespace-pre-line">
+      <p className="mt-8 text-zinc-700 leading-relaxed whitespace-pre-line">
         {product.description}
       </p>
 
       <div className="mt-8">
 
-        <p className="mb-3 text-zinc-400">
+        <p className="mb-3 text-zinc-700">
           Talles
         </p>
 
-        <div className="flex gap-3">
+        <div className="flex flex-wrap gap-3">
 
           {selectedVariant?.sizes?.map((sizeItem) => (
 
@@ -305,12 +305,12 @@ export default function ProductInfo({ product }: Props) {
               disabled={sizeItem.stock <= 0}
               className={`w-12 h-12 border rounded-xl transition ${
                 selectedSize === sizeItem.size
-                  ? "bg-white text-black border-white"
-                  : "border-zinc-700 hover:border-white"
+                  ? "bg-black text-white border-black"
+                  : "border-zinc-300 bg-white hover:border-black"
               } ${
                 sizeItem.stock <= 0
                   ? "opacity-40 cursor-not-allowed"
-                  : ""
+                  : "cursor-pointer"
               }`}
             >
               {sizeItem.size}
@@ -324,16 +324,19 @@ export default function ProductInfo({ product }: Props) {
 
       <div className="mt-8">
 
-        <p className="mb-3 text-zinc-400">
-          Colores
+        <p className="mb-3 text-zinc-700">
+          {selectedColor ? `Color: ${selectedColor}` : "Color"}
         </p>
 
-        <div className="flex gap-3">
+        <div className="flex flex-wrap gap-3">
 
           {product.variants.map((variant) => (
 
             <button
               key={variant.color}
+              type="button"
+              title={variant.color}
+              aria-label={`Color ${variant.color}`}
               onClick={() => {
                 resetCartFeedback();
                 setSelectedColor(variant.color);
@@ -346,10 +349,10 @@ export default function ProductInfo({ product }: Props) {
                   getDefaultSize(variant)
                 );
               }}
-              className={`w-8 h-8 rounded-full border-2 transition ${
+              className={`w-8 h-8 rounded-full border-2 transition cursor-pointer ${
                 selectedColor === variant.color
-                  ? "border-white scale-110"
-                  : "border-zinc-700 hover:border-white"
+                  ? "border-black scale-110"
+                  : "border-zinc-300 hover:border-black"
               }`}
               style={{
                 backgroundColor: variant.hex,
@@ -362,9 +365,9 @@ export default function ProductInfo({ product }: Props) {
 
       </div>
 
-      <div className="flex items-center gap-4 mt-8">
+      <div className="mt-8 flex flex-col gap-4 sm:flex-row sm:items-center">
 
-        <div className="flex items-center border border-zinc-700 rounded-2xl h-14">
+        <div className="flex items-center border border-zinc-300 bg-white rounded-2xl h-14">
 
           <button
             onClick={() =>
@@ -374,7 +377,7 @@ export default function ProductInfo({ product }: Props) {
                   : 1
               )
             }
-            className="w-12 h-full flex items-center justify-center text-xl hover:bg-zinc-900 transition cursor-pointer"
+            className="w-12 h-full flex items-center justify-center text-xl hover:bg-zinc-100 transition cursor-pointer"
           >
             -
           </button>
@@ -415,7 +418,7 @@ export default function ProductInfo({ product }: Props) {
               availableToAdd <= 0 ||
               selectedQuantity >= availableToAdd
             }
-            className="w-12 h-full flex items-center justify-center text-xl hover:bg-zinc-900 transition cursor-pointer"
+            className="w-12 h-full flex items-center justify-center text-xl hover:bg-zinc-100 transition cursor-pointer"
           >
             +
           </button>
@@ -433,8 +436,8 @@ export default function ProductInfo({ product }: Props) {
             !selectedSizeData ||
             selectedSizeData.stock <= 0 ||
             availableToAdd <= 0
-              ? "bg-zinc-800 text-zinc-500 cursor-not-allowed"
-              : "bg-white text-black hover:opacity-90 cursor-pointer"
+              ? "bg-zinc-300 text-zinc-500 cursor-not-allowed"
+              : "bg-black text-white hover:bg-zinc-800 cursor-pointer"
           }`}
         >
           {!selectedSizeData || selectedSizeData.stock <= 0
@@ -465,7 +468,7 @@ export default function ProductInfo({ product }: Props) {
           )}
 
 
-          <div className="mt-10 flex flex-col gap-3 text-sm text-zinc-400">
+          <div className="mt-10 flex flex-col gap-3 text-sm text-zinc-700">
 
             <p>
               ✓ Envíos a todo el país
