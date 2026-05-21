@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { ArrowDown, ArrowUp } from "lucide-react";
 import {
   slugifyCategoryValue,
 } from "@/lib/categories";
@@ -18,6 +19,11 @@ type Props = {
   isSaving: boolean;
   onCreate: (category: Omit<StoreCategory, "id">) => Promise<void>;
   onUpdate: (category: StoreCategory & { id: number }) => Promise<void>;
+  onMove: (
+    category: StoreCategory & { id: number },
+    targetCategory: StoreCategory & { id: number }
+  ) => Promise<void>;
+  onNormalizeOrder: () => Promise<void>;
   onDelete: (category: StoreCategory & { id: number }) => Promise<void>;
 };
 
@@ -37,6 +43,8 @@ export default function AdminCategoriesSection({
   isSaving,
   onCreate,
   onUpdate,
+  onMove,
+  onNormalizeOrder,
   onDelete,
 }: Props) {
   const [newLabel, setNewLabel] = useState("");
@@ -91,25 +99,38 @@ export default function AdminCategoriesSection({
   };
 
   return (
-    <div className="mt-10 rounded-3xl bg-zinc-900 p-6">
+    <div className="mt-8 rounded-3xl bg-zinc-900 p-6">
       <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div>
           <h2 className="text-3xl font-bold">
-            Categorias
+            Categorias de tienda
           </h2>
 
           <p className="mt-2 text-zinc-400">
-            Administrar filtros, navbar, tienda y Home
+            Administrar filtros y orden de categorias visibles.
           </p>
         </div>
 
-        <div className="flex flex-col gap-2 sm:flex-row">
+        <div className="flex w-full flex-col gap-2 sm:flex-row lg:w-auto">
+          <button
+            type="button"
+            onClick={onNormalizeOrder}
+            disabled={
+              isSaving ||
+              Boolean(error) ||
+              categories.some((category) => !category.id)
+            }
+            className="h-11 rounded-xl border border-zinc-700 px-4 text-sm font-semibold text-zinc-300 transition hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            Reparar orden
+          </button>
+
           <input
             type="text"
             placeholder="Nueva categoria"
             value={newLabel}
             onChange={(event) => setNewLabel(event.target.value)}
-            className="h-11 rounded-xl bg-zinc-950 px-4 outline-none"
+            className="h-11 min-w-0 rounded-xl bg-zinc-950 px-4 outline-none sm:w-64"
           />
 
           <button
@@ -130,22 +151,27 @@ export default function AdminCategoriesSection({
       )}
 
       <div className="flex flex-col gap-3">
-        {sortedCategories.map((category) => {
+        {sortedCategories.map((category, index) => {
           const draft = getDraft(category);
+          const previousCategory = sortedCategories[index - 1];
+          const nextCategory = sortedCategories[index + 1];
           const productCount = getCategoryProductCount(
             products,
             category.value
           );
           const canMutate = Boolean(category.id) && !error;
+          const canMoveUp =
+            canMutate && Boolean(previousCategory?.id) && !isSaving;
+          const canMoveDown =
+            canMutate && Boolean(nextCategory?.id) && !isSaving;
 
           return (
             <div
               key={category.id ?? category.value}
-              className="grid gap-4 rounded-2xl bg-zinc-800 p-4 xl:grid-cols-[minmax(320px,auto)_220px] xl:items-center xl:justify-between"
+              className="grid gap-4 rounded-2xl bg-zinc-800 p-4 2xl:grid-cols-[minmax(0,720px)_auto] 2xl:items-center"
             >
-              <div className="grid gap-3">
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
-                  <label className="grid gap-1 sm:w-72">
+              <div className="grid gap-4 lg:grid-cols-[minmax(180px,240px)_minmax(160px,220px)_132px_112px] lg:items-end">
+                <label className="grid gap-1">
                     <span className="text-xs font-semibold uppercase text-zinc-500">
                       Nombre visible
                     </span>
@@ -159,74 +185,101 @@ export default function AdminCategoriesSection({
                           label: event.target.value,
                         })
                       }
-                      className="h-11 rounded-xl bg-zinc-950 px-4 text-lg font-semibold outline-none disabled:opacity-60"
+                    className="h-11 min-w-0 rounded-xl bg-zinc-950 px-4 text-base font-semibold outline-none disabled:opacity-60"
                     />
-                  </label>
+                </label>
 
-                  <div className="flex h-11 items-center rounded-xl bg-zinc-900 px-4 text-sm text-zinc-300">
-                    {productCount} productos
-                  </div>
-                </div>
+                <label className="grid gap-1">
+                  <span className="text-xs font-semibold uppercase text-zinc-500">
+                    Slug
+                  </span>
 
-                <div className="grid gap-4 md:grid-cols-[260px_auto] md:items-end">
-                  <label className="grid gap-1">
-                    <span className="text-xs font-semibold uppercase text-zinc-500">
-                      Slug
+                  <input
+                    type="text"
+                    value={draft.value}
+                    disabled={!canMutate || isSaving}
+                    onChange={(event) =>
+                      updateDraft(category, {
+                        value: slugifyCategoryValue(event.target.value),
+                      })
+                    }
+                    className="h-11 min-w-0 rounded-xl bg-zinc-950 px-4 text-sm outline-none disabled:opacity-60"
+                  />
+                </label>
+
+                <div className="grid gap-1">
+                  <span className="text-xs font-semibold uppercase text-zinc-500">
+                    Orden
+                  </span>
+
+                  <div className="flex h-11 items-center rounded-xl bg-zinc-950 p-1">
+                    <span className="flex h-full min-w-10 items-center justify-center rounded-lg bg-zinc-900 px-3 text-sm font-semibold text-zinc-300">
+                      {category.sortOrder}
                     </span>
 
-                    <input
-                      type="text"
-                      value={draft.value}
-                      disabled={!canMutate || isSaving}
-                      onChange={(event) =>
-                        updateDraft(category, {
-                          value: slugifyCategoryValue(event.target.value),
-                        })
-                      }
-                      className="h-10 rounded-xl bg-zinc-950 px-4 text-sm outline-none disabled:opacity-60"
-                    />
-                  </label>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (!category.id || !previousCategory?.id) return;
 
-                  <div className="flex flex-wrap items-end gap-8">
-                    <label className="grid w-24 gap-1">
-                      <span className="text-xs font-semibold uppercase text-zinc-500">
-                        Orden
-                      </span>
+                        onMove(
+                          { ...category, id: category.id },
+                          {
+                            ...previousCategory,
+                            id: previousCategory.id,
+                          }
+                        );
+                      }}
+                      disabled={!canMoveUp}
+                      aria-label="Subir categoria"
+                      className="ml-auto flex h-full w-9 items-center justify-center rounded-lg border border-zinc-700 bg-zinc-900 text-white transition hover:border-zinc-500 hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-35"
+                    >
+                      <ArrowUp size={18} strokeWidth={3} />
+                    </button>
 
-                      <input
-                        type="text"
-                        inputMode="numeric"
-                        value={draft.sortOrder}
-                        disabled={!canMutate || isSaving}
-                        onChange={(event) =>
-                          updateDraft(category, {
-                            sortOrder: Number(event.target.value),
-                          })
-                        }
-                        className="h-10 rounded-xl bg-zinc-950 px-3 text-sm outline-none disabled:opacity-60"
-                      />
-                    </label>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (!category.id || !nextCategory?.id) return;
 
-                    <label className="flex h-10 w-fit items-center gap-2 rounded-xl border border-zinc-700 bg-zinc-900 px-4 text-sm text-zinc-300">
-                      <input
-                        type="checkbox"
-                        checked={draft.active}
-                        disabled={!canMutate || isSaving}
-                        onChange={(event) =>
-                          updateDraft(category, {
-                            active: event.target.checked,
-                          })
-                        }
-                        className="h-4 w-4 accent-white"
-                      />
-                      Activa
-                    </label>
+                        onMove(
+                          { ...category, id: category.id },
+                          {
+                            ...nextCategory,
+                            id: nextCategory.id,
+                          }
+                        );
+                      }}
+                      disabled={!canMoveDown}
+                      aria-label="Bajar categoria"
+                      className="flex h-full w-9 items-center justify-center rounded-lg border border-zinc-700 bg-zinc-900 text-white transition hover:border-zinc-500 hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-35"
+                    >
+                      <ArrowDown size={18} strokeWidth={3} />
+                    </button>
                   </div>
-
                 </div>
+
+                <label className="flex h-11 w-fit items-center gap-2 rounded-xl border border-zinc-700 bg-zinc-900 px-4 text-sm text-zinc-300 lg:w-full lg:justify-center">
+                  <input
+                    type="checkbox"
+                    checked={draft.active}
+                    disabled={!canMutate || isSaving}
+                    onChange={(event) =>
+                      updateDraft(category, {
+                        active: event.target.checked,
+                      })
+                    }
+                    className="h-4 w-4 accent-white"
+                  />
+                  Activa
+                </label>
               </div>
 
-              <div className="flex flex-wrap gap-2 xl:justify-end">
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-[minmax(130px,1fr)_96px_118px] 2xl:w-[360px]">
+                <span className="flex h-10 items-center justify-center rounded-xl bg-zinc-900 px-4 text-sm text-zinc-300">
+                  {productCount} productos
+                </span>
+
                 <button
                   type="button"
                   disabled={!canMutate || isSaving}

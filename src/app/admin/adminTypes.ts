@@ -28,7 +28,7 @@ export type EditableProduct = Omit<Product, "price" | "variants"> & {
 export type AdminSection =
   | "products"
   | "orders"
-  | "categories"
+  | "local_sale"
   | "home";
 
 export type ProductFilter =

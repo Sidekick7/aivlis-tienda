@@ -1,12 +1,9 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
-import Navbar from "@/components/Navbar";
 import { CartProvider } from "@/context/CartContext";
-import CartWrapper from "@/components/CartWrapper";
-import Footer from "@/components/Footer";
 import { SearchProvider } from "@/context/SearchContext";
-import SearchModal from "@/components/SearchModal";
+import SiteChrome from "@/components/SiteChrome";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -41,14 +38,9 @@ export default function RootLayout({
 
         <CartProvider>
 
-          <Navbar />
-
-          <CartWrapper />
-          <SearchModal />
-
-          {children}
-
-          <Footer />
+          <SiteChrome>
+            {children}
+          </SiteChrome>
 
         </CartProvider>
 

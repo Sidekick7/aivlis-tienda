@@ -1,6 +1,7 @@
 "use client";
 
 import { type FormEvent, useEffect, useState } from "react";
+import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import {
   createCategory,
@@ -25,6 +26,7 @@ import {
 import { formatOrderNumber } from "@/lib/orderNumber";
 import AdminCategoriesSection from "@/app/admin/AdminCategoriesSection";
 import AdminHomeSection from "@/app/admin/AdminHomeSection";
+import AdminLocalSaleSection from "@/app/admin/AdminLocalSaleSection";
 import AdminOrdersSection from "@/app/admin/AdminOrdersSection";
 import AdminProductsSection from "@/app/admin/AdminProductsSection";
 import CreateProductModal from "@/app/admin/CreateProductModal";
@@ -360,6 +362,104 @@ const updateStoreCategory = async (
         error instanceof Error
           ? `No se pudo actualizar la categoria: ${error.message}`
           : "No se pudo actualizar la categoria.",
+    });
+  } finally {
+    setIsSavingCategory(false);
+  }
+};
+
+const normalizeStoreCategoriesOrder = async () => {
+  setIsSavingCategory(true);
+  setAdminNotice(null);
+
+  try {
+    const sortedCategories = [...categoryOptions].sort(
+      (a, b) =>
+        a.sortOrder - b.sortOrder || a.label.localeCompare(b.label)
+    );
+    const updates = sortedCategories
+      .map((categoryOption, index) => ({
+        ...categoryOption,
+        sortOrder: index + 1,
+      }))
+      .filter(
+        (
+          categoryOption
+        ): categoryOption is StoreCategory & { id: number } =>
+          typeof categoryOption.id === "number"
+      );
+
+    await Promise.all(updates.map(updateCategory));
+    await refreshCategories();
+    setAdminNotice({
+      type: "success",
+      message: "Orden de categorias reparado.",
+    });
+  } catch (error) {
+    setAdminNotice({
+      type: "error",
+      message:
+        error instanceof Error
+          ? `No se pudo reparar el orden: ${error.message}`
+          : "No se pudo reparar el orden.",
+    });
+  } finally {
+    setIsSavingCategory(false);
+  }
+};
+
+const moveStoreCategory = async (
+  categoryToMove: StoreCategory & { id: number },
+  targetCategory: StoreCategory & { id: number }
+) => {
+  setIsSavingCategory(true);
+  setAdminNotice(null);
+
+  try {
+    const sortedCategories = [...categoryOptions].sort(
+      (a, b) =>
+        a.sortOrder - b.sortOrder || a.label.localeCompare(b.label)
+    );
+    const currentIndex = sortedCategories.findIndex(
+      (categoryOption) => categoryOption.id === categoryToMove.id
+    );
+    const targetIndex = sortedCategories.findIndex(
+      (categoryOption) => categoryOption.id === targetCategory.id
+    );
+
+    if (currentIndex === -1 || targetIndex === -1) return;
+
+    const nextCategories = [...sortedCategories];
+    [nextCategories[currentIndex], nextCategories[targetIndex]] = [
+      nextCategories[targetIndex],
+      nextCategories[currentIndex],
+    ];
+
+    const updates = nextCategories
+      .map((categoryOption, index) => ({
+        ...categoryOption,
+        sortOrder: index + 1,
+      }))
+      .filter(
+        (
+          categoryOption
+        ): categoryOption is StoreCategory & { id: number } =>
+          typeof categoryOption.id === "number"
+      );
+
+    await Promise.all(updates.map(updateCategory));
+    await refreshCategories();
+    setAdminNotice({
+      type: "success",
+      message: "Orden de categorias actualizado.",
+    });
+  } catch (error) {
+    setAdminNotice({
+      type: "error",
+      message:
+        error instanceof Error
+          ? `No se pudo ordenar la categoria: ${error.message}`
+          : "No se pudo ordenar la categoria.",
     });
   } finally {
     setIsSavingCategory(false);
@@ -767,7 +867,7 @@ const handleUpdateOrderInternalNotes = async (
 
 if (isAuthLoading) {
   return (
-    <main className="min-h-screen bg-black text-white px-6 pb-10 pt-32 md:px-10 flex items-center justify-center">
+    <main className="min-h-screen bg-black text-white px-6 pb-10 pt-10 md:px-10 flex items-center justify-center">
       <p className="text-zinc-400">
         Cargando admin...
       </p>
@@ -777,7 +877,7 @@ if (isAuthLoading) {
 
 if (!session) {
   return (
-    <main className="min-h-screen bg-black text-white px-6 pb-10 pt-32 flex items-center justify-center">
+    <main className="min-h-screen bg-black text-white px-6 pb-10 pt-10 flex items-center justify-center">
       <form
         onSubmit={handleLogin}
         className="w-full max-w-md bg-zinc-900 rounded-3xl p-8"
@@ -827,10 +927,10 @@ if (!session) {
 }
 
   return (
-    <main className="min-h-screen bg-black text-white px-6 pb-10 pt-32 md:px-10">
+    <main className="min-h-screen bg-black text-white px-6 pb-10 pt-8 md:px-10">
 
-      <div className="flex items-start justify-between gap-6 mb-10">
-        <div>
+      <div className="relative mb-10 flex items-start justify-between gap-6">
+        <div className="min-w-0">
           <h1 className="text-5xl font-bold">
             Admin
           </h1>
@@ -840,61 +940,70 @@ if (!session) {
           </p>
         </div>
 
+        <Link
+          href="/"
+          className="absolute left-1/2 top-1 -translate-x-1/2 text-2xl font-bold tracking-[0.35em] text-white transition hover:opacity-75 max-md:hidden"
+        >
+          AIVLIS
+        </Link>
+
         <button
           onClick={handleLogout}
-          className="bg-zinc-800 text-white px-5 h-11 rounded-xl font-semibold hover:bg-zinc-700 transition cursor-pointer"
+          className="shrink-0 bg-zinc-800 text-white px-5 h-11 rounded-xl font-semibold hover:bg-zinc-700 transition cursor-pointer"
         >
           Salir
         </button>
       </div>
 
-      <div className="mb-8 flex w-full rounded-2xl bg-zinc-900 p-1 md:w-fit">
-        <button
-          type="button"
-          onClick={() => setActiveSection("products")}
-          className={`h-11 flex-1 rounded-xl px-5 font-semibold transition cursor-pointer md:flex-none ${
-            activeSection === "products"
-              ? "bg-white text-black"
-              : "text-zinc-400 hover:text-white"
-          }`}
-        >
-          Productos ({products.length})
-        </button>
+      <div className="mb-8 flex flex-col gap-3 xl:flex-row xl:items-center">
+        <div className="flex w-full flex-wrap rounded-2xl bg-zinc-900 p-1 md:w-fit">
+          <button
+            type="button"
+            onClick={() => setActiveSection("products")}
+            className={`h-11 flex-1 rounded-xl px-5 font-semibold transition cursor-pointer md:flex-none ${
+              activeSection === "products"
+                ? "bg-white text-black"
+                : "text-zinc-400 hover:text-white"
+            }`}
+          >
+            Productos ({products.length})
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveSection("orders")}
+            className={`h-11 flex-1 rounded-xl px-5 font-semibold transition cursor-pointer md:flex-none ${
+              activeSection === "orders"
+                ? "bg-white text-black"
+                : "text-zinc-400 hover:text-white"
+            }`}
+          >
+            Pedidos ({orders.length})
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveSection("home")}
+            className={`h-11 flex-1 rounded-xl px-5 font-semibold transition cursor-pointer md:flex-none ${
+              activeSection === "home"
+                ? "bg-white text-black"
+                : "text-zinc-400 hover:text-white"
+            }`}
+          >
+            Home
+          </button>
+        </div>
 
         <button
           type="button"
-          onClick={() => setActiveSection("orders")}
-          className={`h-11 flex-1 rounded-xl px-5 font-semibold transition cursor-pointer md:flex-none ${
-            activeSection === "orders"
-              ? "bg-white text-black"
-              : "text-zinc-400 hover:text-white"
+          onClick={() => setActiveSection("local_sale")}
+          className={`h-12 w-full rounded-2xl border px-6 font-semibold transition cursor-pointer md:w-fit ${
+            activeSection === "local_sale"
+              ? "border-emerald-400 bg-emerald-400 text-black"
+              : "border-emerald-500/40 bg-emerald-500/10 text-emerald-300 hover:border-emerald-300 hover:bg-emerald-500/20"
           }`}
         >
-          Pedidos ({orders.length})
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setActiveSection("categories")}
-          className={`h-11 flex-1 rounded-xl px-5 font-semibold transition cursor-pointer md:flex-none ${
-            activeSection === "categories"
-              ? "bg-white text-black"
-              : "text-zinc-400 hover:text-white"
-          }`}
-        >
-          Categorias ({categoryOptions.length})
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setActiveSection("home")}
-          className={`h-11 flex-1 rounded-xl px-5 font-semibold transition cursor-pointer md:flex-none ${
-            activeSection === "home"
-              ? "bg-white text-black"
-              : "text-zinc-400 hover:text-white"
-          }`}
-        >
-          Home
+          Venta local
         </button>
       </div>
 
@@ -982,27 +1091,33 @@ if (!session) {
     }}
   />
 )}
-{activeSection === "categories" && (
-  <AdminCategoriesSection
-    categories={categoryOptions}
-    products={products}
-    error={categoryError}
-    isSaving={isSavingCategory}
-    onCreate={createStoreCategory}
-    onUpdate={updateStoreCategory}
-    onDelete={deleteStoreCategory}
-  />
+{activeSection === "local_sale" && (
+  <AdminLocalSaleSection />
 )}
 {activeSection === "home" && (
-  <AdminHomeSection
-    key={JSON.stringify(homeContent)}
-    content={homeContent}
-    error={homeContentError}
-    isSaving={isSavingHomeContent}
-    isUploading={isUploadingHomeImage}
-    onSave={saveHomeContent}
-    onUploadHeroImages={uploadHomeImages}
-  />
+  <>
+    <AdminHomeSection
+      key={JSON.stringify(homeContent)}
+      content={homeContent}
+      error={homeContentError}
+      isSaving={isSavingHomeContent}
+      isUploading={isUploadingHomeImage}
+      onSave={saveHomeContent}
+      onUploadHeroImages={uploadHomeImages}
+    />
+
+    <AdminCategoriesSection
+      categories={categoryOptions}
+      products={products}
+      error={categoryError}
+      isSaving={isSavingCategory}
+      onCreate={createStoreCategory}
+      onUpdate={updateStoreCategory}
+      onMove={moveStoreCategory}
+      onNormalizeOrder={normalizeStoreCategoriesOrder}
+      onDelete={deleteStoreCategory}
+    />
+  </>
 )}
 
 {adminNotice && (

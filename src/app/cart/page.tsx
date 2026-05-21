@@ -25,6 +25,10 @@ const {
 } = useCart();
 
   const total = getCartTotal(cart);
+  const totalUnits = cart.reduce(
+    (quantity, item) => quantity + item.quantity,
+    0
+  );
   const [currentProducts, setCurrentProducts] = useState<Product[]>([]);
   const [isCheckingStock, setIsCheckingStock] = useState(false);
   const [stockError, setStockError] = useState("");
@@ -93,19 +97,34 @@ const {
 
   return (
 
-    <main className="min-h-screen bg-black text-white pt-32 px-6">
+    <main className="home-main-offset min-h-screen bg-zinc-100 px-6 pb-20 text-black">
 
-      <div className="max-w-7xl mx-auto">
+      <div className="mx-auto mt-10 max-w-7xl md:mt-14">
 
-      <h1 className="text-4xl font-bold mb-10">
-        Carrito
-      </h1>
+      <div className="mb-8 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <h1 className="text-4xl font-bold">
+            Carrito
+          </h1>
+
+          <p className="mt-2 text-sm text-zinc-600">
+            Revisa productos, cantidades y subtotal antes de finalizar.
+          </p>
+        </div>
+
+        <Link
+          href="/tienda"
+          className="inline-flex h-11 w-fit items-center rounded-full bg-white px-5 text-sm font-semibold text-zinc-700 transition hover:bg-zinc-200"
+        >
+          Seguir comprando
+        </Link>
+      </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-[1fr_380px] gap-10 items-start">
       <div className="flex flex-col gap-5">
 
         {!isCartReady && (
-          <div className="flex flex-col items-center justify-center border border-zinc-800 rounded-3xl py-24 px-6 text-center">
+          <div className="flex flex-col items-center justify-center rounded-3xl border border-zinc-200 bg-white px-6 py-24 text-center">
             <p className="text-zinc-500">
               Cargando carrito...
             </p>
@@ -114,9 +133,9 @@ const {
 
         {isCartReady && cart.length === 0 && (
 
-          <div className="flex flex-col items-center justify-center border border-zinc-800 rounded-3xl py-24 px-6 text-center">
+          <div className="flex flex-col items-center justify-center rounded-3xl border border-zinc-200 bg-white px-6 py-24 text-center">
 
-            <div className="w-20 h-20 rounded-full border border-zinc-800 flex items-center justify-center mb-6">
+            <div className="mb-6 flex h-20 w-20 items-center justify-center rounded-full border border-zinc-200 bg-zinc-100">
 
                 <Trash2
                 size={30}
@@ -126,16 +145,16 @@ const {
             </div>
 
             <h2 className="text-2xl font-semibold mb-3">
-                Tu carrito está vacío
+                Tu carrito esta vacio
             </h2>
 
             <p className="text-zinc-500 max-w-md mb-8">
-                Agregá productos para comenzar tu pedido mayorista.
+                Agrega productos para comenzar tu pedido.
             </p>
 
             <Link
-                href="/"
-                className="bg-white text-black px-8 py-4 rounded-2xl font-semibold hover:opacity-90 transition"
+                href="/tienda"
+                className="rounded-2xl bg-black px-8 py-4 font-semibold text-white transition hover:bg-zinc-800"
             >
                 Explorar productos
             </Link>
@@ -144,7 +163,7 @@ const {
 
         )}
         
-        <div className="hidden lg:grid grid-cols-[1.8fr_.5fr_.7fr_.7fr_.2fr] gap-6 px-4 pb-4 border-b border-zinc-800 text-xs uppercase tracking-wide text-zinc-500">
+        <div className="hidden grid-cols-[1.8fr_.5fr_.7fr_.7fr_.2fr] gap-6 border-b border-zinc-300 px-4 pb-4 text-xs uppercase tracking-wide text-zinc-500 lg:grid">
 
             <p>Producto</p>
 
@@ -175,7 +194,7 @@ const {
 
           <div
             key={`${item.id}-${item.selectedColor}-${item.size}`}
-            className="grid grid-cols-1 lg:grid-cols-[1.8fr_.5fr_.7fr_.7fr_.2fr] gap-6 items-center border-b border-zinc-800 py-6"
+            className="relative grid grid-cols-1 items-center gap-4 rounded-2xl bg-white p-4 shadow-sm lg:grid-cols-[1.8fr_.5fr_.7fr_.7fr_.2fr] lg:gap-6 lg:rounded-none lg:border-b lg:border-zinc-200 lg:bg-transparent lg:p-0 lg:py-6 lg:shadow-none"
           >
 
             <div className="flex gap-4 items-center">
@@ -189,7 +208,7 @@ const {
                     alt={item.name}
                     width={112}
                     height={112}
-                    className="w-28 h-28 object-cover rounded-2xl"
+                    className="h-24 w-24 rounded-2xl object-cover sm:h-28 sm:w-28"
                 />
 
                 <div>
@@ -205,16 +224,16 @@ const {
                         ` / ${item.size}`}
                     </p>
 
-                    <p className="text-zinc-500 text-sm mt-2">
-                    Producto agregado al carrito
-                    </p>
-
                 </div>
 
 
             </div>
 
-            <div>
+            <div className="flex items-center justify-between gap-3 lg:block">
+              <span className="text-sm font-semibold uppercase text-zinc-500 lg:hidden">
+                Precio
+              </span>
+
               <p className="text-lg font-semibold">
                 ${item.price}
               </p>
@@ -222,7 +241,7 @@ const {
 
             <div>
 
-              <div className="flex items-center gap-4 border border-zinc-800 rounded-xl px-4 py-2 w-fit">
+              <div className="flex w-fit items-center gap-4 rounded-xl border border-zinc-300 bg-white px-4 py-2">
 
                 <button
                     type="button"
@@ -233,7 +252,7 @@ const {
                         item.selectedColor
                       )
                     }
-                    className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-zinc-800 transition text-zinc-400 hover:text-white"
+                    className="flex h-8 w-8 items-center justify-center rounded-lg text-zinc-500 transition hover:bg-zinc-100 hover:text-black cursor-pointer"
                 >
                     -
                 </button>
@@ -252,7 +271,7 @@ const {
                       )
                     }
                     disabled={!canIncrease}
-                    className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-zinc-800 transition text-zinc-400 hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
+                    className="flex h-8 w-8 items-center justify-center rounded-lg text-zinc-500 transition hover:bg-zinc-100 hover:text-black cursor-pointer disabled:cursor-not-allowed disabled:opacity-40"
                 >
                     +
                 </button>
@@ -262,14 +281,17 @@ const {
               {!canIncrease && (
                 <p className="mt-2 text-xs text-zinc-500">
                   {stockLimit > 0
-                    ? "Stock máximo en carrito"
+                    ? "Stock maximo en carrito"
                     : "Sin stock disponible"}
                 </p>
               )}
 
             </div>
 
-            <div>
+            <div className="flex items-center justify-between gap-3 lg:block">
+              <span className="text-sm font-semibold uppercase text-zinc-500 lg:hidden">
+                Subtotal
+              </span>
 
               <p className="text-lg font-semibold">
                 ${item.price * item.quantity}
@@ -288,7 +310,7 @@ const {
                   item.selectedColor
                 )
               }
-              className="text-zinc-400 hover:text-red-400 transition"
+              className="w-fit text-red-500 transition hover:text-red-700 cursor-pointer"
             >
               <Trash2 />
             </button>
@@ -301,23 +323,30 @@ const {
         </div>
         {isCartReady && cart.length > 0 && (
 
-        <div className="sticky top-28 border border-zinc-800 rounded-3xl p-6 h-fit">
+        <div className="sticky top-28 h-fit rounded-3xl border border-zinc-200 bg-white p-6 shadow-sm">
 
             <h2 className="text-2xl font-bold mb-6">
             Resumen
             </h2>
 
-            <div className="flex items-center justify-between text-zinc-400 mb-4">
+            <div className="flex items-center justify-between text-zinc-600 mb-4">
             <span>Productos</span>
-            <span>{cart.length}</span>
+            <span>
+              {cart.length} items / {totalUnits} unidades
+            </span>
             </div>
 
-            <div className="flex items-center justify-between text-zinc-400 mb-6">
+            <div className="flex items-center justify-between text-zinc-600 mb-6">
             <span>Subtotal</span>
             <span>${total}</span>
             </div>
 
-            <div className="border-t border-zinc-800 pt-6">
+            <div className="border-t border-zinc-200 pt-6">
+
+            <p className="mb-5 rounded-2xl bg-zinc-100 p-4 text-sm leading-6 text-zinc-600">
+              No pagas online. Al finalizar, se genera el pedido para
+              enviarlo por WhatsApp y coordinar el pago.
+            </p>
 
             <div className="flex items-center justify-between mb-6">
 
@@ -344,8 +373,8 @@ const {
                 aria-disabled={isCheckoutBlocked}
                 className={`w-full flex items-center justify-center py-4 rounded-2xl font-semibold transition ${
                   isCheckoutBlocked
-                    ? "pointer-events-none bg-zinc-800 text-zinc-500"
-                    : "bg-white text-black hover:opacity-90"
+                    ? "pointer-events-none bg-zinc-300 text-zinc-500"
+                    : "bg-black text-white hover:bg-zinc-800"
                 }`}
             >
                 {isCheckingStock

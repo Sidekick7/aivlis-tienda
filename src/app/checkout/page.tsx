@@ -31,6 +31,15 @@ type SavedCheckoutCustomer = {
   email: string;
 };
 
+const fieldLabelClass =
+  "mb-2 text-sm font-medium text-zinc-700";
+const fieldBaseClass =
+  "w-full rounded-2xl border bg-white p-4 text-black outline-none transition placeholder:text-zinc-400 focus:border-black";
+const getRequiredFieldClass = (hasError: boolean) =>
+  `${fieldBaseClass} ${
+    hasError ? "border-red-500" : "border-zinc-300"
+  }`;
+
 export default function CheckoutPage() {
   const { cart, clearCart, isCartReady } = useCart();
 
@@ -272,15 +281,31 @@ export default function CheckoutPage() {
   };
 
   return (
-    <main className="min-h-screen bg-black text-white pt-32 px-6 md:px-10">
-      <div className="max-w-2xl mx-auto">
-        <h1 className="text-4xl font-bold mb-10">
-          Finalizar pedido
-        </h1>
-
-        <div className="flex flex-col gap-5">
+    <main className="home-main-offset min-h-screen bg-zinc-100 px-6 pb-20 text-black md:px-10">
+      <div className="mx-auto mt-10 max-w-3xl md:mt-14">
+        <div className="mb-8 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
           <div>
-            <p className="mb-2 text-sm text-zinc-300">
+            <h1 className="text-4xl font-bold">
+              Finalizar pedido
+            </h1>
+
+            <p className="mt-2 max-w-2xl text-sm leading-6 text-zinc-600">
+              Completa tus datos para generar el ticket y enviarlo por
+              WhatsApp. El pago se coordina afuera de la tienda.
+            </p>
+          </div>
+
+          <Link
+            href="/cart"
+            className="inline-flex h-11 w-fit items-center rounded-full bg-white px-5 text-sm font-semibold text-zinc-700 transition hover:bg-zinc-200"
+          >
+            Volver al carrito
+          </Link>
+        </div>
+
+        <div className="flex flex-col gap-5 rounded-3xl border border-zinc-200 bg-white p-5 shadow-sm sm:p-8">
+          <div>
+            <p className={fieldLabelClass}>
               Nombre y apellido
             </p>
 
@@ -288,16 +313,14 @@ export default function CheckoutPage() {
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className={`w-full bg-zinc-900 border rounded-xl p-4 outline-none ${
+              className={getRequiredFieldClass(
                 showError && !name.trim()
-                  ? "border-red-500"
-                  : "border-zinc-800"
-              }`}
+              )}
             />
           </div>
 
           <div>
-            <p className="mb-2 text-sm text-zinc-300">
+            <p className={fieldLabelClass}>
               DNI o CUIT
             </p>
 
@@ -305,16 +328,14 @@ export default function CheckoutPage() {
               type="text"
               value={dni}
               onChange={(e) => setDni(e.target.value)}
-              className={`w-full bg-zinc-900 border rounded-xl p-4 outline-none ${
+              className={getRequiredFieldClass(
                 showError && !dni.trim()
-                  ? "border-red-500"
-                  : "border-zinc-800"
-              }`}
+              )}
             />
           </div>
 
           <div>
-            <p className="mb-2 text-sm text-zinc-300">
+            <p className={fieldLabelClass}>
               WhatsApp
             </p>
 
@@ -322,16 +343,14 @@ export default function CheckoutPage() {
               type="text"
               value={whatsapp}
               onChange={(e) => setWhatsapp(e.target.value)}
-              className={`w-full bg-zinc-900 border rounded-xl p-4 outline-none ${
+              className={getRequiredFieldClass(
                 showError && !whatsapp.trim()
-                  ? "border-red-500"
-                  : "border-zinc-800"
-              }`}
+              )}
             />
           </div>
 
           <div>
-            <p className="mb-2 text-sm text-zinc-300">
+            <p className={fieldLabelClass}>
               Dirección calle y altura
             </p>
 
@@ -339,16 +358,14 @@ export default function CheckoutPage() {
               type="text"
               value={address}
               onChange={(e) => setAddress(e.target.value)}
-              className={`w-full bg-zinc-900 border rounded-xl p-4 outline-none ${
+              className={getRequiredFieldClass(
                 showError && !address.trim()
-                  ? "border-red-500"
-                  : "border-zinc-800"
-              }`}
+              )}
             />
           </div>
 
           <div>
-            <p className="mb-2 text-sm text-zinc-300">
+            <p className={fieldLabelClass}>
               Localidad / Ciudad
             </p>
 
@@ -356,27 +373,23 @@ export default function CheckoutPage() {
               type="text"
               value={city}
               onChange={(e) => setCity(e.target.value)}
-              className={`w-full bg-zinc-900 border rounded-xl p-4 outline-none ${
+              className={getRequiredFieldClass(
                 showError && !city.trim()
-                  ? "border-red-500"
-                  : "border-zinc-800"
-              }`}
+              )}
             />
           </div>
 
           <div>
-            <p className="mb-2 text-sm text-zinc-300">
+            <p className={fieldLabelClass}>
               Provincia
             </p>
 
             <select
               value={province}
               onChange={(e) => setProvince(e.target.value)}
-              className={`w-full bg-zinc-900 border rounded-xl p-4 outline-none ${
+              className={getRequiredFieldClass(
                 showError && !province.trim()
-                  ? "border-red-500"
-                  : "border-zinc-800"
-              }`}
+              )}
             >
               <option value="">
                 Seleccionar provincia
@@ -391,7 +404,7 @@ export default function CheckoutPage() {
           </div>
 
           <div>
-            <p className="mb-2 text-sm text-zinc-300">
+            <p className={fieldLabelClass}>
               Código Postal / ZIP
             </p>
 
@@ -399,16 +412,14 @@ export default function CheckoutPage() {
               type="text"
               value={zip}
               onChange={(e) => setZip(e.target.value)}
-              className={`w-full bg-zinc-900 border rounded-xl p-4 outline-none ${
+              className={getRequiredFieldClass(
                 showError && !zip.trim()
-                  ? "border-red-500"
-                  : "border-zinc-800"
-              }`}
+              )}
             />
           </div>
 
           <div>
-            <p className="mb-2 text-sm text-zinc-300">
+            <p className={fieldLabelClass}>
               Correo electrónico (opcional)
             </p>
 
@@ -416,35 +427,35 @@ export default function CheckoutPage() {
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="w-full bg-zinc-900 border border-zinc-800 rounded-xl p-4 outline-none"
+              className={`${fieldBaseClass} border-zinc-300`}
             />
           </div>
 
           <div>
-            <p className="mb-2 text-sm text-zinc-300">
+            <p className={fieldLabelClass}>
               Notas adicionales (opcional)
             </p>
 
             <textarea
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
-              className="w-full bg-zinc-900 border border-zinc-800 rounded-xl p-4 outline-none min-h-[120px]"
+              className={`${fieldBaseClass} min-h-[120px] resize-y border-zinc-300`}
             />
           </div>
 
-          <label className="flex items-center gap-3 text-sm text-zinc-300">
+          <label className="flex items-center gap-3 rounded-2xl bg-zinc-100 p-4 text-sm text-zinc-700">
             <input
               type="checkbox"
               checked={rememberCustomer}
               onChange={(e) =>
                 setRememberCustomer(e.target.checked)
               }
-              className="w-4 h-4 accent-white"
+              className="h-4 w-4 accent-black"
             />
             Recordar mis datos para próximos pedidos
           </label>
 
-          <div className="border-t border-zinc-800 pt-6 mt-4">
+          <div className="mt-4 rounded-3xl border border-zinc-200 bg-zinc-50 p-5">
             <div className="flex flex-col gap-3 mb-6">
               {!isCartReady && (
                 <p className="text-zinc-500 text-sm">
@@ -461,10 +472,10 @@ export default function CheckoutPage() {
               {isCartReady && cart.map((item) => (
                 <div
                   key={`${item.id}-${item.selectedColor}-${item.size}`}
-                  className="flex items-start justify-between gap-4 text-sm text-zinc-300"
+                  className="flex items-start justify-between gap-4 border-b border-zinc-200 pb-3 text-sm last:border-b-0 last:pb-0"
                 >
                   <div>
-                    <p className="font-medium text-white">
+                    <p className="font-medium text-black">
                       {getCartItemLabel(item)}
                     </p>
 
@@ -473,42 +484,47 @@ export default function CheckoutPage() {
                     </p>
                   </div>
 
-                  <p className="font-semibold text-white">
+                  <p className="font-semibold text-black">
                     ${item.price * item.quantity}
                   </p>
                 </div>
               ))}
             </div>
 
-            <p className="text-2xl font-bold">
+            <p className="mb-5 rounded-2xl bg-white p-4 text-sm leading-6 text-zinc-600">
+              No pagas online. Este paso crea el pedido, reserva el
+              stock y abre WhatsApp para confirmar los datos.
+            </p>
+
+            <p className="rounded-2xl bg-white p-4 text-2xl font-bold">
               Total: ${total}
             </p>
 
             {showError && hasEmptyFields && (
-              <p className="mt-4 text-red-500 text-sm">
-                Completa los campos obligatorios
+              <p className="mt-4 rounded-xl border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-700">
+                Completa los campos obligatorios.
               </p>
             )}
 
             {showError && hasNoProducts && (
-              <p className="mt-4 text-red-500 text-sm">
-                Agrega productos al carrito antes de finalizar
+              <p className="mt-4 rounded-xl border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-700">
+                Agrega productos al carrito antes de finalizar.
               </p>
             )}
 
             {isCheckingCartStock && (
-              <p className="mt-4 text-zinc-500 text-sm">
+              <p className="mt-4 rounded-xl bg-white p-3 text-sm text-zinc-600">
                 Validando stock actual...
               </p>
             )}
 
             {visibleOrderError && (
-              <div className="mt-4 rounded-xl border border-red-500/30 bg-red-500/10 p-4 text-red-300 text-sm">
+              <div className="mt-4 rounded-2xl border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-700">
                 <p>{visibleOrderError}</p>
 
                 <Link
                   href="/cart"
-                  className="mt-4 inline-flex h-10 items-center justify-center rounded-xl bg-white px-4 font-semibold text-black transition hover:opacity-90"
+                  className="mt-4 inline-flex h-10 items-center justify-center rounded-xl bg-black px-4 font-semibold text-white transition hover:bg-zinc-800"
                 >
                   Revisar carrito
                 </Link>
@@ -516,14 +532,14 @@ export default function CheckoutPage() {
             )}
 
             {createdOrderNumber && (
-              <div className="mt-4 rounded-xl border border-green-500/30 bg-green-500/10 p-4 text-green-300 text-sm">
+              <div className="mt-4 rounded-2xl border border-green-500/30 bg-green-500/10 p-4 text-sm text-green-800">
                 <p>
                   Pedido {formatOrderNumber(createdOrderNumber)} creado. Ya abrimos WhatsApp para enviar el pedido.
                 </p>
 
                 <Link
                   href="/"
-                  className="mt-4 inline-flex h-11 items-center justify-center rounded-xl bg-white px-5 font-semibold text-black transition hover:opacity-90"
+                  className="mt-4 inline-flex h-11 items-center justify-center rounded-xl bg-black px-5 font-semibold text-white transition hover:bg-zinc-800"
                 >
                   Seguir comprando
                 </Link>
@@ -540,7 +556,7 @@ export default function CheckoutPage() {
                 Boolean(checkoutStockError) ||
                 Boolean(createdOrderNumber)
               }
-              className="mt-6 w-full bg-green-500 py-4 rounded-xl font-semibold hover:opacity-90 transition disabled:opacity-40 disabled:cursor-not-allowed"
+              className="mt-6 w-full rounded-2xl bg-green-500 py-4 font-semibold text-white transition hover:bg-green-600 disabled:cursor-not-allowed disabled:bg-zinc-300 disabled:text-zinc-500"
             >
               {createdOrderNumber
                 ? "Ticket creado"
