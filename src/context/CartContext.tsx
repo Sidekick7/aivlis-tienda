@@ -15,6 +15,7 @@ const legacyCartStorageKey = "cart";
 export type CartItem = {
   id: number;
   slug: string;
+  sku?: string;
   name: string;
   price: number;
   retailPrice: number;
@@ -121,6 +122,7 @@ function normalizeSavedCart(value: unknown): CartItem[] {
     const normalizedItem: CartItem = {
       id,
       slug: cartItem.slug,
+      sku: cartItem.sku,
       name: cartItem.name,
       price,
       retailPrice: Number(cartItem.retailPrice || price),

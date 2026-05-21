@@ -26,6 +26,10 @@ export function getCartItemLabel(item: CartItem) {
     : item.name;
 }
 
+function getShortSku(sku?: string) {
+  return sku?.startsWith("AIV-") ? sku.slice(4) : sku;
+}
+
 export function formatCartItemsForWhatsApp(cart: CartItem[]) {
   const cartPricing = getCartPricing(cart);
 
@@ -42,10 +46,13 @@ export function formatCartItemsForWhatsApp(cart: CartItem[]) {
 
       return [
         `- ${getCartItemLabel(item)}`,
+        item.sku ? `  SKU: ${getShortSku(item.sku)}` : null,
         `  Cantidad: ${item.quantity}`,
         `  Precio unitario: ${formatPrice(unitPrice)}`,
         `  Subtotal: ${formatPrice(subtotal)}`,
-      ].join("\n");
+      ]
+        .filter(Boolean)
+        .join("\n");
     })
     .join("\n\n");
 }
@@ -71,16 +78,9 @@ export function buildOrderWhatsAppMessage({
   customer: CustomerInfo;
   total: number;
 }) {
-  const cartPricing = getCartPricing(cart);
-  const priceListLabel = cartPricing.isWholesale
-    ? "mayorista"
-    : "minorista";
-
   return `Hola! Quiero realizar este pedido:
 
 Pedido ${formatOrderNumber(orderNumber)}
-
-Lista aplicada: precio ${priceListLabel}
 
 ${formatCartItemsForWhatsApp(cart)}
 

@@ -21,6 +21,7 @@ function normalizeOrderItem(row: SupabaseOrderItemRow) {
     id: row.id,
     productId: row.product_id,
     productSlug: row.product_slug,
+    productSku: row.product_sku,
     productName: row.product_name,
     variantColor: row.variant_color,
     size: row.size,
@@ -197,6 +198,7 @@ export async function createOrderTicket({
     items: cart.map((item) => ({
       product_id: item.id,
       product_slug: item.slug,
+      product_sku: item.sku || "",
       product_name: item.name,
       variant_color: item.selectedColor || "",
       size: item.size || "",
@@ -230,9 +232,49 @@ export async function getAdminOrders(): Promise<AdminOrder[]> {
     throw error;
   }
 
-  return (data ?? []).map((row) =>
+  const orders = (data ?? []).map((row) =>
     normalizeOrder(row as SupabaseOrderRow)
   );
+  const productIdsWithoutSku = Array.from(
+    new Set(
+      orders.flatMap((order) =>
+        order.items
+          .filter((item) => !item.productSku && item.productId)
+          .map((item) => item.productId as number)
+      )
+    )
+  );
+
+  if (productIdsWithoutSku.length === 0) {
+    return orders;
+  }
+
+  const { data: productsData, error: productsError } = await supabase
+    .from("products")
+    .select("id,sku")
+    .in("id", productIdsWithoutSku);
+
+  if (productsError) {
+    throw productsError;
+  }
+
+  const skuByProductId = new Map(
+    (productsData ?? []).map((product) => [
+      Number(product.id),
+      typeof product.sku === "string" ? product.sku : "",
+    ])
+  );
+
+  return orders.map((order) => ({
+    ...order,
+    items: order.items.map((item) => ({
+      ...item,
+      productSku:
+        item.productSku ||
+        (item.productId ? skuByProductId.get(item.productId) : "") ||
+        null,
+    })),
+  }));
 }
 
 export async function updateOrderStatus(

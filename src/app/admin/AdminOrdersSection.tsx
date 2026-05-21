@@ -47,6 +47,10 @@ const orderStatusClasses: Record<OrderStatus, string> = {
   cancelled: "bg-red-500/15 text-red-300 border-red-500/30",
 };
 
+function getShortSku(sku?: string | null) {
+  return sku?.startsWith("AIV-") ? sku.slice(4) : sku;
+}
+
 const orderStatusButtonClasses: Record<OrderStatus, string> = {
   pending_payment:
     "border-yellow-500/30 bg-yellow-500/15 text-yellow-200 hover:bg-yellow-500/25",
@@ -567,6 +571,12 @@ export default function AdminOrdersSection({
 
               {isExpanded && (
                 <div className="mt-4 grid gap-3 border-t border-zinc-700 pt-3">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="rounded-lg bg-zinc-950 px-3 py-1.5 text-sm font-semibold text-white">
+                      Pedido {formatOrderNumber(order.orderNumber)}
+                    </span>
+                  </div>
+
                   <div className="grid gap-1 text-sm text-zinc-400 md:grid-cols-2">
                     <p>
                       {order.customerAddress}, {order.customerCity}, {order.customerProvince} ({order.customerZip})
@@ -678,6 +688,12 @@ export default function AdminOrdersSection({
                           <p className="font-medium truncate">
                             {item.productName}
                           </p>
+
+                          {item.productSku && (
+                            <p className="mt-1 w-fit rounded-lg bg-zinc-800 px-2 py-1 text-xs font-semibold text-zinc-300">
+                              SKU {getShortSku(item.productSku)}
+                            </p>
+                          )}
 
                           <p className="text-zinc-400 text-sm">
                             {item.variantColor || "Sin color"} - Talle {item.size || "-"} - x{item.quantity}

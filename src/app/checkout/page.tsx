@@ -23,6 +23,7 @@ import {
 import { getProductsByIds } from "@/lib/products";
 import { formatOrderNumber } from "@/lib/orderNumber";
 import { useEffect, useRef, useState } from "react";
+import type { Product } from "@/types/product";
 
 const checkoutCustomerStorageKey = "checkout_customer";
 
@@ -204,8 +205,10 @@ export default function CheckoutPage() {
     setIsSubmitting(true);
     syncSavedCustomer();
 
+    let currentProducts: Product[] = [];
+
     try {
-      const currentProducts = await getProductsByIds(
+      currentProducts = await getProductsByIds(
         cart.map((item) => item.id)
       );
       const stockError = validateCartStock(
@@ -230,6 +233,22 @@ export default function CheckoutPage() {
       return;
     }
 
+    const currentProductsById = new Map(
+      currentProducts.map((product) => [product.id, product])
+    );
+    const enrichedCart = cart.map((item) => {
+      const currentProduct = currentProductsById.get(item.id);
+
+      return {
+        ...item,
+        sku: currentProduct?.sku || item.sku,
+        price: currentProduct?.price ?? item.price,
+        retailPrice: currentProduct?.retailPrice ?? item.retailPrice,
+        images: currentProduct?.images ?? item.images,
+        variants: currentProduct?.variants ?? item.variants,
+      };
+    });
+    const enrichedTotal = getCartTotal(enrichedCart);
     const orderNumber = createOrderNumber();
     const customer = {
       name,
@@ -244,9 +263,9 @@ export default function CheckoutPage() {
     };
     const message = buildOrderWhatsAppMessage({
       orderNumber,
-      cart,
+      cart: enrichedCart,
       customer,
-      total,
+      total: enrichedTotal,
     });
     let whatsappUrl = "";
 
@@ -266,9 +285,9 @@ export default function CheckoutPage() {
     try {
       await createOrderTicket({
         orderNumber,
-        cart,
+        cart: enrichedCart,
         customer,
-        total,
+        total: enrichedTotal,
         whatsappMessage: message,
       });
 

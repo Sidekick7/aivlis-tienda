@@ -28,6 +28,7 @@ create table if not exists public.order_items (
   order_id uuid not null references public.orders(id) on delete cascade,
   product_id bigint,
   product_slug text not null,
+  product_sku text,
   product_name text not null,
   variant_color text,
   size text,

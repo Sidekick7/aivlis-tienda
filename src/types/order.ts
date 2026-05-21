@@ -34,6 +34,7 @@ export type AdminOrderItem = {
   id: string;
   productId?: number | null;
   productSlug: string;
+  productSku?: string | null;
   productName: string;
   variantColor?: string | null;
   size?: string | null;
@@ -68,6 +69,7 @@ export type SupabaseOrderItemRow = {
   id: string;
   product_id?: number | null;
   product_slug: string;
+  product_sku?: string | null;
   product_name: string;
   variant_color?: string | null;
   size?: string | null;
