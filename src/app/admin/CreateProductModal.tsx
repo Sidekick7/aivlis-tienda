@@ -4,6 +4,8 @@ import Image from "next/image";
 import type { Dispatch, SetStateAction } from "react";
 import {
   createEmptyProductVariant,
+  normalizeSkuCode,
+  skuPrefix,
   slugifyProductName,
 } from "@/app/admin/adminUtils";
 import type { NewProductVariant } from "@/app/admin/adminTypes";
@@ -15,6 +17,8 @@ type Props = {
   setName: Dispatch<SetStateAction<string>>;
   slug: string;
   setSlug: Dispatch<SetStateAction<string>>;
+  skuCode: string;
+  setSkuCode: Dispatch<SetStateAction<string>>;
   isSlugEdited: boolean;
   setIsSlugEdited: Dispatch<SetStateAction<boolean>>;
   price: string;
@@ -43,6 +47,8 @@ export default function CreateProductModal({
   setName,
   slug,
   setSlug,
+  skuCode,
+  setSkuCode,
   isSlugEdited,
   setIsSlugEdited,
   price,
@@ -127,6 +133,29 @@ export default function CreateProductModal({
             }}
             className="h-12 px-4 rounded-xl bg-zinc-800 outline-none"
           />
+
+          <label className="grid gap-2">
+            <span className="text-xs font-semibold uppercase text-zinc-500">
+              SKU / Codigo interno
+            </span>
+
+            <div className="flex h-12 overflow-hidden rounded-xl bg-zinc-800">
+              <span className="flex items-center bg-zinc-950 px-4 text-sm font-semibold text-zinc-400">
+                {skuPrefix}
+              </span>
+
+              <input
+                type="text"
+                placeholder="Auto"
+                value={skuCode}
+                maxLength={6}
+                onChange={(event) =>
+                  setSkuCode(normalizeSkuCode(event.target.value))
+                }
+                className="min-w-0 flex-1 bg-transparent px-4 outline-none"
+              />
+            </div>
+          </label>
 
           <div className="grid gap-3 sm:grid-cols-2">
             <label className="grid gap-2">

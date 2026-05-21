@@ -34,6 +34,9 @@ import EditProductModal from "@/app/admin/EditProductModal";
 import {
   createEmptyProductVariant,
   formatDetailsText,
+  formatSku,
+  getNextSku,
+  getSkuCode,
   slugifyProductName,
 } from "@/app/admin/adminUtils";
 import {
@@ -86,6 +89,7 @@ const [showCreate, setShowCreate] = useState(false);
 const [productFormError, setProductFormError] = useState("");
 const [name, setName] = useState("");
 const [slug, setSlug] = useState("");
+const [skuCode, setSkuCode] = useState("");
 const [isSlugEdited, setIsSlugEdited] = useState(false);
 const [price, setPrice] = useState("");
 const [retailPrice, setRetailPrice] = useState("");
@@ -249,9 +253,11 @@ const createProduct = async () => {
   setAdminNotice(null);
 
   const nextSlug = slug || slugifyProductName(name);
+  const nextSkuCode = skuCode || getSkuCode(getNextSku(products));
   const validationError = getProductFormError({
     productName: name,
     productSlug: nextSlug,
+    productSku: nextSkuCode,
     productPrice: price,
     productRetailPrice: retailPrice,
     productCategory: category,
@@ -268,12 +274,22 @@ const createProduct = async () => {
     return;
   }
 
+  if (
+    products.some(
+      (product) => getSkuCode(product.sku) === nextSkuCode
+    )
+  ) {
+    setProductFormError("Ya existe un producto con ese SKU.");
+    return;
+  }
+
   setIsCreatingProduct(true);
 
   try {
     await createAdminProduct({
       name,
       slug: nextSlug,
+      sku: formatSku(nextSkuCode),
       price,
       retailPrice,
       category,
@@ -288,6 +304,7 @@ const createProduct = async () => {
 
     setName("");
     setSlug("");
+    setSkuCode("");
     setIsSlugEdited(false);
     setPrice("");
     setRetailPrice("");
@@ -696,6 +713,7 @@ const updateProduct = async () => {
     const validationError = getProductFormError({
       productName: editingProduct.name,
       productSlug: nextSlug,
+      productSku: getSkuCode(editingProduct.sku),
       productPrice: editingProduct.price,
       productRetailPrice: editingProduct.retailPrice,
       productCategory: editingProduct.category,
@@ -715,6 +733,17 @@ const updateProduct = async () => {
       )
     ) {
       setProductFormError("Ya existe un producto con ese slug.");
+      return;
+    }
+
+    if (
+      products.some(
+        (product) =>
+          getSkuCode(product.sku) === getSkuCode(editingProduct.sku) &&
+          product.id !== editingProduct.id
+      )
+    ) {
+      setProductFormError("Ya existe un producto con ese SKU.");
       return;
     }
 
@@ -1019,6 +1048,8 @@ if (!session) {
     setName={setName}
     slug={slug}
     setSlug={setSlug}
+    skuCode={skuCode}
+    setSkuCode={setSkuCode}
     isSlugEdited={isSlugEdited}
     setIsSlugEdited={setIsSlugEdited}
     price={price}

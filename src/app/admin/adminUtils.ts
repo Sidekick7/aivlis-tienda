@@ -29,6 +29,44 @@ export function slugifyProductName(value: string) {
     .replace(/^-+|-+$/g, "");
 }
 
+export const skuPrefix = "AIV-";
+
+export function normalizeSkuCode(value: string) {
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toUpperCase()
+    .replace(/[^A-Z0-9-]+/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 6);
+}
+
+export function getSkuCode(sku?: string | null) {
+  const normalizedSku = (sku || "").toUpperCase();
+
+  return normalizeSkuCode(
+    normalizedSku.startsWith(skuPrefix)
+      ? normalizedSku.slice(skuPrefix.length)
+      : normalizedSku
+  );
+}
+
+export function formatSku(code: string) {
+  return `${skuPrefix}${normalizeSkuCode(code)}`;
+}
+
+export function getNextSku(products: { sku?: string | null }[]) {
+  const usedCodes = new Set(products.map((product) => getSkuCode(product.sku)));
+  let nextNumber = 1;
+
+  while (usedCodes.has(String(nextNumber).padStart(6, "0"))) {
+    nextNumber += 1;
+  }
+
+  return formatSku(String(nextNumber).padStart(6, "0"));
+}
+
 export function getProductTotalStock(product: Product) {
   return product.variants.reduce(
     (total, variant) =>

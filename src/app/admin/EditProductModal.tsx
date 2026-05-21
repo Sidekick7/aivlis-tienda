@@ -2,6 +2,12 @@
 
 import Image from "next/image";
 import type { Dispatch, SetStateAction } from "react";
+import {
+  formatSku,
+  getSkuCode,
+  normalizeSkuCode,
+  skuPrefix,
+} from "@/app/admin/adminUtils";
 import type {
   EditableProduct,
   EditableVariant,
@@ -110,6 +116,32 @@ export default function EditProductModal({
             }
             className="h-12 px-4 rounded-xl bg-zinc-800 outline-none"
           />
+
+          <label className="grid gap-2">
+            <span className="text-xs font-semibold uppercase text-zinc-500">
+              SKU / Codigo interno
+            </span>
+
+            <div className="flex h-12 overflow-hidden rounded-xl bg-zinc-800">
+              <span className="flex items-center bg-zinc-950 px-4 text-sm font-semibold text-zinc-400">
+                {skuPrefix}
+              </span>
+
+              <input
+                type="text"
+                value={getSkuCode(product.sku)}
+                maxLength={6}
+                onChange={(event) =>
+                  updateProduct({
+                    sku: formatSku(
+                      normalizeSkuCode(event.target.value)
+                    ),
+                  })
+                }
+                className="min-w-0 flex-1 bg-transparent px-4 outline-none"
+              />
+            </div>
+          </label>
 
           <div className="grid gap-3 sm:grid-cols-2">
             <label className="grid gap-2">

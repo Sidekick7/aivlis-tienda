@@ -243,6 +243,12 @@ export default function AdminProductsSection({
                 </p>
 
                 <div className="mt-2 flex flex-wrap gap-2 text-sm">
+                  {product.sku && (
+                    <span className="rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-1.5 text-xs font-semibold text-zinc-300">
+                      {product.sku}
+                    </span>
+                  )}
+
                   <span className="rounded-lg bg-zinc-900 px-3 py-1.5 font-semibold text-zinc-100">
                     Mayorista {currencyFormatter.format(product.price)}
                   </span>

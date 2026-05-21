@@ -33,6 +33,7 @@ export type ProcessedProductVariant = {
 export function getProductFormError({
   productName,
   productSlug,
+  productSku,
   productPrice,
   productRetailPrice,
   productCategory,
@@ -40,6 +41,7 @@ export function getProductFormError({
 }: {
   productName: string;
   productSlug: string;
+  productSku: string;
   productPrice: string | number;
   productRetailPrice: string | number;
   productCategory: string;
@@ -52,6 +54,9 @@ export function getProductFormError({
 
   if (!productName.trim()) return "El nombre es obligatorio.";
   if (!productSlug.trim()) return "El slug es obligatorio.";
+  if (!/^[A-Z0-9-]{3,6}$/.test(productSku)) {
+    return "El codigo SKU debe tener entre 3 y 6 caracteres.";
+  }
   if (!Number.isFinite(Number(productPrice)) || Number(productPrice) <= 0) {
     return "El precio mayorista debe ser mayor a 0.";
   }
@@ -97,6 +102,10 @@ export function getProductMutationError(error: {
     error.code === "23505" ||
     error.message?.toLowerCase().includes("duplicate")
   ) {
+    if (error.message?.toLowerCase().includes("sku")) {
+      return "Ya existe un producto con ese SKU.";
+    }
+
     return "Ya existe un producto con ese slug.";
   }
 
@@ -160,6 +169,7 @@ export function getProcessedVariantsStock(
 export async function createAdminProduct({
   name,
   slug,
+  sku,
   price,
   retailPrice,
   category,
@@ -169,6 +179,7 @@ export async function createAdminProduct({
 }: {
   name: string;
   slug: string;
+  sku: string;
   price: string;
   retailPrice: string;
   category: string;
@@ -184,6 +195,7 @@ export async function createAdminProduct({
       {
         name,
         slug,
+        sku,
         price: Number(price),
         retail_price: Number(retailPrice || price),
         category,
@@ -219,6 +231,7 @@ export async function updateAdminProduct({
     .update({
       name: product.name,
       slug,
+      sku: product.sku,
       price: Number(product.price),
       retail_price: Number(product.retailPrice || product.price),
       category: product.category,
