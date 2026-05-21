@@ -9,6 +9,11 @@ import {
   getCartItemLabel,
   getCartTotal,
 } from "@/lib/order";
+import {
+  formatPrice,
+  getCartItemUnitPrice,
+  getCartPricing,
+} from "@/lib/pricing";
 
 type Props = {
   cart: CartItem[];
@@ -28,6 +33,7 @@ export default function Cart({
   onClose,
 }: Props) {
   const total = getCartTotal(cart);
+  const cartPricing = getCartPricing(cart);
 
   return (
     <div className="w-[330px] bg-[#111] border border-zinc-800 rounded-2xl p-6 shadow-2xl flex flex-col">
@@ -75,7 +81,10 @@ export default function Cart({
               </p>
 
               <p className="text-zinc-300 mt-2 text-sm">
-                {item.quantity} x ${item.price}
+                {item.quantity} x{" "}
+                {formatPrice(
+                  getCartItemUnitPrice(item, cartPricing.isWholesale)
+                )}
               </p>
             </div>
 
@@ -98,7 +107,13 @@ export default function Cart({
 
       <div className="mt-5 border-t border-zinc-700 pt-4">
         <p className="text-lg font-bold">
-          Total: ${total}
+          Total: {formatPrice(total)}
+        </p>
+
+        <p className="mt-1 text-xs text-zinc-400">
+          {cartPricing.isWholesale
+            ? "Precio mayorista aplicado"
+            : `Faltan ${formatPrice(cartPricing.remainingForWholesale)} para mayorista`}
         </p>
       </div>
 

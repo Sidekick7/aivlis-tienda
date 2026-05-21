@@ -5,6 +5,11 @@ import Link from "next/link";
 
 import { getProductBySlug, getProductsByCategory } from "@/lib/products";
 import { getProductImage } from "@/lib/productDisplay";
+import {
+  formatPrice,
+  getRetailPrice,
+  hasDifferentRetailPrice,
+} from "@/lib/pricing";
 import type { Product } from "@/types/product";
 
 function RelatedProductCard({ product }: { product: Product }) {
@@ -28,9 +33,15 @@ function RelatedProductCard({ product }: { product: Product }) {
           {product.name}
         </h3>
 
-        <p className="mt-2 text-zinc-600">
-          ${product.price}
+        <p className="mt-2 font-semibold text-black">
+          Mayorista {formatPrice(product.price)}
         </p>
+
+        {hasDifferentRetailPrice(product) && (
+          <p className="text-sm text-zinc-500">
+            Minorista {formatPrice(getRetailPrice(product))}
+          </p>
+        )}
       </div>
     </Link>
   );

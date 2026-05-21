@@ -20,8 +20,12 @@ export type EditableVariant = {
   images: (string | File)[];
 };
 
-export type EditableProduct = Omit<Product, "price" | "variants"> & {
+export type EditableProduct = Omit<
+  Product,
+  "price" | "retailPrice" | "variants"
+> & {
   price: number | string;
+  retailPrice: number | string;
   variants: EditableVariant[];
 };
 

@@ -9,11 +9,15 @@ import {
 import { getVariantSizeStock } from "@/lib/stock";
 import type { Product } from "@/types/product";
 
+const cartStorageKey = "cart_v2";
+const legacyCartStorageKey = "cart";
+
 export type CartItem = {
   id: number;
   slug: string;
   name: string;
   price: number;
+  retailPrice: number;
   quantity: number;
   size?: string;
   images?: string[];
@@ -90,6 +94,63 @@ function getStockForSelection(
   });
 }
 
+function normalizeSavedCart(value: unknown): CartItem[] {
+  if (!Array.isArray(value)) return [];
+
+  const itemsByKey = new Map<string, CartItem>();
+
+  for (const item of value) {
+    if (!item || typeof item !== "object") continue;
+
+    const cartItem = item as Partial<CartItem>;
+    const id = Number(cartItem.id);
+    const quantity = Number(cartItem.quantity);
+    const price = Number(cartItem.price);
+
+    if (
+      !Number.isFinite(id) ||
+      !cartItem.slug ||
+      !cartItem.name ||
+      !Number.isFinite(quantity) ||
+      quantity <= 0 ||
+      !Number.isFinite(price)
+    ) {
+      continue;
+    }
+
+    const normalizedItem: CartItem = {
+      id,
+      slug: cartItem.slug,
+      name: cartItem.name,
+      price,
+      retailPrice: Number(cartItem.retailPrice || price),
+      quantity,
+      size: cartItem.size,
+      images: cartItem.images,
+      variants: cartItem.variants,
+      selectedImage: cartItem.selectedImage,
+      selectedColor: cartItem.selectedColor,
+    };
+    const key = [
+      normalizedItem.id,
+      normalizedItem.size || "",
+      normalizedItem.selectedColor || "",
+    ].join("|");
+    const existingItem = itemsByKey.get(key);
+
+    if (existingItem) {
+      itemsByKey.set(key, {
+        ...existingItem,
+        quantity: existingItem.quantity + normalizedItem.quantity,
+      });
+    } else {
+      itemsByKey.set(key, normalizedItem);
+    }
+  }
+
+  return Array.from(itemsByKey.values());
+}
+
 export function CartProvider({
   children,
 }: {
@@ -104,13 +165,16 @@ export function CartProvider({
   useEffect(() => {
 
     queueMicrotask(() => {
-      const savedCart = localStorage.getItem("cart");
+      localStorage.removeItem(legacyCartStorageKey);
+
+      const savedCart = localStorage.getItem(cartStorageKey);
 
       if (savedCart) {
         try {
-          setCart(JSON.parse(savedCart) as CartItem[]);
+          setCart(normalizeSavedCart(JSON.parse(savedCart)));
         } catch {
           setCart([]);
+          localStorage.removeItem(cartStorageKey);
         }
       }
 
@@ -123,7 +187,7 @@ export function CartProvider({
     if (!isCartReady) return;
 
     localStorage.setItem(
-      "cart",
+      cartStorageKey,
       JSON.stringify(cart)
     );
 

@@ -34,19 +34,35 @@ export function getProductFormError({
   productName,
   productSlug,
   productPrice,
+  productRetailPrice,
   productCategory,
   productVariants,
 }: {
   productName: string;
   productSlug: string;
   productPrice: string | number;
+  productRetailPrice: string | number;
   productCategory: string;
   productVariants: ProductFormVariant[];
 }) {
+  const effectiveRetailPrice =
+    String(productRetailPrice).trim() === ""
+      ? productPrice
+      : productRetailPrice;
+
   if (!productName.trim()) return "El nombre es obligatorio.";
   if (!productSlug.trim()) return "El slug es obligatorio.";
   if (!Number.isFinite(Number(productPrice)) || Number(productPrice) <= 0) {
-    return "El precio debe ser mayor a 0.";
+    return "El precio mayorista debe ser mayor a 0.";
+  }
+  if (
+    !Number.isFinite(Number(effectiveRetailPrice)) ||
+    Number(effectiveRetailPrice) <= 0
+  ) {
+    return "El precio minorista debe ser mayor a 0.";
+  }
+  if (Number(effectiveRetailPrice) < Number(productPrice)) {
+    return "El precio minorista no puede ser menor al mayorista.";
   }
   if (!productCategory.trim()) return "La categoria es obligatoria.";
   if (productVariants.length === 0) {
@@ -145,6 +161,7 @@ export async function createAdminProduct({
   name,
   slug,
   price,
+  retailPrice,
   category,
   description,
   detailsText,
@@ -153,6 +170,7 @@ export async function createAdminProduct({
   name: string;
   slug: string;
   price: string;
+  retailPrice: string;
   category: string;
   description: string;
   detailsText: string;
@@ -167,6 +185,7 @@ export async function createAdminProduct({
         name,
         slug,
         price: Number(price),
+        retail_price: Number(retailPrice || price),
         category,
         description,
         stock: getProcessedVariantsStock(processedVariants),
@@ -201,6 +220,7 @@ export async function updateAdminProduct({
       name: product.name,
       slug,
       price: Number(product.price),
+      retail_price: Number(product.retailPrice || product.price),
       category: product.category,
       description: product.description,
       details: parseDetailsText(detailsText),

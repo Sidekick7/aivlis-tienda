@@ -32,6 +32,10 @@ export default function Navbar() {
   return (
     <>
       <nav className="fixed left-0 top-0 z-50 w-full border-b border-zinc-800 bg-black text-white">
+        <div className="flex min-h-8 items-center justify-center bg-white px-4 py-2 text-center text-[11px] font-bold uppercase tracking-wide text-black sm:text-xs">
+          Precios mayoristas · Mínimo de compra $150.000
+        </div>
+
         <div className="grid h-[60px] grid-cols-[1fr_auto_1fr] items-center px-5 md:px-10">
           <div className="flex items-center gap-5">
             <button

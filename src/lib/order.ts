@@ -1,15 +1,18 @@
 import type { CartItem } from "@/context/CartContext";
 import { storeConfig } from "@/config/store";
 import { formatOrderNumber } from "@/lib/orderNumber";
+import {
+  getCartItemSubtotal,
+  getCartItemUnitPrice,
+  getCartPricing,
+  formatPrice,
+} from "@/lib/pricing";
 import { getVariantSizeStock } from "@/lib/stock";
 import type { CustomerInfo } from "@/types/order";
 import type { Product } from "@/types/product";
 
 export function getCartTotal(cart: CartItem[]) {
-  return cart.reduce(
-    (total, item) => total + item.price * item.quantity,
-    0
-  );
+  return getCartPricing(cart).total;
 }
 
 export function getCartItemLabel(item: CartItem) {
@@ -24,15 +27,24 @@ export function getCartItemLabel(item: CartItem) {
 }
 
 export function formatCartItemsForWhatsApp(cart: CartItem[]) {
+  const cartPricing = getCartPricing(cart);
+
   return cart
     .map((item) => {
-      const subtotal = item.price * item.quantity;
+      const unitPrice = getCartItemUnitPrice(
+        item,
+        cartPricing.isWholesale
+      );
+      const subtotal = getCartItemSubtotal(
+        item,
+        cartPricing.isWholesale
+      );
 
       return [
         `- ${getCartItemLabel(item)}`,
         `  Cantidad: ${item.quantity}`,
-        `  Precio unitario: $${item.price}`,
-        `  Subtotal: $${subtotal}`,
+        `  Precio unitario: ${formatPrice(unitPrice)}`,
+        `  Subtotal: ${formatPrice(subtotal)}`,
       ].join("\n");
     })
     .join("\n\n");
@@ -59,13 +71,20 @@ export function buildOrderWhatsAppMessage({
   customer: CustomerInfo;
   total: number;
 }) {
+  const cartPricing = getCartPricing(cart);
+  const priceListLabel = cartPricing.isWholesale
+    ? "mayorista"
+    : "minorista";
+
   return `Hola! Quiero realizar este pedido:
 
 Pedido ${formatOrderNumber(orderNumber)}
 
+Lista aplicada: precio ${priceListLabel}
+
 ${formatCartItemsForWhatsApp(cart)}
 
-TOTAL: $${total}
+TOTAL: ${formatPrice(total)}
 
 DATOS DEL CLIENTE
 

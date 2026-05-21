@@ -8,6 +8,7 @@ import {
   getProductImage,
   getProductTotalStock,
 } from "@/app/admin/adminUtils";
+import { getRetailPrice } from "@/lib/pricing";
 import type { ProductFilter } from "@/app/admin/adminTypes";
 import type { StoreCategory } from "@/types/category";
 import type { Product } from "@/types/product";
@@ -243,7 +244,11 @@ export default function AdminProductsSection({
 
                 <div className="mt-2 flex flex-wrap gap-2 text-sm">
                   <span className="rounded-lg bg-zinc-900 px-3 py-1.5 font-semibold text-zinc-100">
-                    {currencyFormatter.format(product.price)}
+                    Mayorista {currencyFormatter.format(product.price)}
+                  </span>
+
+                  <span className="rounded-lg bg-zinc-900 px-3 py-1.5 text-zinc-200">
+                    Minorista {currencyFormatter.format(getRetailPrice(product))}
                   </span>
 
                   <span className="rounded-lg bg-zinc-900 px-3 py-1.5 text-zinc-200">

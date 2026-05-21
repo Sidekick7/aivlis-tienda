@@ -1,4 +1,9 @@
 import { supabase } from "@/lib/supabase";
+import {
+  getCartItemSubtotal,
+  getCartItemUnitPrice,
+  getCartPricing,
+} from "@/lib/pricing";
 import { normalizeProduct } from "@/lib/products";
 import { findVariantSize } from "@/lib/stock";
 import type {
@@ -174,6 +179,7 @@ export async function createOrderTicket({
   whatsappMessage,
 }: CreateOrderTicketInput): Promise<CreatedOrderTicket> {
   const orderId = crypto.randomUUID();
+  const cartPricing = getCartPricing(cart);
   const { error } = await supabase.rpc("create_order_ticket", {
     order_id: orderId,
     order_number: orderNumber,
@@ -195,8 +201,11 @@ export async function createOrderTicket({
       variant_color: item.selectedColor || "",
       size: item.size || "",
       quantity: item.quantity,
-      unit_price: item.price,
-      subtotal: item.price * item.quantity,
+      unit_price: getCartItemUnitPrice(
+        item,
+        cartPricing.isWholesale
+      ),
+      subtotal: getCartItemSubtotal(item, cartPricing.isWholesale),
       image_url: item.selectedImage || item.images?.[0] || "",
     })),
   });

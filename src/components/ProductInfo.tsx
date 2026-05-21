@@ -6,6 +6,12 @@ import Link from "next/link";
 import { fallbackProductImage } from "@/config/store";
 import { useCart } from "@/context/CartContext";
 import { getCategories } from "@/lib/categories";
+import {
+  formatPrice,
+  getRetailPrice,
+  hasDifferentRetailPrice,
+  wholesaleMinimum,
+} from "@/lib/pricing";
 import type { Product, ProductVariant } from "@/types/product";
 
 type Props = {
@@ -57,6 +63,7 @@ export default function ProductInfo({ product }: Props) {
   );
   const [cartMessage, setCartMessage] = useState("");
   const [cartError, setCartError] = useState("");
+  const retailPrice = getRetailPrice(product);
 
   const [zoomPosition, setZoomPosition] = useState({
     x: 50,
@@ -257,13 +264,29 @@ export default function ProductInfo({ product }: Props) {
         {product.name}
       </h1>
 
-      <p className="text-3xl mt-5">
-        ${product.price}
-      </p>
-      
-      <p className="mt-2 text-zinc-600">
-        Precio mayorista
-      </p>
+      <div className="mt-5 rounded-3xl bg-white p-5">
+        <p className="text-sm font-semibold uppercase tracking-wide text-zinc-500">
+          Precio mayorista
+        </p>
+
+        <p className="mt-1 text-4xl font-bold">
+          {formatPrice(product.price)}
+        </p>
+
+        {hasDifferentRetailPrice(product) && (
+          <p className="mt-2 text-zinc-600">
+            Minorista {formatPrice(retailPrice)}
+          </p>
+        )}
+
+        <p className="mt-3 text-sm text-zinc-500">
+          Mayorista desde {formatPrice(wholesaleMinimum)} en el carrito.
+        </p>
+
+        <p className="mt-1 text-sm text-zinc-500">
+          Si el pedido no llega al minimo, se aplica precio minorista.
+        </p>
+      </div>
       {selectedSizeData &&
         selectedSizeData.stock > 0 &&
         selectedSizeData.stock <= 5 && (

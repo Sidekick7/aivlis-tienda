@@ -88,6 +88,7 @@ const [name, setName] = useState("");
 const [slug, setSlug] = useState("");
 const [isSlugEdited, setIsSlugEdited] = useState(false);
 const [price, setPrice] = useState("");
+const [retailPrice, setRetailPrice] = useState("");
 const [products, setProducts] = useState<Product[]>([]);
 const [categoryOptions, setCategoryOptions] = useState<StoreCategory[]>(
   getFallbackCategories()
@@ -252,6 +253,7 @@ const createProduct = async () => {
     productName: name,
     productSlug: nextSlug,
     productPrice: price,
+    productRetailPrice: retailPrice,
     productCategory: category,
     productVariants: variants,
   });
@@ -273,6 +275,7 @@ const createProduct = async () => {
       name,
       slug: nextSlug,
       price,
+      retailPrice,
       category,
       description,
       detailsText,
@@ -287,6 +290,7 @@ const createProduct = async () => {
     setSlug("");
     setIsSlugEdited(false);
     setPrice("");
+    setRetailPrice("");
     setDescription("");
     setDetailsText("");
     setCategory(
@@ -693,6 +697,7 @@ const updateProduct = async () => {
       productName: editingProduct.name,
       productSlug: nextSlug,
       productPrice: editingProduct.price,
+      productRetailPrice: editingProduct.retailPrice,
       productCategory: editingProduct.category,
       productVariants: editingProduct.variants,
     });
@@ -1018,6 +1023,8 @@ if (!session) {
     setIsSlugEdited={setIsSlugEdited}
     price={price}
     setPrice={setPrice}
+    retailPrice={retailPrice}
+    setRetailPrice={setRetailPrice}
     category={category}
     setCategory={setCategory}
     categories={categoryOptions.filter(

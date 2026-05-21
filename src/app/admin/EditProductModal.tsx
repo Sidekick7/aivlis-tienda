@@ -111,16 +111,41 @@ export default function EditProductModal({
             className="h-12 px-4 rounded-xl bg-zinc-800 outline-none"
           />
 
-          <input
-            type="number"
-            value={product.price}
-            onChange={(event) =>
-              updateProduct({
-                price: event.target.value,
-              })
-            }
-            className="h-12 px-4 rounded-xl bg-zinc-800 outline-none"
-          />
+          <div className="grid gap-3 sm:grid-cols-2">
+            <label className="grid gap-2">
+              <span className="text-xs font-semibold uppercase text-zinc-500">
+                Precio mayorista
+              </span>
+
+              <input
+                type="number"
+                value={product.price}
+                onChange={(event) =>
+                  updateProduct({
+                    price: event.target.value,
+                  })
+                }
+                className="h-12 px-4 rounded-xl bg-zinc-800 outline-none"
+              />
+            </label>
+
+            <label className="grid gap-2">
+              <span className="text-xs font-semibold uppercase text-zinc-500">
+                Precio minorista
+              </span>
+
+              <input
+                type="number"
+                value={product.retailPrice}
+                onChange={(event) =>
+                  updateProduct({
+                    retailPrice: event.target.value,
+                  })
+                }
+                className="h-12 px-4 rounded-xl bg-zinc-800 outline-none"
+              />
+            </label>
+          </div>
 
           <select
             value={product.category}

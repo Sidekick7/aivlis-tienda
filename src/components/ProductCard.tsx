@@ -3,6 +3,11 @@
 import Image from "next/image";
 import Link from "next/link";
 import { getProductImage } from "@/lib/productDisplay";
+import {
+  formatPrice,
+  getRetailPrice,
+  hasDifferentRetailPrice,
+} from "@/lib/pricing";
 import type { Product } from "@/types/product";
 
 type Props = {
@@ -25,6 +30,7 @@ export default function ProductCard({ product }: Props) {
     product.variants.length - visibleVariants.length,
     0
   );
+  const retailPrice = getRetailPrice(product);
 
   return (
     <div className="flex h-full flex-col overflow-hidden rounded-xl bg-white transition duration-300 hover:-translate-y-1 hover:shadow-xl hover:shadow-black/20 sm:rounded-2xl sm:hover:-translate-y-2 sm:hover:shadow-2xl sm:hover:shadow-black/50">
@@ -45,9 +51,17 @@ export default function ProductCard({ product }: Props) {
           </h2>
         </Link>
 
-        <p className="mt-1 text-sm text-zinc-600 sm:mt-2 sm:text-base">
-          ${product.price}
-        </p>
+        <div className="mt-2">
+          <p className="text-sm font-semibold text-black sm:text-base">
+            Mayorista {formatPrice(product.price)}
+          </p>
+
+          {hasDifferentRetailPrice(product) && (
+            <p className="text-xs text-zinc-500 sm:text-sm">
+              Minorista {formatPrice(retailPrice)}
+            </p>
+          )}
+        </div>
 
         <div className="mt-2 flex items-center gap-1.5 sm:gap-2">
           {visibleVariants.map((variant) => (

@@ -6,6 +6,13 @@ import {
   getCartTotal,
   validateCartStock,
 } from "@/lib/order";
+import {
+  formatPrice,
+  getCartItemSubtotal,
+  getCartItemUnitPrice,
+  getCartPricing,
+  wholesaleMinimum,
+} from "@/lib/pricing";
 import { getProductsByIds } from "@/lib/products";
 import { getVariantSizeStock } from "@/lib/stock";
 import { useEffect, useMemo, useState } from "react";
@@ -25,6 +32,11 @@ const {
 } = useCart();
 
   const total = getCartTotal(cart);
+  const cartPricing = getCartPricing(cart);
+  const wholesaleProgress = Math.min(
+    (cartPricing.wholesaleSubtotal / wholesaleMinimum) * 100,
+    100
+  );
   const totalUnits = cart.reduce(
     (quantity, item) => quantity + item.quantity,
     0
@@ -108,13 +120,13 @@ const {
           </h1>
 
           <p className="mt-2 text-sm text-zinc-600">
-            Revisa productos, cantidades y subtotal antes de finalizar.
+            Revisa productos, cantidades y precio aplicado antes de finalizar.
           </p>
         </div>
 
         <Link
           href="/tienda"
-          className="inline-flex h-11 w-fit items-center rounded-full bg-white px-5 text-sm font-semibold text-zinc-700 transition hover:bg-zinc-200"
+          className="inline-flex h-12 w-fit items-center rounded-full bg-black px-6 text-sm font-semibold text-white shadow-lg shadow-black/15 transition hover:bg-zinc-800"
         >
           Seguir comprando
         </Link>
@@ -178,6 +190,14 @@ const {
         </div>        
 
         {isCartReady && cart.map((item) => {
+          const unitPrice = getCartItemUnitPrice(
+            item,
+            cartPricing.isWholesale
+          );
+          const itemSubtotal = getCartItemSubtotal(
+            item,
+            cartPricing.isWholesale
+          );
           const currentProduct = currentProductsById.get(item.id);
           const stockLimit = getVariantSizeStock({
             variants: currentProduct?.variants ?? item.variants,
@@ -235,7 +255,11 @@ const {
               </span>
 
               <p className="text-lg font-semibold">
-                ${item.price}
+                {formatPrice(unitPrice)}
+              </p>
+
+              <p className="mt-1 text-xs text-zinc-500">
+                {cartPricing.isWholesale ? "Mayorista" : "Minorista"}
               </p>
             </div>
 
@@ -294,7 +318,7 @@ const {
               </span>
 
               <p className="text-lg font-semibold">
-                ${item.price * item.quantity}
+                {formatPrice(itemSubtotal)}
               </p>
 
             </div>
@@ -336,12 +360,57 @@ const {
             </span>
             </div>
 
+            <div className="flex items-center justify-between text-zinc-600 mb-3">
+            <span>Subtotal mayorista</span>
+            <span>{formatPrice(cartPricing.wholesaleSubtotal)}</span>
+            </div>
+
             <div className="flex items-center justify-between text-zinc-600 mb-6">
-            <span>Subtotal</span>
-            <span>${total}</span>
+            <span>Subtotal minorista</span>
+            <span>{formatPrice(cartPricing.retailSubtotal)}</span>
             </div>
 
             <div className="border-t border-zinc-200 pt-6">
+
+            <p
+              className={`mb-5 rounded-2xl p-4 text-sm leading-6 ${
+                cartPricing.isWholesale
+                  ? "bg-green-500/10 text-green-700"
+                  : "bg-yellow-500/10 text-yellow-800"
+              }`}
+            >
+              <span className="mb-3 block h-2 overflow-hidden rounded-full bg-white/80">
+                <span
+                  className={`block h-full rounded-full ${
+                    cartPricing.isWholesale
+                      ? "bg-green-500"
+                      : "bg-yellow-500"
+                  }`}
+                  style={{
+                    width: `${wholesaleProgress}%`,
+                  }}
+                />
+              </span>
+
+              {cartPricing.isWholesale
+                ? `Precio mayorista aplicado. Superaste el minimo de ${formatPrice(wholesaleMinimum)}.`
+                : `Faltan ${formatPrice(cartPricing.remainingForWholesale)} para aplicar precio mayorista.`}
+
+              {cartPricing.isWholesale && cartPricing.savings > 0 && (
+                <span className="mt-2 block font-semibold">
+                  Ahorras {formatPrice(cartPricing.savings)} con precio mayorista.
+                </span>
+              )}
+
+              {!cartPricing.isWholesale && (
+                <Link
+                  href="/tienda"
+                  className="mt-3 inline-flex h-10 items-center rounded-full bg-black px-4 text-sm font-semibold text-white transition hover:bg-zinc-800"
+                >
+                  Agregar mas productos
+                </Link>
+              )}
+            </p>
 
             <p className="mb-5 rounded-2xl bg-zinc-100 p-4 text-sm leading-6 text-zinc-600">
               No pagas online. Al finalizar, se genera el pedido para
@@ -355,7 +424,7 @@ const {
                 </span>
 
                 <span className="text-3xl font-bold">
-                ${total}
+                {formatPrice(total)}
                 </span>
 
             </div>

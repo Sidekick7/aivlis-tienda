@@ -19,6 +19,8 @@ type Props = {
   setIsSlugEdited: Dispatch<SetStateAction<boolean>>;
   price: string;
   setPrice: Dispatch<SetStateAction<string>>;
+  retailPrice: string;
+  setRetailPrice: Dispatch<SetStateAction<string>>;
   category: string;
   setCategory: Dispatch<SetStateAction<string>>;
   categories: StoreCategory[];
@@ -45,6 +47,8 @@ export default function CreateProductModal({
   setIsSlugEdited,
   price,
   setPrice,
+  retailPrice,
+  setRetailPrice,
   category,
   setCategory,
   categories,
@@ -124,13 +128,37 @@ export default function CreateProductModal({
             className="h-12 px-4 rounded-xl bg-zinc-800 outline-none"
           />
 
-          <input
-            type="number"
-            placeholder="Precio"
-            value={price}
-            onChange={(event) => setPrice(event.target.value)}
-            className="h-12 px-4 rounded-xl bg-zinc-800 outline-none"
-          />
+          <div className="grid gap-3 sm:grid-cols-2">
+            <label className="grid gap-2">
+              <span className="text-xs font-semibold uppercase text-zinc-500">
+                Precio mayorista
+              </span>
+
+              <input
+                type="number"
+                placeholder="Mayorista"
+                value={price}
+                onChange={(event) => setPrice(event.target.value)}
+                className="h-12 px-4 rounded-xl bg-zinc-800 outline-none"
+              />
+            </label>
+
+            <label className="grid gap-2">
+              <span className="text-xs font-semibold uppercase text-zinc-500">
+                Precio minorista
+              </span>
+
+              <input
+                type="number"
+                placeholder="Minorista"
+                value={retailPrice}
+                onChange={(event) =>
+                  setRetailPrice(event.target.value)
+                }
+                className="h-12 px-4 rounded-xl bg-zinc-800 outline-none"
+              />
+            </label>
+          </div>
 
           <input
             type="text"

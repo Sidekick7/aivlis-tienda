@@ -1,5 +1,6 @@
 export const storeConfig = {
   whatsappNumber: process.env.NEXT_PUBLIC_WHATSAPP_NUMBER || "",
+  wholesaleMinimum: 150000,
 };
 
 export const categories = [

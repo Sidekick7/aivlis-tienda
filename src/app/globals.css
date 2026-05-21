@@ -73,7 +73,7 @@ input[type="number"] {
 }
 
 .home-main-offset {
-  padding-top: 96px;
+  padding-top: 128px;
 }
 
 @media (max-width: 640px) {
@@ -94,6 +94,6 @@ input[type="number"] {
   }
 
   .home-main-offset {
-    padding-top: 60px;
+    padding-top: 92px;
   }
 }

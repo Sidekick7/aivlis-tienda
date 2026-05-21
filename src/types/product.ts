@@ -16,6 +16,7 @@ export type Product = {
   slug: string;
   name: string;
   price: number;
+  retailPrice: number;
   category: string;
   description: string;
   sku?: string;
@@ -38,4 +39,5 @@ export type SupabaseProductRow = Partial<
   images?: unknown;
   sizes?: unknown;
   stock?: number | null;
+  retail_price?: number | string | null;
 };

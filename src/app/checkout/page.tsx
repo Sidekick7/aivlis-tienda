@@ -11,6 +11,12 @@ import {
   validateCartStock,
 } from "@/lib/order";
 import {
+  formatPrice,
+  getCartItemSubtotal,
+  getCartItemUnitPrice,
+  getCartPricing,
+} from "@/lib/pricing";
+import {
   createOrderNumber,
   createOrderTicket,
 } from "@/lib/orders";
@@ -94,6 +100,7 @@ export default function CheckoutPage() {
   }, []);
 
   const total = getCartTotal(cart);
+  const cartPricing = getCartPricing(cart);
   const requiredFields = [
     name,
     dni,
@@ -480,16 +487,51 @@ export default function CheckoutPage() {
                     </p>
 
                     <p className="text-zinc-500">
-                      {item.quantity} x ${item.price}
+                      {item.quantity} x{" "}
+                      {formatPrice(
+                        getCartItemUnitPrice(
+                          item,
+                          cartPricing.isWholesale
+                        )
+                      )}
                     </p>
                   </div>
 
                   <p className="font-semibold text-black">
-                    ${item.price * item.quantity}
+                    {formatPrice(
+                      getCartItemSubtotal(
+                        item,
+                        cartPricing.isWholesale
+                      )
+                    )}
                   </p>
                 </div>
               ))}
             </div>
+
+            <p
+              className={`mb-5 rounded-2xl p-4 text-sm leading-6 ${
+                cartPricing.isWholesale
+                  ? "bg-green-500/10 text-green-700"
+                  : "bg-yellow-500/10 text-yellow-800"
+              }`}
+            >
+              {cartPricing.isWholesale
+                ? "Este pedido usa precio mayorista."
+                : "Este pedido usa precio minorista."}
+
+              {!cartPricing.isWholesale && (
+                <span className="mt-1 block">
+                  Faltan {formatPrice(cartPricing.remainingForWholesale)} para precio mayorista.
+                </span>
+              )}
+
+              {cartPricing.isWholesale && cartPricing.savings > 0 && (
+                <span className="mt-1 block font-semibold">
+                  Ahorras {formatPrice(cartPricing.savings)} con precio mayorista.
+                </span>
+              )}
+            </p>
 
             <p className="mb-5 rounded-2xl bg-white p-4 text-sm leading-6 text-zinc-600">
               No pagas online. Este paso crea el pedido, reserva el
@@ -497,7 +539,7 @@ export default function CheckoutPage() {
             </p>
 
             <p className="rounded-2xl bg-white p-4 text-2xl font-bold">
-              Total: ${total}
+              Total: {formatPrice(total)}
             </p>
 
             {showError && hasEmptyFields && (
