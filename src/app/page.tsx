@@ -85,7 +85,7 @@ export default function Home() {
 
   return (
     <main className="home-main-offset min-h-screen bg-zinc-100 text-black">
-      <section className="relative h-[92vh] w-full overflow-visible">
+      <section className="relative h-[76vh] w-full overflow-visible">
         <Swiper
           style={{ overflow: "visible" }}
           ref={swiperRef}
@@ -112,7 +112,7 @@ export default function Home() {
             delay: 5000,
             disableOnInteraction: false,
           }}
-          className="h-[85vh] w-full pointer-events-auto"
+          className="h-[72vh] w-full pointer-events-auto"
         >
           {homeContent.heroImages.map((image) => (
             <SwiperSlide
@@ -131,7 +131,7 @@ export default function Home() {
           ))}
         </Swiper>
 
-        <div className="relative mt-6 flex justify-center gap-3 pointer-events-auto">
+        <div className="relative mt-4 flex justify-center gap-3 pointer-events-auto">
           {homeContent.heroImages.map((_, index) => (
             <button
               key={index}
@@ -139,7 +139,7 @@ export default function Home() {
               onClick={() =>
                 swiperRef.current?.swiper.slideToLoop(index)
               }
-              className={`h-3 w-3 rounded-full transition-all ${
+              className={`h-3 w-3 cursor-pointer rounded-full transition-all ${
                 currentImage === index
                   ? "scale-125 bg-black"
                   : "bg-zinc-400"
@@ -150,7 +150,7 @@ export default function Home() {
         </div>
       </section>
 
-      <section className="px-6 py-1 md:px-10">
+      <section className="px-6 pb-1 pt-0 md:px-10">
         <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-center gap-x-5 gap-y-2 border-y border-zinc-200 py-2">
           {homeContent.trustItems.map((item) => (
             <p

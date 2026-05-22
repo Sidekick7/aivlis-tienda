@@ -22,6 +22,13 @@ import {
 } from "@/lib/orders";
 import { getProductsByIds } from "@/lib/products";
 import { formatOrderNumber } from "@/lib/orderNumber";
+import {
+  fulfillmentOptions,
+  fulfillmentStorageKey,
+  getFulfillmentFee,
+  isFulfillmentOption,
+  type FulfillmentOption,
+} from "@/lib/fulfillment";
 import { useEffect, useRef, useState } from "react";
 import type { Product } from "@/types/product";
 
@@ -68,6 +75,8 @@ export default function CheckoutPage() {
     useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [rememberCustomer, setRememberCustomer] = useState(false);
+  const [fulfillmentOption, setFulfillmentOption] =
+    useState<FulfillmentOption | "">("");
   const isSubmittingRef = useRef(false);
 
   useEffect(() => {
@@ -96,11 +105,24 @@ export default function CheckoutPage() {
       } catch {
         localStorage.removeItem(checkoutCustomerStorageKey);
       }
+
+      const savedFulfillment = localStorage.getItem(
+        fulfillmentStorageKey
+      );
+
+      if (isFulfillmentOption(savedFulfillment)) {
+        setFulfillmentOption(savedFulfillment);
+      }
     });
 
   }, []);
 
   const total = getCartTotal(cart);
+  const fulfillmentFee = getFulfillmentFee(fulfillmentOption);
+  const finalTotal = total + fulfillmentFee;
+  const selectedFulfillment = fulfillmentOption
+    ? fulfillmentOptions[fulfillmentOption]
+    : null;
   const cartPricing = getCartPricing(cart);
   const requiredFields = [
     name,
@@ -115,6 +137,8 @@ export default function CheckoutPage() {
     (field) => !field.trim()
   );
   const hasNoProducts = isCartReady && cart.length === 0;
+  const hasNoFulfillment =
+    isCartReady && cart.length > 0 && !fulfillmentOption;
   const visibleOrderError = checkoutStockError || orderError;
 
   useEffect(() => {
@@ -193,7 +217,7 @@ export default function CheckoutPage() {
   const handleWhatsApp = async () => {
     if (createdOrderNumber || isSubmittingRef.current) return;
 
-    if (hasEmptyFields || hasNoProducts) {
+    if (hasEmptyFields || hasNoProducts || hasNoFulfillment) {
       setShowError(true);
       return;
     }
@@ -249,7 +273,18 @@ export default function CheckoutPage() {
       };
     });
     const enrichedTotal = getCartTotal(enrichedCart);
+    const enrichedFulfillmentFee =
+      getFulfillmentFee(fulfillmentOption);
+    const enrichedFinalTotal =
+      enrichedTotal + enrichedFulfillmentFee;
     const orderNumber = createOrderNumber();
+    const fulfillmentNotes = selectedFulfillment
+      ? [
+          `Entrega: ${selectedFulfillment.label}`,
+          `Costo de entrega a logistica y embalaje: ${formatPrice(selectedFulfillment.fee)}`,
+          selectedFulfillment.description,
+        ].join("\n")
+      : "";
     const customer = {
       name,
       dni,
@@ -259,13 +294,22 @@ export default function CheckoutPage() {
       province,
       zip,
       email,
-      notes,
+      notes: [fulfillmentNotes, notes.trim()]
+        .filter(Boolean)
+        .join("\n\n"),
     };
     const message = buildOrderWhatsAppMessage({
       orderNumber,
       cart: enrichedCart,
       customer,
-      total: enrichedTotal,
+      fulfillment: selectedFulfillment
+        ? {
+            label: selectedFulfillment.label,
+            description: selectedFulfillment.description,
+            fee: enrichedFulfillmentFee,
+          }
+        : undefined,
+      total: enrichedFinalTotal,
     });
     let whatsappUrl = "";
 
@@ -287,12 +331,13 @@ export default function CheckoutPage() {
         orderNumber,
         cart: enrichedCart,
         customer,
-        total: enrichedTotal,
+        total: enrichedFinalTotal,
         whatsappMessage: message,
       });
 
       window.open(whatsappUrl, "_blank");
       setCreatedOrderNumber(orderNumber);
+      localStorage.removeItem(fulfillmentStorageKey);
       clearCart();
     } catch (error) {
       setOrderError(
@@ -557,8 +602,43 @@ export default function CheckoutPage() {
               stock y abre WhatsApp para confirmar los datos.
             </p>
 
+            {selectedFulfillment ? (
+              <div className="mb-5 rounded-2xl bg-white p-4 text-sm leading-6 text-zinc-600">
+                <div className="flex items-center justify-between gap-4">
+                  <span className="font-semibold text-zinc-900">
+                    {selectedFulfillment.label}
+                  </span>
+                  <span className="font-semibold text-zinc-900">
+                    {formatPrice(fulfillmentFee)}
+                  </span>
+                </div>
+
+                <p className="mt-2">
+                  {selectedFulfillment.description}
+                </p>
+
+                <Link
+                  href="/cart"
+                  className="mt-3 inline-flex h-10 items-center rounded-full bg-zinc-100 px-4 text-sm font-semibold text-zinc-700 transition hover:bg-zinc-200"
+                >
+                  Cambiar entrega
+                </Link>
+              </div>
+            ) : (
+              <div className="mb-5 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-800">
+                Elegi una opcion de entrega desde el carrito antes de finalizar.
+
+                <Link
+                  href="/cart"
+                  className="mt-3 inline-flex h-10 items-center rounded-full bg-black px-4 text-sm font-semibold text-white transition hover:bg-zinc-800"
+                >
+                  Elegir entrega
+                </Link>
+              </div>
+            )}
+
             <p className="rounded-2xl bg-white p-4 text-2xl font-bold">
-              Total: {formatPrice(total)}
+              Total: {formatPrice(finalTotal)}
             </p>
 
             {showError && hasEmptyFields && (
@@ -570,6 +650,12 @@ export default function CheckoutPage() {
             {showError && hasNoProducts && (
               <p className="mt-4 rounded-xl border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-700">
                 Agrega productos al carrito antes de finalizar.
+              </p>
+            )}
+
+            {showError && hasNoFulfillment && (
+              <p className="mt-4 rounded-xl border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-700">
+                Elegi una opcion de entrega para continuar.
               </p>
             )}
 
@@ -611,6 +697,7 @@ export default function CheckoutPage() {
               onClick={handleWhatsApp}
               disabled={
                 hasNoProducts ||
+                hasNoFulfillment ||
                 !isCartReady ||
                 isSubmitting ||
                 isCheckingCartStock ||

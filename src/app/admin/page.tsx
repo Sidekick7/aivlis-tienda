@@ -961,22 +961,22 @@ if (!session) {
 }
 
   return (
-    <main className="min-h-screen bg-black text-white px-6 pb-10 pt-8 md:px-10">
+    <main className="min-h-screen bg-black text-white px-6 pb-10 pt-4 md:px-10">
 
-      <div className="relative mb-10 flex items-start justify-between gap-6">
+      <div className="relative mb-5 flex items-center justify-between gap-6">
         <div className="min-w-0">
-          <h1 className="text-5xl font-bold">
+          <h1 className="text-3xl font-bold">
             Admin
           </h1>
 
-          <p className="text-zinc-500 mt-2">
+          <p className="mt-1 text-sm text-zinc-500">
             {session.user.email}
           </p>
         </div>
 
         <Link
           href="/"
-          className="absolute left-1/2 top-1 -translate-x-1/2 text-2xl font-bold tracking-[0.35em] text-white transition hover:opacity-75 max-md:hidden"
+          className="absolute left-1/2 top-0.5 -translate-x-1/2 text-xl font-bold tracking-[0.35em] text-white transition hover:opacity-75 max-md:hidden"
         >
           AIVLIS
         </Link>
@@ -989,7 +989,7 @@ if (!session) {
         </button>
       </div>
 
-      <div className="mb-8 flex flex-col gap-3 xl:flex-row xl:items-center">
+      <div className="mb-5 flex flex-col gap-3 xl:flex-row xl:items-center">
         <div className="flex w-full flex-wrap rounded-2xl bg-zinc-900 p-1 md:w-fit">
           <button
             type="button"

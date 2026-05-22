@@ -232,6 +232,32 @@ export default function EditProductModal({
                 {variant.color || `Color ${index + 1}`}
               </button>
             ))}
+
+            <button
+              type="button"
+              onClick={() => {
+                const updated = [
+                  ...product.variants,
+                  {
+                    color: "",
+                    hex: "#000000",
+                    sizes: [
+                      {
+                        size: "S",
+                        stock: 0,
+                      },
+                    ],
+                    images: [],
+                  },
+                ];
+
+                updateVariants(updated);
+                setEditingVariantIndex(updated.length - 1);
+              }}
+              className="px-4 h-10 rounded-xl bg-zinc-800 border border-dashed border-zinc-600 hover:border-white transition cursor-pointer"
+            >
+              + Agregar color
+            </button>
           </div>
 
           <input

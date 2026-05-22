@@ -71,19 +71,35 @@ export function buildOrderWhatsAppMessage({
   orderNumber,
   cart,
   customer,
+  fulfillment,
   total,
 }: {
   orderNumber: string;
   cart: CartItem[];
   customer: CustomerInfo;
+  fulfillment?: {
+    label: string;
+    description: string;
+    fee: number;
+  };
   total: number;
 }) {
+  const fulfillmentBlock = fulfillment
+    ? `ENTREGA
+${fulfillment.label}
+Costo de entrega a logistica y embalaje: ${formatPrice(fulfillment.fee)}
+${fulfillment.description}
+
+`
+    : "";
+
   return `Hola! Quiero realizar este pedido:
 
 Pedido ${formatOrderNumber(orderNumber)}
 
 ${formatCartItemsForWhatsApp(cart)}
 
+${fulfillmentBlock}
 TOTAL: ${formatPrice(total)}
 
 DATOS DEL CLIENTE
