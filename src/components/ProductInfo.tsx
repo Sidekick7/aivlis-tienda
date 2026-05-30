@@ -325,10 +325,6 @@ export default function ProductInfo({ product }: Props) {
             Agotado
           </div>
         )}
-      <p className="mt-6 text-zinc-700 leading-relaxed whitespace-pre-line">
-        {product.description}
-      </p>
-
       <div className="mt-6 space-y-5 rounded-3xl bg-white p-5 shadow-sm">
         <div>
           <div className="mb-3 flex items-center gap-3">

@@ -99,7 +99,7 @@ function ShopPageContent() {
 
   return (
     <main className="home-main-offset min-h-screen bg-zinc-100 text-black">
-      <section className="px-6 py-14 md:px-10">
+      <section className="px-6 pb-14 pt-6 md:px-10 md:pt-8">
         <div className="mx-auto max-w-7xl">
           <div className="mb-10 flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
             <div>

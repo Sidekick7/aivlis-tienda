@@ -5,15 +5,6 @@ create table if not exists public.admin_users (
 
 alter table public.admin_users enable row level security;
 
-drop policy if exists "Admins can read admin users"
-  on public.admin_users;
-
-create policy "Admins can read admin users"
-  on public.admin_users
-  for select
-  to authenticated
-  using (public.is_admin());
-
 create or replace function public.is_admin()
 returns boolean
 language sql
@@ -27,6 +18,15 @@ as $$
     where lower(email) = lower(coalesce(auth.jwt() ->> 'email', ''))
   );
 $$;
+
+drop policy if exists "Admins can read admin users"
+  on public.admin_users;
+
+create policy "Admins can read admin users"
+  on public.admin_users
+  for select
+  to authenticated
+  using (public.is_admin());
 
 drop policy if exists "Admins can read orders"
   on public.orders;
@@ -79,7 +79,7 @@ create policy "Public can read products"
   on public.products
   for select
   to anon, authenticated
-  using (true);
+  using (active = true or public.is_admin());
 
 create policy "Admins can create products"
   on public.products

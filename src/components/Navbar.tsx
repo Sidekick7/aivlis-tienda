@@ -1,6 +1,7 @@
 "use client";
 
 import { Menu, Search, ShoppingBag, X } from "lucide-react";
+import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import Cart from "@/components/Cart";
@@ -19,6 +20,8 @@ const infoNavLinks = [
 export default function Navbar() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isMiniCartOpen, setIsMiniCartOpen] = useState(false);
+  const [isCategoryBarVisible, setIsCategoryBarVisible] =
+    useState(true);
   const [navCategories, setNavCategories] = useState<StoreCategory[]>(
     getFallbackCategories()
   );
@@ -27,6 +30,21 @@ export default function Navbar() {
 
   useEffect(() => {
     getCategories().then(setNavCategories);
+  }, []);
+
+  useEffect(() => {
+    const handleScroll = () => {
+      setIsCategoryBarVisible(window.scrollY <= 8);
+    };
+
+    handleScroll();
+    window.addEventListener("scroll", handleScroll, {
+      passive: true,
+    });
+
+    return () => {
+      window.removeEventListener("scroll", handleScroll);
+    };
   }, []);
 
   return (
@@ -62,9 +80,17 @@ export default function Navbar() {
 
           <Link
             href="/"
-            className="text-2xl font-bold tracking-[0.3em] transition hover:opacity-80"
+            className="flex h-full items-center justify-center transition hover:opacity-80"
+            aria-label="AIVLIS"
           >
-            AIVLIS
+            <Image
+              src="/aiv.png"
+              alt="AIVLIS"
+              width={300}
+              height={48}
+              priority
+              className="h-12 w-72 object-contain"
+            />
           </Link>
 
           <div
@@ -111,7 +137,13 @@ export default function Navbar() {
           </div>
         </div>
 
-        <div className="desktop-category-bar border-t border-zinc-800 px-5 md:px-10">
+        <div
+          className={`desktop-category-bar overflow-hidden px-5 transition-all duration-300 ease-out md:px-10 ${
+            isCategoryBarVisible
+              ? "max-h-12 border-t border-zinc-800 opacity-100"
+              : "max-h-0 border-t border-transparent opacity-0"
+          }`}
+        >
           <div className="mx-auto flex max-w-7xl items-center justify-center gap-6 py-2 lg:gap-12">
             {navCategories.map((category) => (
               <Link

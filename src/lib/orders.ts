@@ -164,10 +164,11 @@ export function createOrderNumber() {
     .toISOString()
     .slice(0, 10)
     .replaceAll("-", "");
-  const randomPart = crypto.randomUUID()
-    .replaceAll("-", "")
-    .slice(0, 6)
-    .toUpperCase();
+  const randomPart = Math.floor(
+    Math.random() * 1_000_000
+  )
+    .toString()
+    .padStart(6, "0");
 
   return `AIV-${datePart}-${randomPart}`;
 }

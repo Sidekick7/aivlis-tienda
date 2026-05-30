@@ -65,13 +65,13 @@ export default function EditProductModal({
 
   return (
     <div
-      className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center"
+      className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center px-3"
       onClick={() => {
         if (!isSaving) onClose();
       }}
     >
       <div
-        className="bg-zinc-900 w-full max-w-2xl rounded-3xl p-8 max-h-[90vh] overflow-y-auto"
+        className="max-h-[90vh] w-full max-w-2xl overflow-y-auto overflow-x-hidden rounded-3xl bg-zinc-900 p-4 sm:p-6 md:p-8"
         onClick={(event) => event.stopPropagation()}
       >
         <div className="flex items-center justify-between mb-8">
@@ -95,118 +95,130 @@ export default function EditProductModal({
             </p>
           )}
 
-          <input
-            type="text"
-            value={product.name}
-            onChange={(event) =>
-              updateProduct({
-                name: event.target.value,
-              })
-            }
-            className="h-12 px-4 rounded-xl bg-zinc-800 outline-none"
-          />
-
-          <input
-            type="text"
-            value={product.slug}
-            onChange={(event) =>
-              updateProduct({
-                slug: event.target.value,
-              })
-            }
-            className="h-12 px-4 rounded-xl bg-zinc-800 outline-none"
-          />
-
-          <label className="grid gap-2">
-            <span className="text-xs font-semibold uppercase text-zinc-500">
-              SKU / Codigo interno
-            </span>
-
-            <div className="flex h-12 overflow-hidden rounded-xl bg-zinc-800">
-              <span className="flex items-center bg-zinc-950 px-4 text-sm font-semibold text-zinc-400">
-                {skuPrefix}
+          <div className="grid min-w-0 gap-3">
+            <label className="grid min-w-0 gap-2">
+              <span className="text-xs font-semibold uppercase text-zinc-500">
+                Nombre
               </span>
 
               <input
                 type="text"
-                value={getSkuCode(product.sku)}
-                maxLength={6}
+                value={product.name}
                 onChange={(event) =>
                   updateProduct({
-                    sku: formatSku(
-                      normalizeSkuCode(event.target.value)
-                    ),
+                    name: event.target.value,
                   })
                 }
-                className="min-w-0 flex-1 bg-transparent px-4 outline-none"
+                className="h-12 min-w-0 rounded-xl bg-zinc-800 px-4 outline-none"
               />
+            </label>
+
+            <div className="grid min-w-0 gap-3 sm:grid-cols-[minmax(0,1fr)_170px]">
+              <label className="grid min-w-0 gap-2">
+                <span className="text-xs font-semibold uppercase text-zinc-500">
+                  Slug
+                </span>
+
+                <input
+                  type="text"
+                  value={product.slug}
+                  onChange={(event) =>
+                    updateProduct({
+                      slug: event.target.value,
+                    })
+                  }
+                  className="h-12 min-w-0 rounded-xl bg-zinc-800 px-4 outline-none"
+                />
+              </label>
+
+              <label className="grid min-w-0 gap-2">
+                <span className="text-xs font-semibold uppercase text-zinc-500">
+                  SKU / Codigo
+                </span>
+
+                <div className="flex h-12 overflow-hidden rounded-xl bg-zinc-800">
+                  <span className="flex items-center bg-zinc-950 px-3 text-sm font-semibold text-zinc-400">
+                    {skuPrefix}
+                  </span>
+
+                  <input
+                    type="text"
+                    value={getSkuCode(product.sku)}
+                    maxLength={6}
+                    onChange={(event) =>
+                      updateProduct({
+                        sku: formatSku(
+                          normalizeSkuCode(event.target.value)
+                        ),
+                      })
+                    }
+                    className="min-w-0 flex-1 bg-transparent px-3 outline-none"
+                  />
+                </div>
+              </label>
             </div>
-          </label>
 
-          <div className="grid gap-3 sm:grid-cols-2">
-            <label className="grid gap-2">
-              <span className="text-xs font-semibold uppercase text-zinc-500">
-                Precio mayorista
-              </span>
+            <div className="grid min-w-0 gap-3 sm:grid-cols-2 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_180px]">
+              <label className="grid min-w-0 gap-2">
+                <span className="text-xs font-semibold uppercase text-zinc-500">
+                  Precio mayorista
+                </span>
 
-              <input
-                type="number"
-                value={product.price}
-                onChange={(event) =>
-                  updateProduct({
-                    price: event.target.value,
-                  })
-                }
-                className="h-12 px-4 rounded-xl bg-zinc-800 outline-none"
-              />
-            </label>
+                <input
+                  type="number"
+                  value={product.price}
+                  onChange={(event) =>
+                    updateProduct({
+                      price: event.target.value,
+                    })
+                  }
+                  className="h-12 min-w-0 rounded-xl bg-zinc-800 px-4 outline-none"
+                />
+              </label>
 
-            <label className="grid gap-2">
-              <span className="text-xs font-semibold uppercase text-zinc-500">
-                Precio minorista
-              </span>
+              <label className="grid min-w-0 gap-2">
+                <span className="text-xs font-semibold uppercase text-zinc-500">
+                  Precio minorista
+                </span>
 
-              <input
-                type="number"
-                value={product.retailPrice}
-                onChange={(event) =>
-                  updateProduct({
-                    retailPrice: event.target.value,
-                  })
-                }
-                className="h-12 px-4 rounded-xl bg-zinc-800 outline-none"
-              />
-            </label>
+                <input
+                  type="number"
+                  value={product.retailPrice}
+                  onChange={(event) =>
+                    updateProduct({
+                      retailPrice: event.target.value,
+                    })
+                  }
+                  className="h-12 min-w-0 rounded-xl bg-zinc-800 px-4 outline-none"
+                />
+              </label>
+
+              <label className="grid min-w-0 gap-2 sm:col-span-2 lg:col-span-1">
+                <span className="text-xs font-semibold uppercase text-zinc-500">
+                  Categoria
+                </span>
+
+                <select
+                  value={product.category}
+                  onChange={(event) =>
+                    updateProduct({
+                      category: event.target.value,
+                    })
+                  }
+                  className="h-12 min-w-0 rounded-xl bg-zinc-800 px-4 outline-none"
+                >
+                  {categories.map((categoryOption) => (
+                    <option
+                      key={categoryOption.value}
+                      value={categoryOption.value}
+                    >
+                      {categoryOption.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
           </div>
-
-          <select
-            value={product.category}
-            onChange={(event) =>
-              updateProduct({
-                category: event.target.value,
-              })
-            }
-            className="h-12 px-4 rounded-xl bg-zinc-800 outline-none"
-          >
-            {categories.map((categoryOption) => (
-              <option
-                key={categoryOption.value}
-                value={categoryOption.value}
-              >
-                {categoryOption.label}
-              </option>
-            ))}
-          </select>
-
-          <textarea
-            value={product.description}
-            onChange={(event) =>
-              updateProduct({
-                description: event.target.value,
-              })
-            }
-            className="min-h-[140px] p-4 rounded-xl bg-zinc-800 outline-none resize-none"
-          />
 
           <textarea
             value={detailsText}
@@ -217,21 +229,111 @@ export default function EditProductModal({
             className="min-h-[110px] p-4 rounded-xl bg-zinc-800 outline-none resize-none"
           />
 
-          <div className="flex flex-wrap gap-2">
-            {product.variants.map((variant, index) => (
-              <button
-                key={index}
-                type="button"
-                onClick={() => setEditingVariantIndex(index)}
-                className={`px-4 h-10 rounded-xl border transition cursor-pointer ${
-                  editingVariantIndex === index
-                    ? "bg-white text-black border-white"
-                    : "bg-zinc-800 text-white border-zinc-700"
-                }`}
-              >
-                {variant.color || `Color ${index + 1}`}
-              </button>
-            ))}
+          <div className="grid gap-2 rounded-2xl border border-zinc-800 bg-zinc-950 p-3">
+            <div className="flex items-center justify-between gap-3">
+              <p className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
+                Colores del producto
+              </p>
+
+              <span className="text-xs text-zinc-500">
+                El primero se muestra como principal
+              </span>
+            </div>
+
+            <div className="grid gap-2">
+              {product.variants.map((variant, index) => {
+                const totalStock = variant.sizes.reduce(
+                  (total, size) => total + Number(size.stock || 0),
+                  0
+                );
+
+                return (
+                  <div
+                    key={index}
+                    className={`grid gap-2 rounded-xl border p-2 transition sm:grid-cols-[1fr_auto] sm:items-center ${
+                      editingVariantIndex === index
+                        ? "border-white bg-zinc-900"
+                        : "border-zinc-800 bg-zinc-900/60"
+                    }`}
+                  >
+                    <button
+                      type="button"
+                      onClick={() => setEditingVariantIndex(index)}
+                      className="flex min-w-0 items-center gap-3 text-left cursor-pointer"
+                    >
+                      <span
+                        className="h-8 w-8 shrink-0 rounded-full border border-zinc-700"
+                        style={{
+                          backgroundColor: variant.hex || "#000000",
+                        }}
+                      />
+
+                      <span className="min-w-0">
+                        <span className="block truncate text-sm font-semibold text-white">
+                          {variant.color || `Color ${index + 1}`}
+                        </span>
+
+                        <span className="mt-1 flex flex-wrap items-center gap-2 text-xs text-zinc-500">
+                          {index === 0 && (
+                            <span className="rounded-full bg-emerald-500/10 px-2 py-0.5 font-semibold text-emerald-200">
+                              Principal
+                            </span>
+                          )}
+                          <span>{variant.images.length} imagenes</span>
+                          <span>{totalStock} stock</span>
+                        </span>
+                      </span>
+                    </button>
+
+                    <div className="flex items-center gap-2 sm:justify-end">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (index === 0) return;
+
+                          const updated = [...product.variants];
+
+                          [updated[index - 1], updated[index]] = [
+                            updated[index],
+                            updated[index - 1],
+                          ];
+
+                          updateVariants(updated);
+                          setEditingVariantIndex(index - 1);
+                        }}
+                        disabled={index === 0}
+                        className="h-9 w-9 rounded-xl border border-zinc-700 text-sm font-bold text-zinc-300 transition hover:border-white hover:text-white cursor-pointer disabled:cursor-not-allowed disabled:opacity-30"
+                        aria-label="Subir color"
+                      >
+                        ↑
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (index === product.variants.length - 1) return;
+
+                          const updated = [...product.variants];
+
+                          [updated[index + 1], updated[index]] = [
+                            updated[index],
+                            updated[index + 1],
+                          ];
+
+                          updateVariants(updated);
+                          setEditingVariantIndex(index + 1);
+                        }}
+                        disabled={index === product.variants.length - 1}
+                        className="h-9 w-9 rounded-xl border border-zinc-700 text-sm font-bold text-zinc-300 transition hover:border-white hover:text-white cursor-pointer disabled:cursor-not-allowed disabled:opacity-30"
+                        aria-label="Bajar color"
+                      >
+                        ↓
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
 
             <button
               type="button"
@@ -254,7 +356,7 @@ export default function EditProductModal({
                 updateVariants(updated);
                 setEditingVariantIndex(updated.length - 1);
               }}
-              className="px-4 h-10 rounded-xl bg-zinc-800 border border-dashed border-zinc-600 hover:border-white transition cursor-pointer"
+              className="h-10 rounded-xl border border-dashed border-zinc-600 bg-zinc-800 px-4 transition hover:border-white cursor-pointer"
             >
               + Agregar color
             </button>

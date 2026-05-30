@@ -79,10 +79,13 @@ export default function AdminPage() {
 
 const [session, setSession] = useState<Session | null>(null);
 const [isAuthLoading, setIsAuthLoading] = useState(true);
+const [isAdminAllowed, setIsAdminAllowed] = useState(false);
+const [isAdminCheckLoading, setIsAdminCheckLoading] = useState(false);
 const [authEmail, setAuthEmail] = useState("");
 const [authPassword, setAuthPassword] = useState("");
 const [authMessage, setAuthMessage] = useState("");
 const [isSendingLogin, setIsSendingLogin] = useState(false);
+const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
 const [activeSection, setActiveSection] =
   useState<AdminSection>("products");
 const [showCreate, setShowCreate] = useState(false);
@@ -146,6 +149,66 @@ useEffect(() => {
   return () => subscription.unsubscribe();
 
 }, []);
+
+useEffect(() => {
+  let isCurrent = true;
+
+  const checkAdminAccess = async () => {
+    if (!session) {
+      setIsAdminAllowed(false);
+      setIsAdminCheckLoading(false);
+      return;
+    }
+
+    setIsAdminAllowed(false);
+    setIsAdminCheckLoading(true);
+
+    const email = session.user.email;
+
+    if (!email) {
+      await supabase.auth.signOut();
+
+      if (isCurrent) {
+        setSession(null);
+        setAuthMessage("Tu usuario no tiene email asociado.");
+        setIsAdminCheckLoading(false);
+      }
+
+      return;
+    }
+
+    const { data, error } = await supabase
+      .from("admin_users")
+      .select("email")
+      .eq("email", email)
+      .maybeSingle();
+
+    if (!isCurrent) return;
+
+    if (error || !data) {
+      await supabase.auth.signOut();
+
+      if (!isCurrent) return;
+
+      setSession(null);
+      setProducts([]);
+      setOrders([]);
+      setAuthMessage("Este usuario no tiene permisos de administrador.");
+      setIsAdminAllowed(false);
+      setIsAdminCheckLoading(false);
+      return;
+    }
+
+    setIsAdminAllowed(true);
+    setIsAdminCheckLoading(false);
+  };
+
+  void checkAdminAccess();
+
+  return () => {
+    isCurrent = false;
+  };
+}, [session]);
 
 const refreshProducts = async () => {
   const products = await getProducts({
@@ -225,7 +288,7 @@ const refreshHomeContent = async () => {
 
 useEffect(() => {
 
-  if (!session) return;
+  if (!session || !isAdminAllowed) return;
 
   getProducts({
     includeInactive: true,
@@ -234,7 +297,7 @@ useEffect(() => {
   Promise.resolve().then(refreshHomeContent);
   Promise.resolve().then(refreshOrders);
 
-}, [session]);
+}, [session, isAdminAllowed]);
 
 useEffect(() => {
   if (!adminNotice) return;
@@ -586,25 +649,25 @@ const uploadHomeImages = async (files: File[]) => {
 
 
 
-const deleteProduct = async (id: number) => {
+const deleteProduct = async (product: Product) => {
   if (savingProductAction) return;
 
   const shouldDelete = window.confirm(
-    "Seguro que queres eliminar este producto?"
+    `Seguro que queres eliminar "${product.name}"?`
   );
 
   if (!shouldDelete) return;
 
   setSavingProductAction({
-    id,
+    id: product.id,
     action: "delete",
   });
 
   try {
-    await deleteAdminProduct(id);
+    await deleteAdminProduct(product.id);
 
     setProducts((prev) =>
-      prev.filter((product) => product.id !== id)
+      prev.filter((currentProduct) => currentProduct.id !== product.id)
     );
 
     setAdminNotice({
@@ -797,6 +860,7 @@ const handleLogin = async (event: FormEvent<HTMLFormElement>) => {
 };
 
 const handleLogout = async () => {
+  setShowLogoutConfirm(false);
   await supabase.auth.signOut();
   setSession(null);
   setOrders([]);
@@ -899,7 +963,7 @@ const handleUpdateOrderInternalNotes = async (
   }
 };
 
-if (isAuthLoading) {
+if (isAuthLoading || isAdminCheckLoading) {
   return (
     <main className="min-h-screen bg-black text-white px-6 pb-10 pt-10 md:px-10 flex items-center justify-center">
       <p className="text-zinc-400">
@@ -963,38 +1027,12 @@ if (!session) {
   return (
     <main className="min-h-screen bg-black text-white px-6 pb-10 pt-4 md:px-10">
 
-      <div className="relative mb-5 flex items-center justify-between gap-6">
-        <div className="min-w-0">
-          <h1 className="text-3xl font-bold">
-            Admin
-          </h1>
-
-          <p className="mt-1 text-sm text-zinc-500">
-            {session.user.email}
-          </p>
-        </div>
-
-        <Link
-          href="/"
-          className="absolute left-1/2 top-0.5 -translate-x-1/2 text-xl font-bold tracking-[0.35em] text-white transition hover:opacity-75 max-md:hidden"
-        >
-          AIVLIS
-        </Link>
-
-        <button
-          onClick={handleLogout}
-          className="shrink-0 bg-zinc-800 text-white px-5 h-11 rounded-xl font-semibold hover:bg-zinc-700 transition cursor-pointer"
-        >
-          Salir
-        </button>
-      </div>
-
-      <div className="mb-5 flex flex-col gap-3 xl:flex-row xl:items-center">
-        <div className="flex w-full flex-wrap rounded-2xl bg-zinc-900 p-1 md:w-fit">
+      <div className="mb-4 grid gap-3 lg:grid-cols-[1fr_auto_1fr] lg:items-center">
+        <div className="flex w-full flex-wrap rounded-2xl bg-zinc-900 p-1 lg:w-fit">
           <button
             type="button"
             onClick={() => setActiveSection("products")}
-            className={`h-11 flex-1 rounded-xl px-5 font-semibold transition cursor-pointer md:flex-none ${
+            className={`h-10 flex-1 rounded-xl px-4 text-sm font-semibold transition cursor-pointer md:flex-none ${
               activeSection === "products"
                 ? "bg-white text-black"
                 : "text-zinc-400 hover:text-white"
@@ -1006,7 +1044,7 @@ if (!session) {
           <button
             type="button"
             onClick={() => setActiveSection("orders")}
-            className={`h-11 flex-1 rounded-xl px-5 font-semibold transition cursor-pointer md:flex-none ${
+            className={`h-10 flex-1 rounded-xl px-4 text-sm font-semibold transition cursor-pointer md:flex-none ${
               activeSection === "orders"
                 ? "bg-white text-black"
                 : "text-zinc-400 hover:text-white"
@@ -1018,7 +1056,7 @@ if (!session) {
           <button
             type="button"
             onClick={() => setActiveSection("home")}
-            className={`h-11 flex-1 rounded-xl px-5 font-semibold transition cursor-pointer md:flex-none ${
+            className={`h-10 flex-1 rounded-xl px-4 text-sm font-semibold transition cursor-pointer md:flex-none ${
               activeSection === "home"
                 ? "bg-white text-black"
                 : "text-zinc-400 hover:text-white"
@@ -1028,17 +1066,68 @@ if (!session) {
           </button>
         </div>
 
-        <button
-          type="button"
-          onClick={() => setActiveSection("local_sale")}
-          className={`h-12 w-full rounded-2xl border px-6 font-semibold transition cursor-pointer md:w-fit ${
-            activeSection === "local_sale"
-              ? "border-emerald-400 bg-emerald-400 text-black"
-              : "border-emerald-500/40 bg-emerald-500/10 text-emerald-300 hover:border-emerald-300 hover:bg-emerald-500/20"
-          }`}
+        <Link
+          href="/"
+          className="justify-self-center text-xl font-bold tracking-[0.35em] text-white transition hover:opacity-75"
         >
-          Venta local
-        </button>
+          AIVLIS
+        </Link>
+
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-end">
+          <button
+            type="button"
+            onClick={() => setActiveSection("local_sale")}
+            className={`h-10 rounded-2xl border px-5 text-sm font-semibold transition cursor-pointer ${
+              activeSection === "local_sale"
+                ? "border-emerald-400 bg-emerald-400 text-black"
+                : "border-emerald-500/40 bg-emerald-500/10 text-emerald-300 hover:border-emerald-300 hover:bg-emerald-500/20"
+            }`}
+          >
+            Venta local
+          </button>
+
+          <div className="hidden h-8 w-px bg-zinc-800 sm:block" />
+
+          <div className="relative">
+            <button
+              onClick={() => setShowLogoutConfirm(true)}
+              title={session.user.email}
+              className="h-10 rounded-2xl bg-zinc-800 px-5 text-sm font-semibold text-white transition hover:bg-zinc-700 cursor-pointer"
+            >
+              Salir
+            </button>
+
+            {showLogoutConfirm && (
+              <div className="absolute right-0 top-full z-50 mt-2 w-72 rounded-2xl border border-zinc-800 bg-zinc-950 p-4 shadow-2xl">
+                <p className="text-sm font-semibold text-white">
+                  Cerrar sesion del admin?
+                </p>
+
+                <p className="mt-1 text-xs text-zinc-500">
+                  Vas a tener que volver a entrar para administrar la tienda.
+                </p>
+
+                <div className="mt-4 flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowLogoutConfirm(false)}
+                    className="h-10 flex-1 rounded-xl border border-zinc-700 text-sm font-semibold text-zinc-300 transition hover:bg-zinc-900 cursor-pointer"
+                  >
+                    Cancelar
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handleLogout}
+                    className="h-10 flex-1 rounded-xl bg-white text-sm font-semibold text-black transition hover:opacity-90 cursor-pointer"
+                  >
+                    Salir
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
       </div>
 
 {showCreate && (
@@ -1061,8 +1150,6 @@ if (!session) {
     categories={categoryOptions.filter(
       (categoryOption) => categoryOption.active
     )}
-    description={description}
-    setDescription={setDescription}
     detailsText={detailsText}
     setDetailsText={setDetailsText}
     variants={variants}
@@ -1130,7 +1217,11 @@ if (!session) {
   />
 )}
 {activeSection === "local_sale" && (
-  <AdminLocalSaleSection />
+  <AdminLocalSaleSection
+    products={products}
+    categories={categoryOptions}
+    onSaleCreated={refreshProducts}
+  />
 )}
 {activeSection === "home" && (
   <>

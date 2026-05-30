@@ -232,7 +232,7 @@ export default function Home() {
             <div className="relative">
               <Swiper
                 ref={productPreviewRef}
-                spaceBetween={24}
+                spaceBetween={18}
                 slidesPerView={1.1}
                 rewind
                 grabCursor

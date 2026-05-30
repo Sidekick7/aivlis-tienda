@@ -1,8 +1,8 @@
 "use client";
 
 import Image from "next/image";
-import { Search } from "lucide-react";
-import { useState } from "react";
+import { MoreVertical, Search } from "lucide-react";
+import { useEffect, useState } from "react";
 import {
   currencyFormatter,
   getProductImage,
@@ -15,6 +15,15 @@ import type { Product } from "@/types/product";
 
 const PRODUCTS_PER_PAGE = 12;
 
+type ProductSort =
+  | "recent"
+  | "oldest"
+  | "name_asc"
+  | "stock_asc"
+  | "stock_desc"
+  | "price_asc"
+  | "price_desc";
+
 type Props = {
   products: Product[];
   categories: StoreCategory[];
@@ -24,7 +33,7 @@ type Props = {
   } | null;
   onToggleFeatured: (product: Product) => Promise<void>;
   onToggleActive: (product: Product) => Promise<void>;
-  onDelete: (productId: number) => Promise<void>;
+  onDelete: (product: Product) => Promise<void>;
   onEdit: (product: Product) => void;
   onCreateProduct: () => void;
 };
@@ -44,7 +53,32 @@ export default function AdminProductsSection({
     useState<ProductFilter>("all");
   const [productCategoryFilter, setProductCategoryFilter] =
     useState("all");
+  const [productSort, setProductSort] =
+    useState<ProductSort>("recent");
   const [productPage, setProductPage] = useState(1);
+  const [openProductMenuId, setOpenProductMenuId] =
+    useState<number | null>(null);
+  const [expandedStockProductId, setExpandedStockProductId] =
+    useState<number | null>(null);
+
+  useEffect(() => {
+    if (openProductMenuId === null) return;
+
+    const closeMenu = (event: MouseEvent) => {
+      if (
+        !(event.target instanceof Element) ||
+        !event.target.closest("[data-product-menu]")
+      ) {
+        setOpenProductMenuId(null);
+      }
+    };
+
+    document.addEventListener("mousedown", closeMenu);
+
+    return () => {
+      document.removeEventListener("mousedown", closeMenu);
+    };
+  }, [openProductMenuId]);
   const getCategoryLabel = (categoryValue: string) =>
     categories.find(
       (categoryOption) => categoryOption.value === categoryValue
@@ -66,8 +100,11 @@ export default function AdminProductsSection({
           .includes(normalizedProductSearch)
       )
     : products;
-  const visibleProducts = searchedProducts.filter((product) => {
+  const filteredProducts = searchedProducts.filter((product) => {
     const totalStock = getProductTotalStock(product);
+    const hasLowStock = product.variants.some((variant) =>
+      variant.sizes.some((size) => size.stock > 0 && size.stock <= 3)
+    );
     const matchesCategory =
       productCategoryFilter === "all" ||
       product.category === productCategoryFilter;
@@ -77,10 +114,32 @@ export default function AdminProductsSection({
     if (productFilter === "inactive") return !product.active;
     if (productFilter === "featured") return product.featured;
     if (productFilter === "in_stock") return totalStock > 0;
+    if (productFilter === "low_stock") return hasLowStock;
     if (productFilter === "out_of_stock") return totalStock <= 0;
 
     return true;
   });
+  const visibleProducts = [...filteredProducts].sort((first, second) => {
+    if (productSort === "oldest") return first.id - second.id;
+    if (productSort === "name_asc") {
+      return first.name.localeCompare(second.name, "es");
+    }
+    if (productSort === "stock_asc") {
+      return getProductTotalStock(first) - getProductTotalStock(second);
+    }
+    if (productSort === "stock_desc") {
+      return getProductTotalStock(second) - getProductTotalStock(first);
+    }
+    if (productSort === "price_asc") return first.price - second.price;
+    if (productSort === "price_desc") return second.price - first.price;
+
+    return second.id - first.id;
+  });
+  const hasProductFilters =
+    normalizedProductSearch.length > 0 ||
+    productFilter !== "all" ||
+    productCategoryFilter !== "all" ||
+    productSort !== "recent";
   const totalProductPages = Math.max(
     1,
     Math.ceil(visibleProducts.length / PRODUCTS_PER_PAGE)
@@ -136,13 +195,63 @@ export default function AdminProductsSection({
         </div>
       </div>
 
-      <div className="mb-6 flex flex-wrap gap-2">
+      <div className="mb-4 grid gap-3 sm:grid-cols-2 lg:max-w-xl">
+        <label className="grid gap-1.5">
+          <span className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
+            Categoria
+          </span>
+
+          <select
+            value={productCategoryFilter}
+            onChange={(event) => {
+              setProductCategoryFilter(event.target.value);
+              setProductPage(1);
+            }}
+            className="h-11 cursor-pointer rounded-xl border border-zinc-800 bg-zinc-950 px-3 text-sm text-white outline-none transition focus:border-zinc-500"
+          >
+            <option value="all">Todas las categorias</option>
+            {categories.map((categoryOption) => (
+              <option
+                key={categoryOption.value}
+                value={categoryOption.value}
+              >
+                {categoryOption.label}
+              </option>
+            ))}
+          </select>
+        </label>
+
+        <label className="grid gap-1.5">
+          <span className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
+            Ordenar por
+          </span>
+
+          <select
+            value={productSort}
+            onChange={(event) => {
+              setProductSort(event.target.value as ProductSort);
+              setProductPage(1);
+            }}
+            className="h-11 cursor-pointer rounded-xl border border-zinc-800 bg-zinc-950 px-3 text-sm text-white outline-none transition focus:border-zinc-500"
+          >
+            <option value="recent">Mas recientes</option>
+            <option value="oldest">Mas antiguos</option>
+            <option value="name_asc">Nombre A-Z</option>
+            <option value="stock_asc">Menor stock</option>
+            <option value="stock_desc">Mayor stock</option>
+            <option value="price_asc">Menor precio</option>
+            <option value="price_desc">Mayor precio</option>
+          </select>
+        </label>
+      </div>
+
+      <div className="mb-6 flex flex-wrap items-center gap-2">
         {([
           ["all", "Todos"],
           ["active", "Publicados"],
           ["inactive", "Ocultos"],
           ["featured", "Destacados"],
-          ["in_stock", "Con stock"],
+          ["low_stock", "Stock bajo"],
           ["out_of_stock", "Sin stock"],
         ] as [ProductFilter, string][]).map(([value, label]) => (
           <button
@@ -151,15 +260,9 @@ export default function AdminProductsSection({
             onClick={() => {
               setProductFilter(value);
               setProductPage(1);
-
-              if (value === "all") {
-                setProductCategoryFilter("all");
-                setProductSearch("");
-              }
             }}
             className={`h-10 rounded-xl px-4 text-sm font-semibold transition cursor-pointer ${
-              productFilter === value &&
-              (value !== "all" || productCategoryFilter === "all")
+              productFilter === value
                 ? "bg-white text-black"
                 : "bg-zinc-800 text-zinc-300 hover:text-white"
             }`}
@@ -168,24 +271,21 @@ export default function AdminProductsSection({
           </button>
         ))}
 
-        {categories.map((categoryOption) => (
+        {hasProductFilters && (
           <button
-            key={categoryOption.value}
             type="button"
             onClick={() => {
-              setProductCategoryFilter(categoryOption.value);
               setProductFilter("all");
+              setProductCategoryFilter("all");
+              setProductSearch("");
+              setProductSort("recent");
               setProductPage(1);
             }}
-            className={`h-10 rounded-xl px-4 text-sm font-semibold transition cursor-pointer ${
-              productCategoryFilter === categoryOption.value
-                ? "bg-white text-black"
-                : "bg-zinc-800 text-zinc-300 hover:text-white"
-            }`}
+            className="ml-0 h-10 rounded-xl border border-zinc-700 px-4 text-sm font-semibold text-zinc-300 transition hover:border-zinc-500 hover:text-white cursor-pointer sm:ml-2"
           >
-            {categoryOption.label}
+            Limpiar filtros
           </button>
-        ))}
+        )}
       </div>
 
       {visibleProducts.length === 0 && (
@@ -203,7 +303,7 @@ export default function AdminProductsSection({
           return (
             <div
               key={product.id}
-              className="grid gap-3 rounded-2xl bg-zinc-800 p-3 xl:grid-cols-[minmax(340px,1fr)_260px] xl:items-center"
+              className="grid gap-3 rounded-2xl bg-zinc-800 p-3 xl:grid-cols-[minmax(340px,1fr)_148px] xl:items-center"
             >
             <div className="flex items-center gap-3 min-w-0">
               <Image
@@ -235,6 +335,24 @@ export default function AdminProductsSection({
                       : product.active
                         ? "Publicado"
                         : "Oculto"}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => onToggleFeatured(product)}
+                    disabled={isSavingProduct}
+                    className={`rounded-full px-3 py-1 text-xs font-semibold transition cursor-pointer disabled:cursor-not-allowed disabled:opacity-60 ${
+                      product.featured
+                        ? "bg-amber-400/15 text-amber-200"
+                        : "border border-zinc-700 text-zinc-400 hover:text-white"
+                    }`}
+                  >
+                    {isSavingProduct &&
+                    savingProductAction.action === "featured"
+                      ? "Guardando..."
+                      : product.featured
+                        ? "Destacado"
+                        : "Destacar"}
                   </button>
                 </div>
 
@@ -268,47 +386,114 @@ export default function AdminProductsSection({
                   <span className="rounded-lg bg-zinc-900 px-3 py-1.5 text-zinc-300">
                     {product.variants.length} colores
                   </span>
+
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setExpandedStockProductId((currentId) =>
+                        currentId === product.id ? null : product.id
+                      )
+                    }
+                    className="rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-1.5 text-xs font-semibold text-zinc-300 transition hover:border-zinc-500 hover:text-white cursor-pointer"
+                  >
+                    {expandedStockProductId === product.id
+                      ? "Ocultar stock"
+                      : "Ver stock"}
+                  </button>
                 </div>
               </div>
             </div>
 
-            <div className="grid w-fit grid-cols-2 gap-2 xl:ml-auto">
+            <div className="flex items-center justify-end gap-2 xl:ml-auto">
               <button
-                onClick={() => onEdit(product)}
+                type="button"
+                onClick={() => {
+                  setOpenProductMenuId(null);
+                  onEdit(product);
+                }}
                 disabled={isSavingProduct}
-                className="h-10 min-w-28 rounded-lg bg-white px-4 text-sm font-semibold text-black transition hover:opacity-90 cursor-pointer disabled:cursor-not-allowed disabled:opacity-60"
+                className="h-10 rounded-lg bg-white px-5 text-sm font-semibold text-black transition hover:opacity-90 cursor-pointer disabled:cursor-not-allowed disabled:opacity-60"
               >
                 Editar
               </button>
 
+              <div
+                className="relative"
+                data-product-menu
+              >
                 <button
-                  onClick={() => onToggleFeatured(product)}
+                  type="button"
+                  onClick={() =>
+                    setOpenProductMenuId((currentId) =>
+                      currentId === product.id ? null : product.id
+                    )
+                  }
                   disabled={isSavingProduct}
-                  className={`h-10 min-w-28 rounded-lg px-4 text-sm font-semibold transition cursor-pointer disabled:cursor-not-allowed disabled:opacity-60 ${
-                    product.featured
-                      ? "bg-white text-black"
-                      : "bg-zinc-700 text-white"
-                  }`}
+                  className="flex h-10 w-10 items-center justify-center rounded-lg border border-zinc-700 text-zinc-300 transition hover:bg-zinc-700 hover:text-white cursor-pointer disabled:cursor-not-allowed disabled:opacity-60"
+                  aria-label="Mas acciones"
                 >
-                  {isSavingProduct &&
-                  savingProductAction.action === "featured"
-                    ? "Guardando..."
-                    : product.featured
-                      ? "Destacado"
-                      : "Normal"}
+                  <MoreVertical size={18} />
                 </button>
 
-              <button
-                onClick={() => onDelete(product.id)}
-                disabled={isSavingProduct}
-                className="col-span-2 h-10 min-w-28 justify-self-end rounded-lg border border-red-500/30 px-4 text-sm font-semibold text-red-300 transition hover:bg-red-500/15 cursor-pointer disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                {isSavingProduct &&
-                savingProductAction.action === "delete"
-                  ? "Eliminando..."
-                  : "Eliminar"}
-              </button>
+                {openProductMenuId === product.id && (
+                  <div className="absolute right-0 top-[calc(100%+8px)] z-10 min-w-36 rounded-xl border border-zinc-700 bg-zinc-950 p-1.5 shadow-xl shadow-black/30">
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        await onDelete(product);
+                        setOpenProductMenuId(null);
+                      }}
+                      disabled={isSavingProduct}
+                      className="h-10 w-full rounded-lg px-3 text-left text-sm font-semibold text-red-300 transition hover:bg-red-500/15 cursor-pointer disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      {isSavingProduct &&
+                      savingProductAction.action === "delete"
+                        ? "Eliminando..."
+                        : "Eliminar"}
+                    </button>
+                  </div>
+                )}
+              </div>
             </div>
+
+            {expandedStockProductId === product.id && (
+              <div className="col-span-full grid gap-2 border-t border-zinc-700 pt-3">
+                {product.variants.map((variant) => (
+                  <div
+                    key={variant.color}
+                    className="flex flex-col gap-2 rounded-xl bg-zinc-900 px-3 py-2 sm:flex-row sm:items-center"
+                  >
+                    <div className="flex min-w-32 items-center gap-2">
+                      <span
+                        className="h-5 w-5 rounded-full border border-zinc-700"
+                        style={{ backgroundColor: variant.hex || "#000000" }}
+                      />
+
+                      <p className="text-sm font-semibold text-white">
+                        {variant.color}
+                      </p>
+                    </div>
+
+                    <div className="flex flex-wrap gap-2">
+                      {variant.sizes.map((size) => (
+                        <span
+                          key={size.size}
+                          className={`rounded-lg px-3 py-1 text-xs font-semibold ${
+                            size.stock <= 0
+                              ? "bg-red-500/10 text-red-300"
+                              : size.stock <= 3
+                                ? "bg-amber-400/10 text-amber-200"
+                                : "bg-zinc-800 text-zinc-200"
+                          }`}
+                        >
+                          {size.size}: {size.stock}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
           );
         })}

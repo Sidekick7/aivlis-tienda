@@ -40,35 +40,35 @@ export default function ProductCard({ product }: Props) {
           alt={product.name}
           width={380}
           height={520}
-          className="h-[280px] w-full object-cover transition duration-500 hover:scale-105 sm:h-[420px] md:h-[480px] lg:h-[520px]"
+          className="h-[230px] w-full object-cover transition duration-500 hover:scale-105 sm:h-[330px] md:h-[370px] lg:h-[400px]"
         />
       </Link>
 
-      <div className="flex min-h-[130px] flex-1 flex-col p-3 sm:min-h-[170px] sm:p-5">
+      <div className="flex min-h-[115px] flex-1 flex-col p-3 sm:min-h-[145px] sm:p-4">
         <Link href={`/product/${product.slug}`}>
-          <h2 className="line-clamp-2 text-base font-semibold leading-tight sm:text-2xl">
+          <h2 className="line-clamp-2 text-sm font-semibold leading-tight sm:text-xl">
             {product.name}
           </h2>
         </Link>
 
         <div className="mt-2">
-          <p className="text-sm font-semibold text-black sm:text-base">
+          <p className="text-xs font-semibold text-black sm:text-sm">
             Mayorista {formatPrice(product.price)}
           </p>
 
           {hasDifferentRetailPrice(product) && (
-            <p className="text-xs text-zinc-500 sm:text-sm">
+            <p className="text-[11px] text-zinc-500 sm:text-xs">
               Minorista {formatPrice(retailPrice)}
             </p>
           )}
         </div>
 
-        <div className="mt-2 flex items-center gap-1.5 sm:gap-2">
+        <div className="mt-1.5 flex items-center gap-1.5 sm:gap-2">
           {visibleVariants.map((variant) => (
             <div
               key={variant.color}
               title={variant.color}
-              className="h-3 w-3 rounded-full border border-zinc-400 sm:h-4 sm:w-4"
+              className="h-3 w-3 rounded-full border border-zinc-400"
               style={{
                 backgroundColor: variant.hex,
               }}
@@ -82,18 +82,18 @@ export default function ProductCard({ product }: Props) {
           )}
         </div>
 
-        <div className="mt-2 flex flex-wrap gap-1.5 sm:gap-2">
+        <div className="mt-1.5 flex flex-wrap gap-1.5 sm:gap-2">
           {visibleSizes.map((size) => (
             <div
               key={size}
-              className="flex h-6 min-w-6 items-center justify-center rounded-full border border-zinc-400 px-1.5 text-[10px] text-zinc-600 sm:h-8 sm:min-w-8 sm:px-2 sm:text-xs"
+              className="flex h-6 min-w-6 items-center justify-center rounded-full border border-zinc-400 px-1.5 text-[10px] text-zinc-600"
             >
               {size}
             </div>
           ))}
 
           {hiddenSizesCount > 0 && (
-            <div className="flex h-6 min-w-6 items-center justify-center rounded-full border border-zinc-300 px-1.5 text-[10px] text-zinc-500 sm:h-8 sm:min-w-8 sm:px-2 sm:text-xs">
+            <div className="flex h-6 min-w-6 items-center justify-center rounded-full border border-zinc-300 px-1.5 text-[10px] text-zinc-500">
               +{hiddenSizesCount}
             </div>
           )}

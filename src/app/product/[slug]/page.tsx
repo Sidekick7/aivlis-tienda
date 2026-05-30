@@ -74,7 +74,7 @@ export default async function ProductPage({
   return (
     <main className="home-main-offset min-h-screen bg-zinc-100 px-6 pb-20 text-black">
 
-      <div className="mx-auto mt-12 max-w-7xl md:mt-16">
+      <div className="mx-auto mt-4 max-w-7xl md:mt-6">
 
         <ProductInfo product={product} />
 

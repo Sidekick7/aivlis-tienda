@@ -152,7 +152,7 @@ const {
 
     <main className="home-main-offset min-h-screen bg-zinc-100 px-6 pb-20 text-black">
 
-      <div className="mx-auto mt-8 max-w-7xl md:mt-12">
+      <div className="mx-auto mt-3 max-w-7xl md:mt-5">
 
       <div className="mb-8 flex flex-col gap-4 rounded-3xl bg-white p-5 shadow-sm sm:flex-row sm:items-center sm:justify-between">
         <div>

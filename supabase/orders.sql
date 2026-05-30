@@ -51,23 +51,11 @@ drop policy if exists "Allow anonymous order creation"
 drop policy if exists "Allow public order creation"
   on public.orders;
 
-create policy "Allow public order creation"
-  on public.orders
-  for insert
-  to anon, authenticated
-  with check (true);
-
 drop policy if exists "Allow anonymous order item creation"
   on public.order_items;
 
 drop policy if exists "Allow public order item creation"
   on public.order_items;
 
-create policy "Allow public order item creation"
-  on public.order_items
-  for insert
-  to anon, authenticated
-  with check (true);
-
--- No SELECT policy is intentionally created here.
--- Customers can create tickets, but public clients cannot read private orders.
+-- No public INSERT/SELECT policy is intentionally created here.
+-- Customers create tickets through public.create_order_ticket only.
