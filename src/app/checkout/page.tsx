@@ -82,6 +82,14 @@ export default function CheckoutPage() {
   useEffect(() => {
 
     queueMicrotask(() => {
+      const savedFulfillment = localStorage.getItem(
+        fulfillmentStorageKey
+      );
+
+      if (isFulfillmentOption(savedFulfillment)) {
+        setFulfillmentOption(savedFulfillment);
+      }
+
       const savedCustomer = localStorage.getItem(
         checkoutCustomerStorageKey
       );
@@ -104,14 +112,6 @@ export default function CheckoutPage() {
         setRememberCustomer(true);
       } catch {
         localStorage.removeItem(checkoutCustomerStorageKey);
-      }
-
-      const savedFulfillment = localStorage.getItem(
-        fulfillmentStorageKey
-      );
-
-      if (isFulfillmentOption(savedFulfillment)) {
-        setFulfillmentOption(savedFulfillment);
       }
     });
 
