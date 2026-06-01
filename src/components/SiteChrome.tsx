@@ -5,6 +5,7 @@ import CartWrapper from "@/components/CartWrapper";
 import Footer from "@/components/Footer";
 import Navbar from "@/components/Navbar";
 import SearchModal from "@/components/SearchModal";
+import WhatsAppFloatingButton from "@/components/WhatsAppFloatingButton";
 
 type SiteChromeProps = {
   children: React.ReactNode;
@@ -25,6 +26,7 @@ export default function SiteChrome({
       <Navbar />
       <CartWrapper />
       <SearchModal />
+      <WhatsAppFloatingButton />
       {children}
       <Footer />
     </>
