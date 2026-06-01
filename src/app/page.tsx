@@ -232,19 +232,16 @@ export default function Home() {
             <div className="relative">
               <Swiper
                 ref={productPreviewRef}
-                spaceBetween={18}
-                slidesPerView={1.1}
+                spaceBetween={24}
+                slidesPerView={2}
                 rewind
                 grabCursor
                 breakpoints={{
-                  640: {
-                    slidesPerView: 2,
-                  },
-                  1024: {
-                    slidesPerView: 2.6,
+                  768: {
+                    slidesPerView: 3,
                   },
                   1280: {
-                    slidesPerView: 3.2,
+                    slidesPerView: 4,
                   },
                 }}
                 className="w-full"

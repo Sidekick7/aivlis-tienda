@@ -81,6 +81,14 @@ function formatCustomerData(order: AdminOrder) {
   ].join("\n");
 }
 
+function getOrderFulfillmentLabel(order: AdminOrder) {
+  const deliveryLine = order.notes
+    ?.split("\n")
+    .find((line) => line.startsWith("Entrega:"));
+
+  return deliveryLine?.replace("Entrega:", "").trim() || "";
+}
+
 export default function AdminOrdersSection({
   orders,
   isLoading,
@@ -264,7 +272,14 @@ export default function AdminOrdersSection({
         order.customerDni,
         order.customerWhatsapp,
         order.customerEmail ?? "",
+        order.notes ?? "",
         order.internalNotes ?? "",
+        ...order.items.flatMap((item) => [
+          item.productName,
+          item.productSku ?? "",
+          item.variantColor ?? "",
+          item.size ?? "",
+        ]),
       ]
         .join(" ")
         .toLowerCase()
@@ -464,6 +479,7 @@ export default function AdminOrdersSection({
             (total, item) => total + item.quantity,
             0
           );
+          const fulfillmentLabel = getOrderFulfillmentLabel(order);
 
           return (
             <article
@@ -503,6 +519,12 @@ export default function AdminOrdersSection({
                       {order.internalNotes && (
                         <span className="rounded-full bg-sky-500/15 px-2 py-1 text-xs text-sky-200">
                           Nota interna
+                        </span>
+                      )}
+
+                      {fulfillmentLabel && (
+                        <span className="rounded-full bg-zinc-700 px-2 py-1 text-xs text-zinc-300">
+                          {fulfillmentLabel}
                         </span>
                       )}
                     </div>

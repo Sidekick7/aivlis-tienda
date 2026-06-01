@@ -1,6 +1,8 @@
 -- Run this once before the first public deploy.
 -- It tightens read/write access without changing existing data.
 
+grant execute on function public.is_admin() to authenticated;
+
 drop policy if exists "Public can read products"
   on public.products;
 

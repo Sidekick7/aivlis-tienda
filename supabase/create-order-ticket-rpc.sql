@@ -29,15 +29,40 @@ begin
     from jsonb_array_elements(items) as item
     where coalesce(item ->> 'product_slug', '') = ''
       or coalesce(item ->> 'product_name', '') = ''
+      or coalesce(item ->> 'variant_color', '') = ''
+      or coalesce(item ->> 'size', '') = ''
       or coalesce((item ->> 'quantity')::integer, 0) <= 0
       or coalesce((item ->> 'unit_price')::numeric, 0) < 0
       or coalesce((item ->> 'subtotal')::numeric, 0) < 0
+      or (item ->> 'subtotal')::numeric
+        <> (item ->> 'unit_price')::numeric * (item ->> 'quantity')::integer
   ) then
     raise exception 'El pedido tiene productos invalidos.';
   end if;
 
   if total < 0 then
     raise exception 'El total del pedido es invalido.';
+  end if;
+
+  if exists (
+    select 1
+    from jsonb_array_elements(items) as item
+    left join public.products product
+      on product.id = nullif(item ->> 'product_id', '')::bigint
+    where product.id is null
+      or product.active is not true
+      or product.slug <> item ->> 'product_slug'
+      or not exists (
+        select 1
+        from jsonb_array_elements(product.variants) as variant
+        cross join jsonb_array_elements(variant -> 'sizes') as size_item
+        where variant ->> 'color' = item ->> 'variant_color'
+          and size_item ->> 'size' = item ->> 'size'
+          and coalesce((size_item ->> 'stock')::integer, 0)
+            >= (item ->> 'quantity')::integer
+      )
+  ) then
+    raise exception 'El pedido tiene productos sin stock o no publicados.';
   end if;
 
   insert into public.orders (

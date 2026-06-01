@@ -19,6 +19,8 @@ as $$
   );
 $$;
 
+grant execute on function public.is_admin() to authenticated;
+
 drop policy if exists "Admins can read admin users"
   on public.admin_users;
 

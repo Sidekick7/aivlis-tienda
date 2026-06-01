@@ -177,15 +177,11 @@ useEffect(() => {
       return;
     }
 
-    const { data, error } = await supabase
-      .from("admin_users")
-      .select("email")
-      .eq("email", email)
-      .maybeSingle();
+    const { data, error } = await supabase.rpc("is_admin");
 
     if (!isCurrent) return;
 
-    if (error || !data) {
+    if (error || data !== true) {
       await supabase.auth.signOut();
 
       if (!isCurrent) return;
