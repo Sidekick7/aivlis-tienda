@@ -84,10 +84,9 @@ export default function Home() {
   }, []);
 
   return (
-    <main className="home-main-offset min-h-screen bg-zinc-100 text-black">
-      <section className="relative h-[76vh] w-full overflow-visible">
+    <main className="home-main-offset min-h-screen overflow-x-hidden bg-zinc-100 text-black">
+      <section className="relative h-[76vh] w-full overflow-hidden">
         <Swiper
-          style={{ overflow: "visible" }}
           ref={swiperRef}
           onSlideChange={(swiper) =>
             setCurrentImage(swiper.realIndex)
