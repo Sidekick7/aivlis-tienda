@@ -85,10 +85,14 @@ export function buildOrderWhatsAppMessage({
   total: number;
 }) {
   const fulfillmentBlock = fulfillment
-    ? `ENTREGA
-${fulfillment.label}
-Costo de entrega a logistica y embalaje: ${formatPrice(fulfillment.fee)}
-${fulfillment.description}
+    ? fulfillment.fee > 0
+      ? `ENTREGA
+${fulfillment.label}: ${formatPrice(fulfillment.fee)}
+Envio a cargo del cliente segun peso y distancia.
+
+`
+      : `ENTREGA
+${fulfillment.label}: sin costo.
 
 `
     : "";
