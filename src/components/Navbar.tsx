@@ -54,8 +54,8 @@ export default function Navbar() {
           Precios mayoristas · Mínimo de compra $150.000
         </div>
 
-        <div className="grid h-[60px] grid-cols-[1fr_auto_1fr] items-center px-5 md:px-10">
-          <div className="flex items-center gap-5">
+        <div className="grid h-[60px] grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 px-3 sm:px-5 md:grid-cols-[1fr_auto_1fr] md:px-10">
+          <div className="flex items-center gap-3 md:gap-5">
             <button
               type="button"
               onClick={() => setIsMenuOpen(true)}
@@ -80,7 +80,7 @@ export default function Navbar() {
 
           <Link
             href="/"
-            className="flex h-full items-center justify-center transition hover:opacity-80"
+            className="flex h-full min-w-0 items-center justify-center transition hover:opacity-80"
             aria-label="AIVLIS"
           >
             <Image
@@ -89,12 +89,12 @@ export default function Navbar() {
               width={300}
               height={48}
               priority
-              className="h-12 w-72 object-contain"
+              className="h-11 w-[145px] object-contain min-[380px]:w-[165px] sm:w-52 md:h-12 md:w-72"
             />
           </Link>
 
           <div
-            className="relative flex items-center justify-end gap-5"
+            className="relative flex items-center justify-end gap-3 sm:gap-5"
             onMouseEnter={() => setIsMiniCartOpen(true)}
             onMouseLeave={() => setIsMiniCartOpen(false)}
           >
