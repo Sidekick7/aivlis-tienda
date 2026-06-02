@@ -85,7 +85,7 @@ export default function Home() {
 
   return (
     <main className="home-main-offset min-h-screen overflow-x-hidden bg-zinc-100 text-black">
-      <section className="relative h-[76vh] w-full overflow-hidden">
+      <section className="relative h-[clamp(520px,70vh,760px)] w-full overflow-hidden max-[640px]:h-[clamp(430px,62vh,560px)]">
         <Swiper
           ref={swiperRef}
           onSlideChange={(swiper) =>
@@ -111,7 +111,7 @@ export default function Home() {
             delay: 5000,
             disableOnInteraction: false,
           }}
-          className="h-[72vh] w-full pointer-events-auto"
+          className="h-[calc(100%-28px)] w-full pointer-events-auto"
         >
           {homeContent.heroImages.map((image) => (
             <SwiperSlide
@@ -124,7 +124,7 @@ export default function Home() {
                 width={900}
                 height={1100}
                 draggable={false}
-                className="h-full w-full object-cover object-center transition duration-700 hover:scale-105"
+                className="hero-slide-image h-full w-full object-cover object-center transition duration-700 hover:scale-105"
               />
             </SwiperSlide>
           ))}

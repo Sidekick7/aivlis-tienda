@@ -76,6 +76,13 @@ input[type="number"] {
   padding-top: 128px;
 }
 
+@media (min-width: 768px) and (max-height: 900px) {
+  .hero-slide-image {
+    object-fit: contain;
+    background: #f4f4f5;
+  }
+}
+
 @media (max-width: 640px) {
   .desktop-category-bar {
     display: none;

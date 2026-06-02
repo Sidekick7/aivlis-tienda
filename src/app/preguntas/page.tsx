@@ -1,35 +1,53 @@
+import Link from "next/link";
+
 const questions = [
   {
-    title: "Cambios",
-    body: "Podemos aclarar plazos, condiciones y si el cambio aplica por talle, color o modelo.",
+    title: "Como compro?",
+    body: "Elegis producto, talle y color, lo agregas al carrito, seleccionas retiro o envio, completas tus datos y envias el pedido por WhatsApp.",
   },
   {
-    title: "Pruebas",
-    body: "Conviene explicar si se puede probar en el local, si hay que coordinar antes y en que horarios.",
+    title: "Los precios son mayoristas?",
+    body: "Si. Los precios publicados son mayoristas. El minimo de compra para acceder a ese precio es de $150.000.",
+  },
+  {
+    title: "Que pasa si no llego al minimo?",
+    body: "Podes comprar igual. En el carrito vas a ver cuanto falta para llegar al minimo mayorista y, si no se alcanza, se aplica el precio minorista.",
   },
   {
     title: "Envios",
-    body: "Aca va la informacion de envios a todo el pais, tiempos aproximados y formas de entrega.",
+    body: "Hacemos envios por correo o expreso. Se suma un costo de entrega a logistica y embalaje de $5.000. El envio queda a cargo del cliente segun peso y distancia.",
   },
   {
-    title: "Retiro en local",
-    body: "Indica cuando se puede retirar, que datos llevar y si el pedido debe estar confirmado antes.",
+    title: "Retiro en showroom",
+    body: "Podes retirar en Yerbal 3160, Flores, CABA. Despues de confirmar que el pedido esta abonado y armado, puede retirarse en nuestro horario de atencion.",
+  },
+  {
+    title: "Puedo probarme las prendas?",
+    body: "Solo camperas. Si buscas un talle o color puntual, conviene consultar disponibilidad antes de venir.",
+  },
+  {
+    title: "Cambios",
+    body: "Los cambios por talle se realizan dentro de los 7 dias y quedan sujetos a stock disponible.",
   },
   {
     title: "Pagos",
-    body: "La web arma el ticket y el pago se coordina por WhatsApp, fuera de la plataforma.",
+    body: "El pago se coordina por WhatsApp. Una vez que nos comunicamos, hay 24 hs para abonar el pedido. De lo contrario, se cancela y se pierde la reserva de las prendas.",
   },
   {
     title: "Stock",
-    body: "El carrito valida stock por talle y color. La reserva final se confirma cuando el pedido queda aprobado.",
+    body: "El stock se maneja por talle y color. El carrito valida disponibilidad al crear el pedido y avisa si alguna variante no alcanza.",
+  },
+  {
+    title: "Cuando se aparta el stock?",
+    body: "El stock se aparta cuando se crea el pedido. Si el pedido se cancela, las unidades vuelven a estar disponibles.",
   },
 ];
 
 export default function QuestionsPage() {
   return (
     <main className="home-main-offset min-h-screen bg-zinc-100 text-black">
-      <section className="mx-auto flex max-w-5xl flex-col gap-10 px-6 py-14 md:px-10">
-        <div>
+      <section className="mx-auto flex max-w-6xl flex-col gap-8 px-6 py-10 md:px-10 lg:py-14">
+        <div className="max-w-3xl">
           <p className="mb-3 text-sm font-semibold uppercase tracking-wide text-zinc-500">
             Ayuda
           </p>
@@ -39,26 +57,63 @@ export default function QuestionsPage() {
           </h1>
 
           <p className="mt-5 max-w-2xl text-zinc-600">
-            Un lugar para responder dudas frecuentes antes de comprar:
-            cambios, pruebas, envios, pagos, retiro y stock.
+            Resolvemos las dudas mas comunes antes de comprar: precios
+            mayoristas, envios, retiro, pruebas, cambios, pagos y stock.
           </p>
         </div>
 
         <div className="grid gap-4 md:grid-cols-2">
-          {questions.map((question) => (
+          {questions.map((question, index) => (
             <article
               key={question.title}
-              className="rounded-lg border border-zinc-200 bg-white p-5"
+              className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm"
             >
-              <h2 className="text-lg font-bold">
-                {question.title}
-              </h2>
+              <div className="flex items-start gap-4">
+                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-zinc-100 text-sm font-bold text-zinc-500">
+                  {index + 1}
+                </span>
 
-              <p className="mt-3 text-sm leading-6 text-zinc-600">
-                {question.body}
-              </p>
+                <div>
+                  <h2 className="text-lg font-bold">
+                    {question.title}
+                  </h2>
+
+                  <p className="mt-3 text-sm leading-6 text-zinc-600">
+                    {question.body}
+                  </p>
+                </div>
+              </div>
             </article>
           ))}
+        </div>
+
+        <div className="flex flex-col gap-3 rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h2 className="text-lg font-bold">
+              Tenes otra duda?
+            </h2>
+
+            <p className="mt-2 text-sm leading-6 text-zinc-600">
+              Podes escribirnos por WhatsApp o mirar la tienda para armar tu
+              pedido.
+            </p>
+          </div>
+
+          <div className="flex flex-wrap gap-3">
+            <Link
+              href="/contacto"
+              className="inline-flex h-11 items-center justify-center rounded-full bg-zinc-100 px-5 text-sm font-semibold text-zinc-800 transition hover:bg-zinc-200"
+            >
+              Contacto
+            </Link>
+
+            <Link
+              href="/tienda"
+              className="inline-flex h-11 items-center justify-center rounded-full bg-black px-5 text-sm font-semibold text-white transition hover:bg-zinc-800"
+            >
+              Ver tienda
+            </Link>
+          </div>
         </div>
       </section>
     </main>

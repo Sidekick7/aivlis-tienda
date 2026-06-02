@@ -1,52 +1,189 @@
+import {
+  Clock,
+  MapPin,
+  Package,
+  RefreshCw,
+  Shirt,
+  TrainFront,
+} from "lucide-react";
+import Image from "next/image";
 import Link from "next/link";
 
-const localNotes = [
-  "Podes coordinar retiro en local despues de enviar el pedido.",
-  "Tambien podes consultar disponibilidad para probar prendas.",
-  "La direccion y horarios se pueden completar aca cuando los definas.",
+const showroomAddress = "Yerbal 3160 - Flores - CABA";
+
+const localDetails = [
+  {
+    icon: Clock,
+    title: "Horarios",
+    body: "Lunes a viernes: 08:00 a 17:00 hs.\nSabados: 08:00 a 13:00 hs.",
+  },
+  {
+    icon: TrainFront,
+    title: "Zona comercial",
+    body: "En zona comercial de Flores, cerca de Av. Avellaneda, Av. Nazca y Av. Rivadavia.",
+  },
+  {
+    icon: Shirt,
+    title: "Prueba de camperas",
+    body: "Podes probar camperas en el showroom. Para talles o colores puntuales, consultanos antes de venir.",
+  },
+  {
+    icon: RefreshCw,
+    title: "Cambios por talle",
+    body: "Cambios dentro de los 7 dias por talle, sujetos a stock disponible.",
+  },
 ];
 
 export default function LocalPage() {
   return (
     <main className="home-main-offset min-h-screen bg-zinc-100 text-black">
-      <section className="mx-auto grid max-w-6xl gap-8 px-6 py-14 md:grid-cols-[1fr_1.1fr] md:px-10">
-        <div>
-          <p className="mb-3 text-sm font-semibold uppercase tracking-wide text-zinc-500">
-            Showroom
-          </p>
-
-          <h1 className="text-4xl font-bold md:text-5xl">
-            Local
-          </h1>
-
-          <p className="mt-5 text-zinc-600">
-            Aca podemos mostrar direccion, horarios, retiro de pedidos y
-            condiciones para probar prendas.
-          </p>
+      <section className="mx-auto grid max-w-7xl gap-8 px-6 py-10 md:px-10 lg:grid-cols-[minmax(0,540px)_1fr] lg:items-stretch lg:py-14">
+        <div className="overflow-hidden rounded-2xl bg-white shadow-sm lg:h-full">
+          <Image
+            src="/showroom-door.png"
+            alt="Puerta del showroom AIVLIS"
+            width={962}
+            height={1357}
+            priority
+            sizes="(min-width: 1024px) 540px, 100vw"
+            className="h-auto w-full object-cover lg:h-full"
+          />
         </div>
 
-        <div className="rounded-lg border border-zinc-200 bg-white p-6">
-          <h2 className="text-xl font-bold">
-            Informacion del local
-          </h2>
+        <div className="flex flex-col gap-4 lg:h-full">
+          <div>
+            <p className="mb-3 text-sm font-semibold uppercase tracking-wide text-zinc-500">
+              Showroom
+            </p>
 
-          <div className="mt-6 space-y-4">
-            {localNotes.map((note) => (
-              <p
-                key={note}
-                className="border-b border-zinc-100 pb-4 text-sm leading-6 text-zinc-600 last:border-b-0 last:pb-0"
-              >
-                {note}
-              </p>
-            ))}
+            <h1 className="text-4xl font-bold md:text-6xl">
+              AIVLIS
+            </h1>
           </div>
 
-          <Link
-            href="/contacto"
-            className="mt-8 inline-flex h-11 items-center justify-center rounded-full bg-black px-5 text-sm font-semibold text-white transition hover:bg-zinc-800"
-          >
-            Consultar visita
-          </Link>
+          <div className="rounded-2xl border border-zinc-200 bg-white p-5">
+            <div className="flex items-start gap-3">
+              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-black text-white">
+                <MapPin size={20} />
+              </span>
+
+              <div>
+                <p className="text-sm font-semibold uppercase tracking-wide text-zinc-500">
+                  Direccion
+                </p>
+                <h2 className="mt-1 text-2xl font-bold">
+                  {showroomAddress}
+                </h2>
+                <p className="mt-2 text-sm font-semibold text-zinc-500">
+                  Flores / zona Avellaneda comercial
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="grid flex-1 gap-4 sm:grid-cols-2">
+            {localDetails.map((detail) => {
+              const Icon = detail.icon;
+
+              return (
+                <article
+                  key={detail.title}
+                  className="rounded-2xl border border-zinc-200 bg-white p-5"
+                >
+                  <Icon
+                    size={21}
+                    className="text-zinc-500"
+                  />
+
+                  <h2 className="mt-4 text-lg font-bold">
+                    {detail.title}
+                  </h2>
+
+                  <p className="mt-2 whitespace-pre-line text-sm leading-6 text-zinc-600">
+                    {detail.body}
+                  </p>
+                </article>
+              );
+            })}
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            <article className="rounded-2xl border border-zinc-200 bg-white p-5">
+              <Package
+                size={21}
+                className="text-zinc-500"
+              />
+
+              <h2 className="mt-4 text-lg font-bold">
+                Retiro de pedidos
+              </h2>
+
+              <p className="mt-2 text-sm leading-6 text-zinc-600">
+                Despues de enviar el pedido por WhatsApp, coordinamos dia y
+                horario de retiro.
+              </p>
+            </article>
+
+            <article className="rounded-2xl border border-zinc-200 bg-white p-5">
+              <h2 className="text-lg font-bold">
+                Antes de venir
+              </h2>
+
+              <p className="mt-2 text-sm leading-6 text-zinc-600">
+                Si buscas un talle o color puntual, escribinos antes para
+                confirmar disponibilidad.
+              </p>
+
+              <Link
+                href="/tienda"
+                className="mt-5 inline-flex h-11 items-center justify-center rounded-full bg-zinc-100 px-5 text-sm font-semibold text-zinc-800 transition hover:bg-zinc-200"
+              >
+                Ver productos
+              </Link>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <section className="mx-auto max-w-7xl px-6 pb-14 md:px-10">
+        <div className="grid overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm lg:grid-cols-[.9fr_1.35fr]">
+          <div className="border-b border-zinc-100 p-5 lg:border-b-0 lg:border-r">
+            <p className="text-sm font-semibold uppercase tracking-wide text-zinc-500">
+              Ubicacion
+            </p>
+
+            <h2 className="mt-1 text-2xl font-bold">
+              Como llegar al showroom
+            </h2>
+
+            <p className="mt-2 text-sm leading-6 text-zinc-600">
+              Estamos en Yerbal 3160, Flores, CABA, dentro de la zona
+              comercial de Av. Avellaneda.
+            </p>
+
+            <div className="mt-5 grid gap-2 text-sm font-semibold leading-6 text-zinc-700">
+              <p className="rounded-xl bg-zinc-100 px-4 py-3">
+                A 2 cuadras de estacion San Pedrito.
+              </p>
+              <p className="rounded-xl bg-zinc-100 px-4 py-3">
+                A 2 cuadras de Av. Nazca y Av. Avellaneda.
+              </p>
+              <p className="rounded-xl bg-zinc-100 px-4 py-3">
+                A 1 cuadra de Av. Rivadavia.
+              </p>
+            </div>
+          </div>
+
+          <iframe
+            title="Mapa de AIVLIS showroom"
+            src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3282.9559332517665!2d-58.4750639129112!3d-34.63055387205011!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x95bcc98e23482bb3%3A0xe7b9ee0b583c40b5!2sYerbal%203160%2C%20C1406GKR%20Cdad.%20Aut%C3%B3noma%20de%20Buenos%20Aires!5e0!3m2!1ses!2sar!4v1780358858478!5m2!1ses!2sar"
+            width="600"
+            height="450"
+            allowFullScreen
+            loading="lazy"
+            referrerPolicy="no-referrer-when-downgrade"
+            className="h-[300px] w-full border-0 md:h-[380px]"
+          />
         </div>
       </section>
     </main>
