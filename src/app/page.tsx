@@ -111,7 +111,7 @@ export default function Home() {
             delay: 5000,
             disableOnInteraction: false,
           }}
-          className="h-[calc(100%-28px)] w-full pointer-events-auto"
+          className="h-[calc(100%-44px)] w-full pointer-events-auto"
         >
           {homeContent.heroImages.map((image) => (
             <SwiperSlide
@@ -130,7 +130,7 @@ export default function Home() {
           ))}
         </Swiper>
 
-        <div className="relative mt-4 flex justify-center gap-3 pointer-events-auto">
+        <div className="relative mt-3 flex justify-center gap-3 pointer-events-auto">
           {homeContent.heroImages.map((_, index) => (
             <button
               key={index}
@@ -149,7 +149,7 @@ export default function Home() {
         </div>
       </section>
 
-      <section className="px-6 pb-1 pt-0 md:px-10">
+      <section className="px-6 pb-1 pt-2 md:px-10">
         <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-center gap-x-5 gap-y-2 border-y border-zinc-200 py-2">
           {homeContent.trustItems.map((item) => (
             <p

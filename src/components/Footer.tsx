@@ -4,15 +4,18 @@ import { storeConfig } from "@/config/store";
 const socialLinks = [
   {
     label: "Instagram",
-    href: "/contacto",
+    href: "https://www.instagram.com/aivlis.ind",
+    external: true,
   },
   {
     label: "TikTok",
-    href: "/contacto",
+    href: "https://www.tiktok.com/@aivlis.ind",
+    external: true,
   },
   {
     label: "WhatsApp",
     href: "/contacto",
+    external: false,
   },
 ];
 
@@ -35,16 +38,28 @@ export default function Footer() {
             </span>
           </p>
 
-          <div className="flex flex-wrap gap-4">
-            {socialLinks.map((link) => (
-              <Link
-                key={link.label}
-                href={link.href}
-                className="transition hover:text-white"
-              >
-                {link.label}
-              </Link>
-            ))}
+          <div className="flex flex-wrap gap-2">
+            {socialLinks.map((link) =>
+              link.external ? (
+                <a
+                  key={link.label}
+                  href={link.href}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex h-9 items-center justify-center rounded-full border border-white/20 px-4 text-xs font-semibold text-white transition hover:border-white hover:bg-white hover:text-black"
+                >
+                  {link.label}
+                </a>
+              ) : (
+                <Link
+                  key={link.label}
+                  href={link.href}
+                  className="inline-flex h-9 items-center justify-center rounded-full border border-white/20 px-4 text-xs font-semibold text-white transition hover:border-white hover:bg-white hover:text-black"
+                >
+                  {link.label}
+                </Link>
+              )
+            )}
           </div>
         </div>
       </div>

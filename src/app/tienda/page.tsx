@@ -9,7 +9,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useMemo, useState } from "react";
 
 type ShopCategoryFilter = "all" | string;
-type ShopSort = "" | "newest" | "price-asc" | "price-desc";
+type ShopSort = "newest" | "price-asc" | "price-desc";
 
 const productSkeletons = Array.from({ length: 8 }, (_, index) => index);
 
@@ -46,7 +46,7 @@ function ShopPageContent() {
   );
   const [productsError, setProductsError] = useState("");
   const [isProductsLoading, setIsProductsLoading] = useState(true);
-  const [sortBy, setSortBy] = useState<ShopSort>("");
+  const [sortBy, setSortBy] = useState<ShopSort>("newest");
   const categoryFilter =
     searchParams.get("categoria") || "all";
 
@@ -76,8 +76,6 @@ function ShopPageContent() {
       if (categoryFilter === "featured") return product.featured;
       return product.category === categoryFilter;
     });
-
-    if (!sortBy) return filteredProducts;
 
     return [...filteredProducts].sort((a, b) => {
       if (sortBy === "newest") return b.id - a.id;
@@ -129,10 +127,6 @@ function ShopPageContent() {
                 }
                 className="h-11 rounded-full border border-zinc-300 bg-white px-4 text-sm font-semibold outline-none"
               >
-                <option value="">
-                  Ordenar por
-                </option>
-
                 {sortOptions.map((option) => (
                   <option
                     key={option.value}
@@ -227,16 +221,6 @@ function ShopPageContent() {
                       Ver todos
                     </button>
 
-                    )}
-
-                    {sortBy && (
-                      <button
-                        type="button"
-                        onClick={() => setSortBy("")}
-                        className="inline-flex h-11 items-center justify-center rounded-full border border-zinc-300 px-5 text-sm font-semibold text-zinc-700 transition hover:bg-zinc-100"
-                      >
-                        Limpiar orden
-                      </button>
                     )}
                   </div>
                 </div>

@@ -30,16 +30,16 @@ const questions = [
     body: "Los cambios por talle se realizan dentro de los 7 dias y quedan sujetos a stock disponible.",
   },
   {
-    title: "Pagos",
-    body: "El pago se coordina por WhatsApp. Una vez que nos comunicamos, hay 24 hs para abonar el pedido. De lo contrario, se cancela y se pierde la reserva de las prendas.",
+    title: "Cuales son las formas de pago?",
+    body: "En showroom: efectivo, Mercado Pago o transferencia bancaria.\nEn la web: efectivo, transferencia bancaria y Mercado Pago. Se coordina por WhatsApp.",
   },
   {
     title: "Stock",
     body: "El stock se maneja por talle y color. El carrito valida disponibilidad al crear el pedido y avisa si alguna variante no alcanza.",
   },
   {
-    title: "Cuando se aparta el stock?",
-    body: "El stock se aparta cuando se crea el pedido. Si el pedido se cancela, las unidades vuelven a estar disponibles.",
+    title: "Cuando se reserva stock?",
+    body: "Cuando se crea el pedido. Una vez que nos comunicamos, hay 24 hs para abonarlo. De lo contrario, se cancela y se pierde la reserva de las prendas.",
   },
 ];
 
@@ -78,7 +78,7 @@ export default function QuestionsPage() {
                     {question.title}
                   </h2>
 
-                  <p className="mt-3 text-sm leading-6 text-zinc-600">
+                  <p className="mt-3 whitespace-pre-line text-sm leading-6 text-zinc-600">
                     {question.body}
                   </p>
                 </div>

@@ -40,6 +40,27 @@ function getDisplaySku(product: Product) {
   return sku.startsWith("AIV-") ? sku.replace("AIV-", "") : sku;
 }
 
+const sizeOrder = ["XS", "S", "M", "L", "XL", "XXL", "XXXL"];
+
+function sortSizes(sizes: string[]) {
+  return [...sizes].sort((firstSize, secondSize) => {
+    const firstIndex = sizeOrder.indexOf(firstSize.toUpperCase());
+    const secondIndex = sizeOrder.indexOf(secondSize.toUpperCase());
+
+    if (firstIndex !== -1 || secondIndex !== -1) {
+      return (
+        (firstIndex === -1 ? Number.MAX_SAFE_INTEGER : firstIndex) -
+        (secondIndex === -1 ? Number.MAX_SAFE_INTEGER : secondIndex)
+      );
+    }
+
+    return firstSize.localeCompare(secondSize, "es", {
+      numeric: true,
+      sensitivity: "base",
+    });
+  });
+}
+
 export default function ProductInfo({ product }: Props) {
   const [categoryLabel, setCategoryLabel] = useState(product.category);
   const firstVariant = product.variants[0];
@@ -100,6 +121,15 @@ export default function ProductInfo({ product }: Props) {
     product.variants.find(
       (variant) => variant.color === selectedColor
     ) || firstVariant;
+  const allProductSizes = sortSizes(
+    Array.from(
+      new Set(
+        product.variants.flatMap((variant) =>
+          variant.sizes.map((sizeItem) => sizeItem.size)
+        )
+      )
+    )
+  );
 
   const selectedSizeData =
     selectedVariant?.sizes.find(
@@ -334,28 +364,52 @@ export default function ProductInfo({ product }: Props) {
           </div>
 
           <div className="flex flex-wrap gap-3">
-            {selectedVariant?.sizes?.map((sizeItem) => (
-              <button
-                key={sizeItem.size}
-                type="button"
-                onClick={() => {
-                  resetCartFeedback();
-                  setSelectedSize(sizeItem.size);
-                }}
-                disabled={sizeItem.stock <= 0}
-                className={`h-11 min-w-11 rounded-xl border px-4 text-sm font-semibold transition ${
-                  selectedSize === sizeItem.size
-                    ? "bg-black text-white border-black"
-                    : "border-zinc-200 bg-zinc-50 hover:border-black"
-                } ${
-                  sizeItem.stock <= 0
-                    ? "opacity-40 cursor-not-allowed"
-                    : "cursor-pointer"
-                }`}
-              >
-                {sizeItem.size}
-              </button>
-            ))}
+            {allProductSizes.map((size) => {
+              const sizeItem = selectedVariant?.sizes.find(
+                (item) => item.size === size
+              );
+              const isAvailable = Boolean(
+                sizeItem && sizeItem.stock > 0
+              );
+              const isSelected = selectedSize === size;
+
+              return (
+                <span
+                  key={size}
+                  className="group relative inline-flex"
+                >
+                  <button
+                    type="button"
+                    title={isAvailable ? `Talle ${size}` : undefined}
+                    aria-label={
+                      isAvailable ? `Talle ${size}` : `Talle ${size} agotado`
+                    }
+                    onClick={() => {
+                      resetCartFeedback();
+                      setSelectedSize(size);
+                    }}
+                    disabled={!isAvailable}
+                    className={`h-11 min-w-11 rounded-xl border px-4 text-sm font-semibold transition ${
+                      isAvailable && isSelected
+                        ? "border-black bg-black text-white"
+                        : "border-zinc-200 bg-zinc-50 hover:border-black"
+                    } ${
+                      isAvailable
+                        ? "cursor-pointer"
+                        : "cursor-not-allowed text-zinc-400 line-through opacity-60"
+                    }`}
+                  >
+                    {size}
+                  </button>
+
+                  {!isAvailable && (
+                    <span className="pointer-events-none absolute -top-8 left-1/2 z-10 -translate-x-1/2 rounded-full bg-black px-2.5 py-1 text-[11px] font-semibold text-white opacity-0 shadow-lg transition group-hover:opacity-100">
+                      Agotado
+                    </span>
+                  )}
+                </span>
+              );
+            })}
           </div>
         </div>
 
