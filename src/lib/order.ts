@@ -47,8 +47,7 @@ export function formatCartItemsForWhatsApp(cart: CartItem[]) {
       return [
         `- ${getCartItemLabel(item)}`,
         item.sku ? `  SKU: ${getShortSku(item.sku)}` : null,
-        `  Cantidad: ${item.quantity}`,
-        `  Precio unitario: ${formatPrice(unitPrice)}`,
+        `  Cantidad: ${item.quantity} x ${formatPrice(unitPrice)}`,
         `  Subtotal: ${formatPrice(subtotal)}`,
       ]
         .filter(Boolean)
@@ -84,15 +83,33 @@ export function buildOrderWhatsAppMessage({
   };
   total: number;
 }) {
+  const addressBlock =
+    !fulfillment || fulfillment.fee > 0
+      ? `Direccion:
+${customer.address}
+
+Localidad / Ciudad:
+${customer.city}
+
+Provincia:
+${customer.province}
+
+Codigo Postal:
+${customer.zip}
+
+`
+      : "";
   const fulfillmentBlock = fulfillment
     ? fulfillment.fee > 0
       ? `ENTREGA
-${fulfillment.label}: ${formatPrice(fulfillment.fee)}
-Envio a cargo del cliente segun peso y distancia.
+${fulfillment.label}
+Logistica y embalaje: ${formatPrice(fulfillment.fee)}
+${fulfillment.description}
 
 `
       : `ENTREGA
-${fulfillment.label}: sin costo.
+${fulfillment.label}: sin costo
+${fulfillment.description}
 
 `
     : "";
@@ -117,19 +134,7 @@ ${customer.dni}
 WhatsApp:
 ${customer.whatsapp}
 
-Dirección:
-${customer.address}
-
-Localidad / Ciudad:
-${customer.city}
-
-Provincia:
-${customer.province}
-
-Código Postal:
-${customer.zip}
-
-Correo electrónico:
+${addressBlock}Correo electronico:
 ${customer.email || "-"}
 
 Notas adicionales:

@@ -10,6 +10,8 @@ import {
   formatPrice,
   getCartItemSubtotal,
   getCartItemUnitPrice,
+  getRetailPrice,
+  getWholesalePrice,
   getCartPricing,
   wholesaleMinimum,
 } from "@/lib/pricing";
@@ -242,10 +244,16 @@ const {
             item,
             cartPricing.isWholesale
           );
+          const wholesaleUnitPrice = getWholesalePrice(item);
+          const retailUnitPrice = getRetailPrice(item);
+          const hasWholesaleSavings =
+            cartPricing.isWholesale &&
+            retailUnitPrice > wholesaleUnitPrice;
           const itemSubtotal = getCartItemSubtotal(
             item,
             cartPricing.isWholesale
           );
+          const retailItemSubtotal = retailUnitPrice * item.quantity;
           const currentProduct = currentProductsById.get(item.id);
           const stockLimit = getVariantSizeStock({
             variants: currentProduct?.variants ?? item.variants,
@@ -309,9 +317,17 @@ const {
                 Precio
               </span>
 
-              <p className="text-lg font-semibold">
-                {formatPrice(unitPrice)}
-              </p>
+              <div className="lg:min-h-[54px]">
+                {hasWholesaleSavings && (
+                  <p className="text-sm font-semibold text-zinc-400 line-through">
+                    {formatPrice(retailUnitPrice)}
+                  </p>
+                )}
+
+                <p className="text-lg font-semibold">
+                  {formatPrice(unitPrice)}
+                </p>
+              </div>
 
               <p className="mt-1 text-xs text-zinc-500">
                 {cartPricing.isWholesale ? "Mayorista" : "Minorista"}
@@ -372,9 +388,17 @@ const {
                 Subtotal
               </span>
 
-              <p className="text-lg font-semibold">
-                {formatPrice(itemSubtotal)}
-              </p>
+              <div>
+                {hasWholesaleSavings && (
+                  <p className="text-sm font-semibold text-zinc-400 line-through">
+                    {formatPrice(retailItemSubtotal)}
+                  </p>
+                )}
+
+                <p className="text-lg font-semibold">
+                  {formatPrice(itemSubtotal)}
+                </p>
+              </div>
 
             </div>
 
@@ -402,9 +426,9 @@ const {
         </div>
         {isCartReady && cart.length > 0 && (
 
-        <div className="sticky top-28 h-fit rounded-3xl border border-zinc-200 bg-white p-6 shadow-lg shadow-black/5">
+        <div className="sticky top-28 h-fit rounded-3xl border border-zinc-200 bg-white p-4 shadow-lg shadow-black/5 sm:p-5">
 
-            <div className="mb-6 flex items-center justify-between gap-4">
+            <div className="mb-4 flex items-center justify-between gap-4">
               <h2 className="text-2xl font-bold">
                 Resumen
               </h2>
@@ -414,25 +438,52 @@ const {
               </span>
             </div>
 
-            <div className="mb-4 flex items-center justify-between text-sm text-zinc-600">
+            <div className="mb-3 flex items-center justify-between text-sm text-zinc-600">
             <span>Productos</span>
             <span>
               {cart.length} items / {totalUnits} unidades
             </span>
             </div>
 
-            <div className="mb-3 flex items-center justify-between text-sm text-zinc-600">
-            <span>Subtotal mayorista</span>
-            <span>{formatPrice(cartPricing.wholesaleSubtotal)}</span>
+            <div className="mb-4 rounded-2xl bg-zinc-50 p-3">
+              {cartPricing.isWholesale ? (
+                <>
+                  <div className="flex items-center justify-between text-sm text-zinc-500">
+                    <span>Subtotal minorista</span>
+                    <span className="font-semibold line-through">
+                      {formatPrice(cartPricing.retailSubtotal)}
+                    </span>
+                  </div>
+
+                  <div className="mt-2 flex items-center justify-between">
+                    <span className="text-sm font-semibold text-zinc-700">
+                      Subtotal mayorista
+                    </span>
+                    <span className="text-xl font-bold text-zinc-950">
+                      {formatPrice(cartPricing.wholesaleSubtotal)}
+                    </span>
+                  </div>
+
+                </>
+              ) : (
+                <>
+                  <div className="flex items-center justify-between text-sm text-zinc-600">
+                    <span>Subtotal actual</span>
+                    <span className="font-semibold">
+                      {formatPrice(cartPricing.retailSubtotal)}
+                    </span>
+                  </div>
+
+                  <div className="mt-2 flex items-center justify-between text-sm text-zinc-500">
+                    <span>Subtotal mayorista</span>
+                    <span>{formatPrice(cartPricing.wholesaleSubtotal)}</span>
+                  </div>
+                </>
+              )}
             </div>
 
-            <div className="mb-6 flex items-center justify-between text-sm text-zinc-600">
-            <span>Subtotal minorista</span>
-            <span>{formatPrice(cartPricing.retailSubtotal)}</span>
-            </div>
-
-            <div className="mb-6 rounded-2xl border border-zinc-200 bg-zinc-50 p-3">
-              <p className="mb-3 text-sm font-semibold text-zinc-900">
+            <div className="mb-4 rounded-2xl border border-zinc-200 bg-zinc-50 p-3">
+              <p className="mb-2 text-sm font-semibold text-zinc-900">
                 Entrega
               </p>
 
@@ -447,16 +498,16 @@ const {
                   }`}
                 >
                   <span className="flex items-center gap-3">
-                    <span className="flex h-10 w-10 items-center justify-center rounded-full bg-zinc-100">
+                    <span className="flex h-9 w-9 items-center justify-center rounded-full bg-zinc-100">
                       <MapPin size={18} />
                     </span>
 
                     <span>
                       <span className="block text-sm font-semibold text-zinc-900">
-                        {fulfillmentOptions.pickup.label}
+                        Retiro presencial
                       </span>
                       <span className="text-xs text-zinc-500">
-                        {fulfillmentOptions.pickup.description}
+                        Yerbal 3160, Flores
                       </span>
                     </span>
                   </span>
@@ -476,16 +527,16 @@ const {
                   }`}
                 >
                   <span className="flex items-center gap-3">
-                    <span className="flex h-10 w-10 items-center justify-center rounded-full bg-zinc-100">
+                    <span className="flex h-9 w-9 items-center justify-center rounded-full bg-zinc-100">
                       <Package size={18} />
                     </span>
 
                     <span>
                       <span className="block text-sm font-semibold text-zinc-900">
-                        {fulfillmentOptions.shipping.label}
+                        Despacho a transporte, correo, expreso
                       </span>
                       <span className="text-xs text-zinc-500">
-                        {fulfillmentOptions.shipping.description}
+                        Costo de entrega a logistica y embalaje
                       </span>
                     </span>
                   </span>
@@ -495,18 +546,33 @@ const {
                   </span>
                 </button>
               </div>
+
+              {fulfillmentOption === "pickup" && (
+                <p className="mt-2 rounded-xl bg-zinc-100 px-3 py-2 text-xs leading-5 text-zinc-600">
+                  Sin costo adicional. Retiro en Yerbal 3160, Flores, una
+                  vez confirmado el pedido abonado y armado.
+                </p>
+              )}
+
+              {fulfillmentOption === "shipping" && (
+                <p className="mt-2 rounded-xl bg-zinc-100 px-3 py-2 text-xs leading-5 text-zinc-600">
+                  Se suma {formatPrice(fulfillmentOptions.shipping.fee)} por
+                  entrega a logistica y embalaje. El envio final queda a
+                  cargo del cliente segun peso y distancia.
+                </p>
+              )}
             </div>
 
-            <div className="border-t border-zinc-200 pt-6">
+            <div className="border-t border-zinc-200 pt-4">
 
             <div
-              className={`mb-5 rounded-2xl p-4 text-sm leading-6 ${
+              className={`mb-3 rounded-2xl p-3 text-sm leading-6 ${
                 cartPricing.isWholesale
                   ? "bg-emerald-50 text-emerald-700"
                   : "bg-amber-50 text-amber-800"
               }`}
             >
-              <span className="mb-3 block h-2 overflow-hidden rounded-full bg-white">
+              <span className="mb-2 block h-2 overflow-hidden rounded-full bg-white">
                 <span
                   className={`block h-full rounded-full ${
                     cartPricing.isWholesale
@@ -523,12 +589,6 @@ const {
                 ? `Precio mayorista aplicado. Superaste el minimo de ${formatPrice(wholesaleMinimum)}.`
                 : `Faltan ${formatPrice(cartPricing.remainingForWholesale)} para aplicar precio mayorista.`}
 
-              {cartPricing.isWholesale && cartPricing.savings > 0 && (
-                <span className="mt-2 block font-semibold">
-                  Ahorras {formatPrice(cartPricing.savings)} con precio mayorista.
-                </span>
-              )}
-
               {!cartPricing.isWholesale && (
                 <Link
                   href="/tienda"
@@ -539,13 +599,13 @@ const {
               )}
             </div>
 
-            <p className="mb-5 rounded-2xl bg-zinc-100 p-4 text-sm leading-6 text-zinc-600">
+            <p className="mb-3 rounded-2xl bg-zinc-100 p-3 text-sm leading-5 text-zinc-600">
               No pagas online. Al finalizar, se genera el pedido para
               enviarlo por WhatsApp y coordinar el pago.
             </p>
 
             {fulfillmentOption && (
-              <div className="mb-5 flex items-center justify-between text-sm text-zinc-600">
+              <div className="mb-3 flex items-center justify-between text-sm text-zinc-600">
                 <span>
                   Logistica y embalaje
                 </span>
@@ -555,7 +615,7 @@ const {
               </div>
             )}
 
-            <div className="mb-6 flex items-end justify-between gap-4">
+            <div className="mb-4 flex items-end justify-between gap-4">
 
                 <span className="text-sm font-semibold uppercase tracking-wide text-zinc-500">
                 Total
@@ -568,13 +628,13 @@ const {
             </div>
 
             {isFulfillmentMissing && (
-              <p className="mb-4 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
+              <p className="mb-3 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
                 Elegi una opcion de entrega para continuar.
               </p>
             )}
 
             {(isCheckingStock || stockError) && (
-              <p className="mb-4 rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-600">
+              <p className="mb-3 rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-600">
                 {isCheckingStock
                   ? "Validando stock actual..."
                   : stockError}

@@ -15,6 +15,8 @@ import {
   getCartItemSubtotal,
   getCartItemUnitPrice,
   getCartPricing,
+  getRetailPrice,
+  getWholesalePrice,
 } from "@/lib/pricing";
 import {
   createOrderNumber,
@@ -46,9 +48,9 @@ type SavedCheckoutCustomer = {
 };
 
 const fieldLabelClass =
-  "mb-2 text-sm font-medium text-zinc-700";
+  "mb-1.5 text-sm font-medium text-zinc-700";
 const fieldBaseClass =
-  "w-full rounded-2xl border bg-white p-4 text-black outline-none transition placeholder:text-zinc-400 focus:border-black";
+  "w-full rounded-2xl border bg-white px-4 py-3 text-black outline-none transition placeholder:text-zinc-400 focus:border-black";
 const getRequiredFieldClass = (hasError: boolean) =>
   `${fieldBaseClass} ${
     hasError ? "border-red-500" : "border-zinc-300"
@@ -123,16 +125,11 @@ export default function CheckoutPage() {
   const selectedFulfillment = fulfillmentOption
     ? fulfillmentOptions[fulfillmentOption]
     : null;
+  const requiresShippingData = fulfillmentOption === "shipping";
   const cartPricing = getCartPricing(cart);
-  const requiredFields = [
-    name,
-    dni,
-    whatsapp,
-    address,
-    city,
-    province,
-    zip,
-  ];
+  const requiredFields = requiresShippingData
+    ? [name, dni, whatsapp, address, city, province, zip]
+    : [name, dni, whatsapp];
   const hasEmptyFields = requiredFields.some(
     (field) => !field.trim()
   );
@@ -278,25 +275,16 @@ export default function CheckoutPage() {
     const enrichedFinalTotal =
       enrichedTotal + enrichedFulfillmentFee;
     const orderNumber = createOrderNumber();
-    const fulfillmentNotes = selectedFulfillment
-      ? [
-          `Entrega: ${selectedFulfillment.label}`,
-          `Costo de entrega a logistica y embalaje: ${formatPrice(selectedFulfillment.fee)}`,
-          selectedFulfillment.description,
-        ].join("\n")
-      : "";
     const customer = {
       name,
       dni,
       whatsapp,
-      address,
-      city,
-      province,
-      zip,
+      address: requiresShippingData ? address : "",
+      city: requiresShippingData ? city : "",
+      province: requiresShippingData ? province : "",
+      zip: requiresShippingData ? zip : "",
       email,
-      notes: [fulfillmentNotes, notes.trim()]
-        .filter(Boolean)
-        .join("\n\n"),
+      notes: notes.trim(),
     };
     const message = buildOrderWhatsAppMessage({
       orderNumber,
@@ -304,8 +292,14 @@ export default function CheckoutPage() {
       customer,
       fulfillment: selectedFulfillment
         ? {
-            label: selectedFulfillment.label,
-            description: selectedFulfillment.description,
+            label:
+              fulfillmentOption === "pickup"
+                ? "Retiro presencial"
+                : "Despacho a transporte, correo, expreso",
+            description:
+              fulfillmentOption === "pickup"
+                ? "Yerbal 3160, Flores. Retiro una vez confirmado el pedido abonado y armado."
+                : "Costo de entrega a logistica y embalaje. Envio final a cargo del cliente segun peso y distancia.",
             fee: enrichedFulfillmentFee,
           }
         : undefined,
@@ -352,9 +346,9 @@ export default function CheckoutPage() {
   };
 
   return (
-    <main className="home-main-offset min-h-screen bg-zinc-100 px-6 pb-20 text-black md:px-10">
-      <div className="mx-auto mt-10 max-w-3xl md:mt-14">
-        <div className="mb-8 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+    <main className="home-main-offset min-h-screen bg-zinc-100 px-6 pb-16 text-black md:px-10">
+      <div className="mx-auto mt-4 max-w-3xl md:mt-6">
+        <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <h1 className="text-4xl font-bold">
               Finalizar pedido
@@ -374,7 +368,7 @@ export default function CheckoutPage() {
           </Link>
         </div>
 
-        <div className="flex flex-col gap-5 rounded-3xl border border-zinc-200 bg-white p-5 shadow-sm sm:p-8">
+        <div className="flex flex-col gap-4 rounded-3xl border border-zinc-200 bg-white p-5 shadow-sm sm:p-6">
           <div>
             <p className={fieldLabelClass}>
               Nombre y apellido
@@ -420,74 +414,90 @@ export default function CheckoutPage() {
             />
           </div>
 
-          <div>
-            <p className={fieldLabelClass}>
-              Dirección calle y altura
-            </p>
+          {fulfillmentOption === "pickup" && (
+            <div className="rounded-2xl bg-zinc-100 p-3 text-sm leading-5 text-zinc-600">
+              Para retiro presencial solo necesitamos nombre, DNI/CUIT y
+              WhatsApp. El retiro se coordina cuando el pedido este abonado
+              y armado.
+            </div>
+          )}
 
-            <input
-              type="text"
-              value={address}
-              onChange={(e) => setAddress(e.target.value)}
-              className={getRequiredFieldClass(
-                showError && !address.trim()
-              )}
-            />
-          </div>
+          {requiresShippingData && (
+            <>
+              <div className="rounded-2xl bg-zinc-100 p-3 text-sm font-semibold text-zinc-700">
+                Datos para despacho
+              </div>
 
-          <div>
-            <p className={fieldLabelClass}>
-              Localidad / Ciudad
-            </p>
+              <div>
+                <p className={fieldLabelClass}>
+                  Direccion calle y altura
+                </p>
 
-            <input
-              type="text"
-              value={city}
-              onChange={(e) => setCity(e.target.value)}
-              className={getRequiredFieldClass(
-                showError && !city.trim()
-              )}
-            />
-          </div>
+                <input
+                  type="text"
+                  value={address}
+                  onChange={(e) => setAddress(e.target.value)}
+                  className={getRequiredFieldClass(
+                    showError && !address.trim()
+                  )}
+                />
+              </div>
 
-          <div>
-            <p className={fieldLabelClass}>
-              Provincia
-            </p>
+              <div>
+                <p className={fieldLabelClass}>
+                  Localidad / Ciudad
+                </p>
 
-            <select
-              value={province}
-              onChange={(e) => setProvince(e.target.value)}
-              className={getRequiredFieldClass(
-                showError && !province.trim()
-              )}
-            >
-              <option value="">
-                Seleccionar provincia
-              </option>
+                <input
+                  type="text"
+                  value={city}
+                  onChange={(e) => setCity(e.target.value)}
+                  className={getRequiredFieldClass(
+                    showError && !city.trim()
+                  )}
+                />
+              </div>
 
-              {provinces.map((provinceName) => (
-                <option key={provinceName}>
-                  {provinceName}
-                </option>
-              ))}
-            </select>
-          </div>
+              <div>
+                <p className={fieldLabelClass}>
+                  Provincia
+                </p>
 
-          <div>
-            <p className={fieldLabelClass}>
-              Código Postal / ZIP
-            </p>
+                <select
+                  value={province}
+                  onChange={(e) => setProvince(e.target.value)}
+                  className={getRequiredFieldClass(
+                    showError && !province.trim()
+                  )}
+                >
+                  <option value="">
+                    Seleccionar provincia
+                  </option>
 
-            <input
-              type="text"
-              value={zip}
-              onChange={(e) => setZip(e.target.value)}
-              className={getRequiredFieldClass(
-                showError && !zip.trim()
-              )}
-            />
-          </div>
+                  {provinces.map((provinceName) => (
+                    <option key={provinceName}>
+                      {provinceName}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <p className={fieldLabelClass}>
+                  Codigo Postal / ZIP
+                </p>
+
+                <input
+                  type="text"
+                  value={zip}
+                  onChange={(e) => setZip(e.target.value)}
+                  className={getRequiredFieldClass(
+                    showError && !zip.trim()
+                  )}
+                />
+              </div>
+            </>
+          )}
 
           <div>
             <p className={fieldLabelClass}>
@@ -510,11 +520,11 @@ export default function CheckoutPage() {
             <textarea
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
-              className={`${fieldBaseClass} min-h-[120px] resize-y border-zinc-300`}
+              className={`${fieldBaseClass} min-h-24 resize-y border-zinc-300`}
             />
           </div>
 
-          <label className="flex items-center gap-3 rounded-2xl bg-zinc-100 p-4 text-sm text-zinc-700">
+          <label className="flex items-center gap-3 rounded-2xl bg-zinc-100 p-3 text-sm text-zinc-700">
             <input
               type="checkbox"
               checked={rememberCustomer}
@@ -526,8 +536,8 @@ export default function CheckoutPage() {
             Recordar mis datos para próximos pedidos
           </label>
 
-          <div className="mt-4 rounded-3xl border border-zinc-200 bg-zinc-50 p-5">
-            <div className="flex flex-col gap-3 mb-6">
+          <div className="mt-2 rounded-3xl border border-zinc-200 bg-zinc-50 p-4">
+            <div className="mb-4 flex flex-col gap-3">
               {!isCartReady && (
                 <p className="text-zinc-500 text-sm">
                   Cargando carrito...
@@ -540,41 +550,65 @@ export default function CheckoutPage() {
                 </p>
               )}
 
-              {isCartReady && cart.map((item) => (
-                <div
-                  key={`${item.id}-${item.selectedColor}-${item.size}`}
-                  className="flex items-start justify-between gap-4 border-b border-zinc-200 pb-3 text-sm last:border-b-0 last:pb-0"
-                >
-                  <div>
-                    <p className="font-medium text-black">
-                      {getCartItemLabel(item)}
-                    </p>
+              {isCartReady && cart.map((item) => {
+                const wholesaleUnitPrice = getWholesalePrice(item);
+                const retailUnitPrice = getRetailPrice(item);
+                const hasWholesaleSavings =
+                  cartPricing.isWholesale &&
+                  retailUnitPrice > wholesaleUnitPrice;
 
-                    <p className="text-zinc-500">
-                      {item.quantity} x{" "}
-                      {formatPrice(
-                        getCartItemUnitPrice(
-                          item,
-                          cartPricing.isWholesale
-                        )
+                return (
+                  <div
+                    key={`${item.id}-${item.selectedColor}-${item.size}`}
+                    className="flex items-start justify-between gap-4 border-b border-zinc-200 pb-3 text-sm last:border-b-0 last:pb-0"
+                  >
+                    <div>
+                      <p className="font-medium text-black">
+                        {getCartItemLabel(item)}
+                      </p>
+
+                      <div className="mt-1 text-zinc-500">
+                        {hasWholesaleSavings && (
+                          <span className="mr-2 font-semibold line-through">
+                            {formatPrice(retailUnitPrice)}
+                          </span>
+                        )}
+
+                        <span>
+                          {item.quantity} x{" "}
+                          {formatPrice(
+                            getCartItemUnitPrice(
+                              item,
+                              cartPricing.isWholesale
+                            )
+                          )}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="text-right">
+                      {hasWholesaleSavings && (
+                        <p className="text-xs font-semibold text-zinc-400 line-through">
+                          {formatPrice(retailUnitPrice * item.quantity)}
+                        </p>
                       )}
-                    </p>
-                  </div>
 
-                  <p className="font-semibold text-black">
-                    {formatPrice(
-                      getCartItemSubtotal(
-                        item,
-                        cartPricing.isWholesale
-                      )
-                    )}
-                  </p>
-                </div>
-              ))}
+                      <p className="font-semibold text-black">
+                        {formatPrice(
+                          getCartItemSubtotal(
+                            item,
+                            cartPricing.isWholesale
+                          )
+                        )}
+                      </p>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
 
             <p
-              className={`mb-5 rounded-2xl p-4 text-sm leading-6 ${
+              className={`mb-3 rounded-2xl p-3 text-sm leading-5 ${
                 cartPricing.isWholesale
                   ? "bg-green-500/10 text-green-700"
                   : "bg-yellow-500/10 text-yellow-800"
@@ -590,23 +624,20 @@ export default function CheckoutPage() {
                 </span>
               )}
 
-              {cartPricing.isWholesale && cartPricing.savings > 0 && (
-                <span className="mt-1 block font-semibold">
-                  Ahorras {formatPrice(cartPricing.savings)} con precio mayorista.
-                </span>
-              )}
             </p>
 
-            <p className="mb-5 rounded-2xl bg-white p-4 text-sm leading-6 text-zinc-600">
+            <p className="mb-3 rounded-2xl bg-white p-3 text-sm leading-5 text-zinc-600">
               No pagas online. Este paso crea el pedido, reserva el
               stock y abre WhatsApp para confirmar los datos.
             </p>
 
             {selectedFulfillment ? (
-              <div className="mb-5 rounded-2xl bg-white p-4 text-sm leading-6 text-zinc-600">
+              <div className="mb-3 rounded-2xl bg-white p-3 text-sm leading-5 text-zinc-600">
                 <div className="flex items-center justify-between gap-4">
                   <span className="font-semibold text-zinc-900">
-                    {selectedFulfillment.label}
+                    {fulfillmentOption === "pickup"
+                      ? "Retiro presencial"
+                      : "Despacho a transporte, correo, expreso"}
                   </span>
                   <span className="font-semibold text-zinc-900">
                     {formatPrice(fulfillmentFee)}
@@ -614,30 +645,32 @@ export default function CheckoutPage() {
                 </div>
 
                 <p className="mt-2">
-                  {selectedFulfillment.description}
+                  {fulfillmentOption === "pickup"
+                    ? "Yerbal 3160, Flores. Se retira una vez confirmado el pedido abonado y armado."
+                    : "Costo de entrega a logistica y embalaje. El envio final queda a cargo del cliente segun peso y distancia."}
                 </p>
 
                 <Link
                   href="/cart"
-                  className="mt-3 inline-flex h-10 items-center rounded-full bg-zinc-100 px-4 text-sm font-semibold text-zinc-700 transition hover:bg-zinc-200"
+                  className="mt-2 inline-flex h-9 items-center rounded-full bg-zinc-100 px-4 text-sm font-semibold text-zinc-700 transition hover:bg-zinc-200"
                 >
                   Cambiar entrega
                 </Link>
               </div>
             ) : (
-              <div className="mb-5 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-800">
+              <div className="mb-3 rounded-2xl border border-amber-200 bg-amber-50 p-3 text-sm leading-5 text-amber-800">
                 Elegi una opcion de entrega desde el carrito antes de finalizar.
 
                 <Link
                   href="/cart"
-                  className="mt-3 inline-flex h-10 items-center rounded-full bg-black px-4 text-sm font-semibold text-white transition hover:bg-zinc-800"
+                  className="mt-2 inline-flex h-9 items-center rounded-full bg-black px-4 text-sm font-semibold text-white transition hover:bg-zinc-800"
                 >
                   Elegir entrega
                 </Link>
               </div>
             )}
 
-            <p className="rounded-2xl bg-white p-4 text-2xl font-bold">
+            <p className="rounded-2xl bg-white p-3 text-2xl font-bold">
               Total: {formatPrice(finalTotal)}
             </p>
 
@@ -704,7 +737,7 @@ export default function CheckoutPage() {
                 Boolean(checkoutStockError) ||
                 Boolean(createdOrderNumber)
               }
-              className="mt-6 w-full rounded-2xl bg-green-500 py-4 font-semibold text-white transition hover:bg-green-600 disabled:cursor-not-allowed disabled:bg-zinc-300 disabled:text-zinc-500"
+              className="mt-4 w-full rounded-2xl bg-green-500 py-4 font-semibold text-white transition hover:bg-green-600 disabled:cursor-not-allowed disabled:bg-zinc-300 disabled:text-zinc-500"
             >
               {createdOrderNumber
                 ? "Ticket creado"
