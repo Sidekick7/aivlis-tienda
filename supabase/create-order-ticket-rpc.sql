@@ -19,6 +19,13 @@ language plpgsql
 security definer
 set search_path = public
 as $$
+declare
+  order_item jsonb;
+  product_record public.products%rowtype;
+  requested_quantity integer;
+  selected_stock integer;
+  next_variants jsonb;
+  next_total_stock integer;
 begin
   if jsonb_typeof(items) <> 'array' or jsonb_array_length(items) = 0 then
     raise exception 'El pedido no tiene productos.';
@@ -44,26 +51,95 @@ begin
     raise exception 'El total del pedido es invalido.';
   end if;
 
-  if exists (
-    select 1
-    from jsonb_array_elements(items) as item
-    left join public.products product
-      on product.id = nullif(item ->> 'product_id', '')::bigint
-    where product.id is null
-      or product.active is not true
-      or product.slug <> item ->> 'product_slug'
-      or not exists (
-        select 1
-        from jsonb_array_elements(product.variants) as variant
-        cross join jsonb_array_elements(variant -> 'sizes') as size_item
-        where variant ->> 'color' = item ->> 'variant_color'
-          and size_item ->> 'size' = item ->> 'size'
-          and coalesce((size_item ->> 'stock')::integer, 0)
-            >= (item ->> 'quantity')::integer
-      )
-  ) then
-    raise exception 'El pedido tiene productos sin stock o no publicados.';
-  end if;
+  for order_item in
+    select value
+    from jsonb_array_elements(items)
+  loop
+    requested_quantity := (order_item ->> 'quantity')::integer;
+    selected_stock := null;
+
+    select *
+    into product_record
+    from public.products
+    where id = nullif(order_item ->> 'product_id', '')::bigint
+    for update;
+
+    if not found
+      or product_record.active is not true
+      or product_record.slug <> order_item ->> 'product_slug'
+    then
+      raise exception 'El pedido tiene productos sin stock o no publicados.';
+    end if;
+
+    select coalesce((size_item ->> 'stock')::integer, 0)
+    into selected_stock
+    from jsonb_array_elements(product_record.variants) as variant
+    cross join jsonb_array_elements(variant -> 'sizes') as size_item
+    where variant ->> 'color' = order_item ->> 'variant_color'
+      and size_item ->> 'size' = order_item ->> 'size'
+    limit 1;
+
+    if selected_stock is null or selected_stock < requested_quantity then
+      raise exception 'El pedido tiene productos sin stock o no publicados.';
+    end if;
+
+    select jsonb_agg(
+      case
+        when variant ->> 'color' = order_item ->> 'variant_color'
+        then jsonb_set(
+          jsonb_set(variant, '{sizes}', next_sizes.sizes, true),
+          '{stock}',
+          to_jsonb(next_sizes.stock),
+          true
+        )
+        else variant
+      end
+      order by variant_ordinal
+    )
+    into next_variants
+    from jsonb_array_elements(product_record.variants)
+      with ordinality as variants(variant, variant_ordinal)
+    cross join lateral (
+      select
+        jsonb_agg(
+          case
+            when variant ->> 'color' = order_item ->> 'variant_color'
+              and size_item ->> 'size' = order_item ->> 'size'
+            then jsonb_set(
+              size_item,
+              '{stock}',
+              to_jsonb(selected_stock - requested_quantity),
+              true
+            )
+            else size_item
+          end
+          order by size_ordinal
+        ) as sizes,
+        coalesce(
+          sum(
+            case
+              when variant ->> 'color' = order_item ->> 'variant_color'
+                and size_item ->> 'size' = order_item ->> 'size'
+              then selected_stock - requested_quantity
+              else coalesce((size_item ->> 'stock')::integer, 0)
+            end
+          ),
+          0
+        )::integer as stock
+      from jsonb_array_elements(variant -> 'sizes')
+        with ordinality as sizes(size_item, size_ordinal)
+    ) as next_sizes;
+
+    select coalesce(sum(coalesce((variant ->> 'stock')::integer, 0)), 0)
+    into next_total_stock
+    from jsonb_array_elements(next_variants) as variant;
+
+    update public.products
+    set
+      variants = next_variants,
+      stock = next_total_stock
+    where id = product_record.id;
+  end loop;
 
   insert into public.orders (
     id,

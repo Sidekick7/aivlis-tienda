@@ -218,6 +218,46 @@ export default function EditProductModal({
                 </select>
               </label>
             </div>
+
+            <div className="grid gap-3 rounded-2xl border border-zinc-800 bg-zinc-950 p-3">
+              <p className="text-xs font-semibold uppercase text-zinc-500">
+                Modo de venta
+              </p>
+
+              <div className="grid gap-2 sm:grid-cols-2">
+                <button
+                  type="button"
+                  onClick={() => updateProduct({ saleMode: "unit" })}
+                  className={`h-11 rounded-xl text-sm font-semibold transition ${
+                    product.saleMode === "unit"
+                      ? "bg-white text-black"
+                      : "bg-zinc-800 text-zinc-300 hover:bg-zinc-700"
+                  }`}
+                >
+                  Unidad
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => updateProduct({ saleMode: "curve" })}
+                  className={`h-11 rounded-xl text-sm font-semibold transition ${
+                    product.saleMode === "curve"
+                      ? "bg-white text-black"
+                      : "bg-zinc-800 text-zinc-300 hover:bg-zinc-700"
+                  }`}
+                >
+                  Unidad + Curva
+                </button>
+              </div>
+
+              {product.saleMode === "curve" && (
+                <p className="rounded-xl bg-zinc-900 p-3 text-sm leading-6 text-zinc-400">
+                  El cliente puede comprar por unidad o elegir curva. La curva
+                  toma automaticamente 1 unidad de cada talle cargado en el
+                  color elegido.
+                </p>
+              )}
+            </div>
           </div>
 
           <textarea

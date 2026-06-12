@@ -7,6 +7,11 @@ import {
   validateCartStock,
 } from "@/lib/order";
 import {
+  getCartItemUnits,
+  getCurveStockLimit,
+  isCurveProduct,
+} from "@/lib/curve";
+import {
   formatPrice,
   getCartItemSubtotal,
   getCartItemUnitPrice,
@@ -59,7 +64,7 @@ const {
     100
   );
   const totalUnits = cart.reduce(
-    (quantity, item) => quantity + item.quantity,
+    (quantity, item) => quantity + getCartItemUnits(item),
     0
   );
   const [currentProducts, setCurrentProducts] = useState<Product[]>([]);
@@ -240,26 +245,35 @@ const {
         </div>        
 
         {isCartReady && cart.map((item) => {
+          const isCurveItem = isCurveProduct(item);
+          const itemUnits = getCartItemUnits(item);
           const unitPrice = getCartItemUnitPrice(
             item,
             cartPricing.isWholesale
           );
           const wholesaleUnitPrice = getWholesalePrice(item);
           const retailUnitPrice = getRetailPrice(item);
+          const isItemWholesale =
+            cartPricing.isWholesale || isCurveItem;
           const hasWholesaleSavings =
-            cartPricing.isWholesale &&
-            retailUnitPrice > wholesaleUnitPrice;
+            isItemWholesale && retailUnitPrice > wholesaleUnitPrice;
           const itemSubtotal = getCartItemSubtotal(
             item,
             cartPricing.isWholesale
           );
-          const retailItemSubtotal = retailUnitPrice * item.quantity;
+          const retailItemSubtotal = retailUnitPrice * itemUnits;
           const currentProduct = currentProductsById.get(item.id);
-          const stockLimit = getVariantSizeStock({
-            variants: currentProduct?.variants ?? item.variants,
-            color: item.selectedColor,
-            size: item.size,
-          });
+          const stockLimit = isCurveItem
+            ? getCurveStockLimit({
+                variant: (currentProduct?.variants ?? item.variants)?.find(
+                  (variant) => variant.color === item.selectedColor
+                ),
+              })
+            : getVariantSizeStock({
+                variants: currentProduct?.variants ?? item.variants,
+                color: item.selectedColor,
+                size: item.size,
+              });
           const canIncrease =
             !isCheckingStock &&
             !stockError &&
@@ -302,7 +316,13 @@ const {
 
                       {item.size && (
                         <span className="rounded-full bg-zinc-100 px-3 py-1">
-                          Talle {item.size}
+                          {isCurveItem ? item.size : `Talle ${item.size}`}
+                        </span>
+                      )}
+
+                      {isCurveItem && (
+                        <span className="rounded-full bg-zinc-100 px-3 py-1">
+                          {itemUnits} prendas
                         </span>
                       )}
                     </div>
@@ -330,7 +350,7 @@ const {
               </div>
 
               <p className="mt-1 text-xs text-zinc-500">
-                {cartPricing.isWholesale ? "Mayorista" : "Minorista"}
+                {isItemWholesale ? "Mayorista" : "Minorista"}
               </p>
             </div>
 
@@ -376,7 +396,9 @@ const {
               {!canIncrease && (
                 <p className="mt-2 text-xs text-zinc-500">
                   {stockLimit > 0
-                    ? "Stock maximo en carrito"
+                    ? isCurveItem
+                      ? "Curvas maximas en carrito"
+                      : "Stock maximo en carrito"
                     : "Sin stock disponible"}
                 </p>
               )}
@@ -434,7 +456,11 @@ const {
               </h2>
 
               <span className="rounded-full bg-zinc-100 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-zinc-500">
-                {cartPricing.isWholesale ? "Mayorista" : "Minorista"}
+                {cartPricing.isWholesale
+                  ? "Mayorista"
+                  : cartPricing.hasCurveWholesale
+                  ? "Mixto"
+                  : "Minorista"}
               </span>
             </div>
 
@@ -470,12 +496,21 @@ const {
                   <div className="flex items-center justify-between text-sm text-zinc-600">
                     <span>Subtotal actual</span>
                     <span className="font-semibold">
-                      {formatPrice(cartPricing.retailSubtotal)}
+                      {formatPrice(cartPricing.total)}
                     </span>
                   </div>
 
+                  {cartPricing.hasCurveWholesale && (
+                    <div className="mt-2 flex items-center justify-between text-sm text-zinc-500">
+                      <span>Curvas mayoristas</span>
+                      <span>
+                        {formatPrice(cartPricing.curveWholesaleSubtotal)}
+                      </span>
+                    </div>
+                  )}
+
                   <div className="mt-2 flex items-center justify-between text-sm text-zinc-500">
-                    <span>Subtotal mayorista</span>
+                    <span>Total si todo fuera mayorista</span>
                     <span>{formatPrice(cartPricing.wholesaleSubtotal)}</span>
                   </div>
                 </>
@@ -587,6 +622,8 @@ const {
 
               {cartPricing.isWholesale
                 ? `Precio mayorista aplicado. Superaste el minimo de ${formatPrice(wholesaleMinimum)}.`
+                : cartPricing.hasCurveWholesale
+                ? `Las curvas ya mantienen precio mayorista. Faltan ${formatPrice(cartPricing.remainingForWholesale)} para aplicar mayorista tambien a unidades sueltas.`
                 : `Faltan ${formatPrice(cartPricing.remainingForWholesale)} para aplicar precio mayorista.`}
 
               {!cartPricing.isWholesale && (

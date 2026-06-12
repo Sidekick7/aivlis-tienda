@@ -38,6 +38,7 @@ export function getProductFormError({
   productRetailPrice,
   productCategory,
   productVariants,
+  productSaleMode = "unit",
 }: {
   productName: string;
   productSlug: string;
@@ -46,6 +47,7 @@ export function getProductFormError({
   productRetailPrice: string | number;
   productCategory: string;
   productVariants: ProductFormVariant[];
+  productSaleMode?: Product["saleMode"];
 }) {
   const effectiveRetailPrice =
     String(productRetailPrice).trim() === ""
@@ -88,6 +90,10 @@ export function getProductFormError({
       if (!Number.isInteger(stock) || stock < 0) {
         return `El stock de ${sizeItem.size} debe ser 0 o mayor.`;
       }
+    }
+
+    if (productSaleMode === "curve" && variant.sizes.length < 2) {
+      return `El color ${variant.color} necesita al menos 2 talles para vender por curva.`;
     }
   }
 
@@ -176,6 +182,7 @@ export async function createAdminProduct({
   description,
   detailsText,
   variants,
+  saleMode,
 }: {
   name: string;
   slug: string;
@@ -186,6 +193,7 @@ export async function createAdminProduct({
   description: string;
   detailsText: string;
   variants: NewProductVariant[];
+  saleMode: Product["saleMode"];
 }) {
   const processedVariants = await prepareProductVariants(variants);
 
@@ -198,6 +206,7 @@ export async function createAdminProduct({
         sku,
         price: Number(price),
         retail_price: Number(retailPrice || price),
+        sale_mode: saleMode,
         category,
         description,
         stock: getProcessedVariantsStock(processedVariants),
@@ -234,6 +243,7 @@ export async function updateAdminProduct({
       sku: product.sku,
       price: Number(product.price),
       retail_price: Number(product.retailPrice || product.price),
+      sale_mode: product.saleMode,
       category: product.category,
       description: product.description,
       details: parseDetailsText(detailsText),

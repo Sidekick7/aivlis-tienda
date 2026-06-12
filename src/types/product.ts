@@ -11,12 +11,15 @@ export type ProductVariant = {
   images: string[];
 };
 
+export type ProductSaleMode = "unit" | "curve";
+
 export type Product = {
   id: number;
   slug: string;
   name: string;
   price: number;
   retailPrice: number;
+  saleMode: ProductSaleMode;
   category: string;
   description: string;
   sku?: string;
@@ -40,4 +43,5 @@ export type SupabaseProductRow = Partial<
   sizes?: unknown;
   stock?: number | null;
   retail_price?: number | string | null;
+  sale_mode?: unknown;
 };

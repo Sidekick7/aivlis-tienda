@@ -4,6 +4,7 @@ import {
   getCartItemUnitPrice,
   getCartPricing,
 } from "@/lib/pricing";
+import { isCurveProduct } from "@/lib/curve";
 import { normalizeProduct } from "@/lib/products";
 import { findVariantSize } from "@/lib/stock";
 import type {
@@ -182,6 +183,47 @@ export async function createOrderTicket({
 }: CreateOrderTicketInput): Promise<CreatedOrderTicket> {
   const orderId = crypto.randomUUID();
   const cartPricing = getCartPricing(cart);
+  const orderItems = cart.flatMap((item) => {
+    const unitPrice = getCartItemUnitPrice(
+      item,
+      cartPricing.isWholesale
+    );
+
+    if (!isCurveProduct(item)) {
+      return [
+        {
+          product_id: item.id,
+          product_slug: item.slug,
+          product_sku: item.sku || "",
+          product_name: item.name,
+          variant_color: item.selectedColor || "",
+          size: item.size || "",
+          quantity: item.quantity,
+          unit_price: unitPrice,
+          subtotal: getCartItemSubtotal(item, cartPricing.isWholesale),
+          image_url: item.selectedImage || item.images?.[0] || "",
+        },
+      ];
+    }
+
+    const curveVariant = item.variants?.find(
+      (variant) => variant.color === item.selectedColor
+    );
+    const quantityBySize = item.quantity;
+
+    return (curveVariant?.sizes ?? []).map((sizeItem) => ({
+      product_id: item.id,
+      product_slug: item.slug,
+      product_sku: item.sku || "",
+      product_name: `${item.name} (${item.size})`,
+      variant_color: item.selectedColor || "",
+      size: sizeItem.size,
+      quantity: quantityBySize,
+      unit_price: unitPrice,
+      subtotal: unitPrice * quantityBySize,
+      image_url: item.selectedImage || item.images?.[0] || "",
+    }));
+  });
   const { error } = await supabase.rpc("create_order_ticket", {
     order_id: orderId,
     order_number: orderNumber,
@@ -196,21 +238,7 @@ export async function createOrderTicket({
     notes: customer.notes || "",
     total,
     whatsapp_message: whatsappMessage,
-    items: cart.map((item) => ({
-      product_id: item.id,
-      product_slug: item.slug,
-      product_sku: item.sku || "",
-      product_name: item.name,
-      variant_color: item.selectedColor || "",
-      size: item.size || "",
-      quantity: item.quantity,
-      unit_price: getCartItemUnitPrice(
-        item,
-        cartPricing.isWholesale
-      ),
-      subtotal: getCartItemSubtotal(item, cartPricing.isWholesale),
-      image_url: item.selectedImage || item.images?.[0] || "",
-    })),
+    items: orderItems,
   });
 
   if (error) {
@@ -284,11 +312,14 @@ export async function updateOrderStatus(
 ) {
   if (order.status === status) return;
 
-  if (order.status !== "confirmed" && status === "confirmed") {
+  const wasReserved = order.status !== "cancelled";
+  const shouldBeReserved = status !== "cancelled";
+
+  if (!wasReserved && shouldBeReserved) {
     await adjustStockForOrder(order, -1);
   }
 
-  if (order.status === "confirmed" && status !== "confirmed") {
+  if (wasReserved && !shouldBeReserved) {
     await adjustStockForOrder(order, 1);
   }
 
@@ -323,7 +354,7 @@ export async function updateOrderInternalNotes(
 }
 
 export async function deleteOrder(order: AdminOrder) {
-  if (order.status === "confirmed") {
+  if (order.status !== "cancelled") {
     await adjustStockForOrder(order, 1);
   }
 

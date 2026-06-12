@@ -1,5 +1,6 @@
 import type { CartItem } from "@/context/CartContext";
 import { storeConfig } from "@/config/store";
+import { getCartItemUnits, isCurveProduct } from "@/lib/curve";
 import { formatOrderNumber } from "@/lib/orderNumber";
 import {
   getCartItemSubtotal,
@@ -18,7 +19,11 @@ export function getCartTotal(cart: CartItem[]) {
 export function getCartItemLabel(item: CartItem) {
   const details = [
     item.selectedColor,
-    item.size ? `Talle ${item.size}` : null,
+    item.size
+      ? isCurveProduct(item)
+        ? item.size
+        : `Talle ${item.size}`
+      : null,
   ].filter(Boolean);
 
   return details.length > 0
@@ -43,11 +48,17 @@ export function formatCartItemsForWhatsApp(cart: CartItem[]) {
         item,
         cartPricing.isWholesale
       );
+      const units = getCartItemUnits(item);
+      const quantityLabel = isCurveProduct(item)
+        ? `${item.quantity} ${
+            item.quantity === 1 ? "curva" : "curvas"
+          } (${units} prendas) x ${formatPrice(unitPrice)}`
+        : `${item.quantity} x ${formatPrice(unitPrice)}`;
 
       return [
         `- ${getCartItemLabel(item)}`,
         item.sku ? `  SKU: ${getShortSku(item.sku)}` : null,
-        `  Cantidad: ${item.quantity} x ${formatPrice(unitPrice)}`,
+        `  Cantidad: ${quantityLabel}`,
         `  Subtotal: ${formatPrice(subtotal)}`,
       ]
         .filter(Boolean)
@@ -154,6 +165,24 @@ export function validateCartStock(
 
     if (!product) {
       return `${item.name} ya no esta disponible.`;
+    }
+
+    if (isCurveProduct(item)) {
+      const variant = product.variants.find(
+        (productVariant) => productVariant.color === item.selectedColor
+      );
+
+      for (const sizeItem of variant?.sizes ?? []) {
+        const currentStock =
+          sizeItem.stock ?? 0;
+        const requestedStock = item.quantity;
+
+        if (requestedStock > currentStock) {
+          return `Stock insuficiente para ${item.name} (${item.selectedColor} / ${sizeItem.size}). Disponible: ${currentStock}.`;
+        }
+      }
+
+      continue;
     }
 
     const currentStock = getVariantSizeStock({

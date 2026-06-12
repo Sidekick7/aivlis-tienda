@@ -6,6 +6,11 @@ import {
   useEffect,
   useState,
 } from "react";
+import {
+  getCurveLabel,
+  getCurveStockLimit,
+  isCurveProduct,
+} from "@/lib/curve";
 import { getVariantSizeStock } from "@/lib/stock";
 import type { Product } from "@/types/product";
 
@@ -19,6 +24,7 @@ export type CartItem = {
   name: string;
   price: number;
   retailPrice: number;
+  saleMode: Product["saleMode"];
   quantity: number;
   size?: string;
   images?: string[];
@@ -80,6 +86,7 @@ const fallbackCartContext: CartContextType = {
 
 function getStockForSelection(
   product: {
+    saleMode?: Product["saleMode"];
     variants?: Product["variants"];
     selectedColor?: string;
   },
@@ -87,6 +94,15 @@ function getStockForSelection(
   color?: string
 ) {
   const selectedColor = color ?? product.selectedColor;
+  const selectedVariant = product.variants?.find(
+    (variant) => variant.color === selectedColor
+  );
+
+  if (product.saleMode === "curve") {
+    return getCurveStockLimit({
+      variant: selectedVariant,
+    });
+  }
 
   return getVariantSizeStock({
     variants: product.variants,
@@ -126,6 +142,7 @@ function normalizeSavedCart(value: unknown): CartItem[] {
       name: cartItem.name,
       price,
       retailPrice: Number(cartItem.retailPrice || price),
+      saleMode: cartItem.saleMode === "curve" ? "curve" : "unit",
       quantity,
       size: cartItem.size,
       images: cartItem.images,
@@ -137,6 +154,7 @@ function normalizeSavedCart(value: unknown): CartItem[] {
       normalizedItem.id,
       normalizedItem.size || "",
       normalizedItem.selectedColor || "",
+      normalizedItem.saleMode,
     ].join("|");
     const existingItem = itemsByKey.get(key);
 
@@ -200,15 +218,22 @@ export function CartProvider({
     size?: string,
     quantity: number = 1
   ) => {
+    const selectedVariant = product.variants.find(
+      (variant) => variant.color === product.selectedColor
+    );
+    const itemSize = isCurveProduct(product)
+      ? getCurveLabel(selectedVariant)
+      : size;
 
     const existingProduct = cart.find(
       (item) =>
         item.id === product.id &&
-        item.size === size &&
-        item.selectedColor === product.selectedColor
+        item.size === itemSize &&
+        item.selectedColor === product.selectedColor &&
+        item.saleMode === product.saleMode
     );
 
-    const stockLimit = getStockForSelection(product, size);
+    const stockLimit = getStockForSelection(product, itemSize);
     const safeQuantity = Math.min(quantity, stockLimit);
 
     if (safeQuantity <= 0) return;
@@ -219,8 +244,9 @@ export function CartProvider({
 
       updatedCart = cart.map((item) =>
         item.id === product.id &&
-        item.size === size &&
-        item.selectedColor === product.selectedColor
+        item.size === itemSize &&
+        item.selectedColor === product.selectedColor &&
+        item.saleMode === product.saleMode
           ? {
             ...item,
               quantity:
@@ -238,7 +264,7 @@ export function CartProvider({
         ...cart,
         {
           ...product,
-          size,
+          size: itemSize,
           quantity: safeQuantity,
         },
       ];

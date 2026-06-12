@@ -6,7 +6,6 @@ import Link from "next/link";
 import {
   AlertCircle,
   Barcode,
-  Check,
   CheckCircle,
   Tag,
   Truck,
@@ -15,10 +14,16 @@ import { fallbackProductImage } from "@/config/store";
 import { useCart } from "@/context/CartContext";
 import { getCategories } from "@/lib/categories";
 import {
+  getCurveLabel,
+  getCurveSizesFromVariant,
+  getCurveStockLimit,
+  getCurveUnitsPerSet,
+  isCurveProduct,
+} from "@/lib/curve";
+import {
   formatPrice,
   getRetailPrice,
   hasDifferentRetailPrice,
-  wholesaleMinimum,
 } from "@/lib/pricing";
 import type { Product, ProductVariant } from "@/types/product";
 
@@ -96,6 +101,9 @@ export default function ProductInfo({ product }: Props) {
   const [selectedImage, setSelectedImage] = useState(
     firstImage
   );
+  const [purchaseMode, setPurchaseMode] = useState<"unit" | "curve">(
+    "unit"
+  );
   const [cartMessage, setCartMessage] = useState("");
   const [cartError, setCartError] = useState("");
   const retailPrice = getRetailPrice(product);
@@ -121,6 +129,18 @@ export default function ProductInfo({ product }: Props) {
     product.variants.find(
       (variant) => variant.color === selectedColor
     ) || firstVariant;
+  const canBuyCurve = isCurveProduct(product);
+  const isCurveSale = canBuyCurve && purchaseMode === "curve";
+  const curveStockLimit = canBuyCurve
+    ? getCurveStockLimit({
+        variant: selectedVariant,
+      })
+    : 0;
+  const curveUnitsPerSet = canBuyCurve
+    ? getCurveUnitsPerSet(selectedVariant)
+    : 1;
+  const curveLabel = canBuyCurve ? getCurveLabel(selectedVariant) : "";
+  const curveSizes = getCurveSizesFromVariant(selectedVariant);
   const allProductSizes = sortSizes(
     Array.from(
       new Set(
@@ -140,12 +160,16 @@ export default function ProductInfo({ product }: Props) {
     .filter(
       (item) =>
         item.id === product.id &&
-        item.size === selectedSize &&
+        item.saleMode === (isCurveSale ? "curve" : "unit") &&
+        item.size === (isCurveSale ? curveLabel : selectedSize) &&
         item.selectedColor === selectedColor
     )
     .reduce((total, item) => total + item.quantity, 0);
+  const effectiveStockLimit = isCurveSale
+    ? curveStockLimit
+    : stockLimit;
   const availableToAdd = Math.max(
-    stockLimit - quantityAlreadyInCart,
+    effectiveStockLimit - quantityAlreadyInCart,
     0
   );
   const maxQuantityToSelect =
@@ -163,6 +187,38 @@ export default function ProductInfo({ product }: Props) {
   const handleAddToCart = () => {
     setCartMessage("");
     setCartError("");
+
+    if (isCurveSale) {
+      if (!selectedVariant || curveStockLimit <= 0) {
+        setCartError("Este producto no tiene curvas disponibles.");
+        return;
+      }
+
+      if (availableToAdd <= 0) {
+        setCartError(
+          "Ya agregaste todo el stock disponible al carrito."
+        );
+        return;
+      }
+
+      addToCart(
+        {
+          ...product,
+          saleMode: "curve",
+          selectedImage: selectedImage || fallbackProductImage,
+          selectedColor,
+        },
+        undefined,
+        selectedQuantity
+      );
+
+      setCartMessage(
+        `${selectedQuantity} ${
+          selectedQuantity === 1 ? "curva agregada" : "curvas agregadas"
+        } al carrito.`
+      );
+      return;
+    }
 
     if (!selectedVariant || !selectedSizeData) {
       setCartError("Este producto no tiene stock disponible.");
@@ -187,6 +243,7 @@ export default function ProductInfo({ product }: Props) {
     addToCart(
       {
         ...product,
+        saleMode: "unit",
         selectedImage: selectedImage || fallbackProductImage,
         selectedColor,
       },
@@ -329,38 +386,158 @@ export default function ProductInfo({ product }: Props) {
           )}
         </div>
 
-        <div className="mt-4 rounded-2xl border border-zinc-200 bg-zinc-50 px-4 py-3 text-sm text-zinc-600">
-          <p>
-            Mayorista desde {formatPrice(wholesaleMinimum)} en el carrito.
-          </p>
-
-          <p className="mt-1">
-            Si el pedido no llega al minimo, se aplica precio minorista.
-          </p>
-        </div>
-      </div>
-      {selectedSizeData &&
-        selectedSizeData.stock > 0 &&
-        selectedSizeData.stock <= 5 && (
-          <div className="mt-4 inline-flex items-center gap-2 rounded-full bg-red-50 px-3 py-2 text-sm font-semibold text-red-600">
-            <AlertCircle size={16} />
-            Ultimas unidades disponibles
+        {product.details.length > 0 && (
+          <div className="mt-4 rounded-2xl border border-zinc-200 bg-zinc-50 px-4 py-3">
+            <ul className="list-disc space-y-1.5 pl-5 text-base font-semibold leading-7 text-zinc-700">
+              {product.details.map((detail) => (
+                <li key={detail}>
+                  {detail}
+                </li>
+              ))}
+            </ul>
           </div>
         )}
-
-      {(!selectedSizeData ||
+      </div>
+      {(!isCurveSale && (!selectedSizeData ||
         selectedSizeData.stock <= 0) && (
           <div className="mt-4 inline-flex items-center gap-2 rounded-full bg-zinc-200 px-3 py-2 text-sm font-semibold text-zinc-600">
             <AlertCircle size={16} />
             Agotado
           </div>
-        )}
+        ))}
+      {isCurveSale && curveStockLimit <= 3 && curveStockLimit > 0 && (
+        <div className="mt-4 inline-flex items-center gap-2 rounded-full bg-red-50 px-3 py-2 text-sm font-semibold text-red-600">
+          <AlertCircle size={16} />
+          Ultimas curvas disponibles
+        </div>
+      )}
+      {isCurveSale && curveStockLimit <= 0 && (
+        <div className="mt-4 inline-flex items-center gap-2 rounded-full bg-zinc-200 px-3 py-2 text-sm font-semibold text-zinc-600">
+          <AlertCircle size={16} />
+          Agotado
+        </div>
+      )}
       <div className="mt-6 space-y-5 rounded-3xl bg-white p-5 shadow-sm">
+        {canBuyCurve && (
+          <div>
+            <p className="mb-3 text-sm font-semibold uppercase tracking-wide text-zinc-500">
+              Modalidad
+            </p>
+
+            <div className="grid gap-3 sm:grid-cols-2">
+              <button
+                type="button"
+                onClick={() => {
+                  resetCartFeedback();
+                  setPurchaseMode("unit");
+                }}
+                className={`rounded-2xl border px-4 py-3 text-left transition ${
+                  purchaseMode === "unit"
+                    ? "border-black bg-black text-white"
+                    : "border-zinc-200 bg-zinc-50 hover:border-black"
+                }`}
+              >
+                <span className="block text-sm font-bold">
+                  Unidad
+                </span>
+                <span className="mt-1 block text-xs opacity-75">
+                  Elegis talle y cantidad
+                </span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  resetCartFeedback();
+                  setPurchaseMode("curve");
+                }}
+                disabled={curveStockLimit <= 0}
+                className={`rounded-2xl border px-4 py-3 text-left transition ${
+                  purchaseMode === "curve"
+                    ? "border-black bg-black text-white"
+                    : "border-zinc-200 bg-zinc-50 hover:border-black"
+                } ${
+                  curveStockLimit <= 0
+                    ? "cursor-not-allowed opacity-50"
+                    : "cursor-pointer"
+                }`}
+              >
+                <span className="block text-sm font-bold">
+                  Curva
+                </span>
+                <span className="mt-1 block text-xs opacity-75">
+                  1 de cada talle del color
+                </span>
+              </button>
+            </div>
+          </div>
+        )}
+
+        {isCurveSale ? (
+          <div className="rounded-2xl bg-zinc-50 p-4">
+            <p className="text-sm font-semibold uppercase tracking-wide text-zinc-500">
+              Venta por curva
+            </p>
+
+            <p className="mt-2 text-xl font-bold">
+              {curveLabel}
+            </p>
+
+            <p className="mt-2 text-sm leading-6 text-zinc-600">
+              Incluye 1 unidad de cada talle cargado para este color.
+              Total: {curveUnitsPerSet} prendas por curva.
+            </p>
+
+            <div className="mt-4 grid gap-3 rounded-2xl bg-white p-4 sm:grid-cols-2">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
+                  Precio por unidad
+                </p>
+                <p className="mt-1 text-lg font-bold text-zinc-900">
+                  {formatPrice(product.price)}
+                </p>
+              </div>
+
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
+                  Precio por curva
+                </p>
+                <p className="mt-1 text-lg font-bold text-zinc-900">
+                  {formatPrice(product.price * curveUnitsPerSet)}
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-3 flex flex-wrap gap-2">
+              {curveSizes.map((size) => (
+                <span
+                  key={size}
+                  className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-zinc-700"
+                >
+                  {size}
+                </span>
+              ))}
+            </div>
+
+            <p className="mt-2 text-sm font-semibold text-zinc-700">
+              Disponibles: {curveStockLimit} curvas
+            </p>
+          </div>
+        ) : (
         <div>
           <div className="mb-3 flex items-center gap-3">
             <p className="text-sm font-semibold uppercase tracking-wide text-zinc-500">
               Talle
             </p>
+
+            {selectedSizeData &&
+              selectedSizeData.stock > 0 &&
+              selectedSizeData.stock <= 5 && (
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-red-50 px-2.5 py-1 text-xs font-semibold text-red-600">
+                  <AlertCircle size={13} />
+                  Ultimas unidades
+                </span>
+              )}
           </div>
 
           <div className="flex flex-wrap gap-3">
@@ -412,6 +589,7 @@ export default function ProductInfo({ product }: Props) {
             })}
           </div>
         </div>
+        )}
 
         <div>
           <div className="mb-3 flex items-center gap-3">
@@ -524,22 +702,28 @@ export default function ProductInfo({ product }: Props) {
           <button
             onClick={handleAddToCart}
             disabled={
-              !selectedSizeData ||
-              selectedSizeData.stock <= 0 ||
+              (!isCurveSale &&
+                (!selectedSizeData || selectedSizeData.stock <= 0)) ||
+              (isCurveSale && curveStockLimit <= 0) ||
               availableToAdd <= 0
             }
             className={`h-14 flex-1 rounded-2xl font-semibold tracking-wide transition ${
-              !selectedSizeData ||
-              selectedSizeData.stock <= 0 ||
+              (!isCurveSale && (!selectedSizeData ||
+              selectedSizeData.stock <= 0)) ||
+              (isCurveSale && curveStockLimit <= 0) ||
               availableToAdd <= 0
                 ? "bg-zinc-300 text-zinc-500 cursor-not-allowed"
                 : "bg-black text-white hover:bg-zinc-800 cursor-pointer"
             }`}
           >
-            {!selectedSizeData || selectedSizeData.stock <= 0
+            {isCurveSale && curveStockLimit <= 0
+              ? "AGOTADO"
+              : !isCurveSale && (!selectedSizeData || selectedSizeData.stock <= 0)
               ? "AGOTADO"
               : availableToAdd <= 0
               ? "STOCK EN CARRITO"
+              : isCurveSale
+              ? "AGREGAR CURVA AL CARRITO"
               : "AGREGAR AL CARRITO"}
           </button>
         </div>
@@ -547,7 +731,8 @@ export default function ProductInfo({ product }: Props) {
 
           {quantityAlreadyInCart > 0 && availableToAdd > 0 && (
             <div className="mt-3 rounded-2xl bg-zinc-100 px-4 py-3 text-sm text-zinc-600">
-              Ya tenes {quantityAlreadyInCart} en el carrito para este talle y color.
+              Ya tenes {quantityAlreadyInCart} en el carrito para este{" "}
+              {isCurveSale ? "color y curva" : "talle y color"}.
             </div>
           )}
 
@@ -581,22 +766,6 @@ export default function ProductInfo({ product }: Props) {
                 Envios a todo el pais
               </div>
 
-              {product.details.length > 0 && (
-                <div className="mt-4 grid gap-2 text-sm text-zinc-600">
-                  {product.details.map((detail) => (
-                    <p
-                      key={detail}
-                      className="flex items-start gap-2"
-                    >
-                      <Check
-                        size={16}
-                        className="mt-0.5 shrink-0 text-zinc-900"
-                      />
-                      <span>{detail}</span>
-                    </p>
-                  ))}
-                </div>
-              )}
             </div>
 
             <div className="flex flex-wrap gap-2 text-xs font-semibold uppercase tracking-wide text-zinc-500">

@@ -10,6 +10,7 @@ import {
 } from "@/app/admin/adminUtils";
 import type { NewProductVariant } from "@/app/admin/adminTypes";
 import type { StoreCategory } from "@/types/category";
+import type { Product } from "@/types/product";
 
 type Props = {
   productFormError: string;
@@ -25,6 +26,8 @@ type Props = {
   setPrice: Dispatch<SetStateAction<string>>;
   retailPrice: string;
   setRetailPrice: Dispatch<SetStateAction<string>>;
+  saleMode: Product["saleMode"];
+  setSaleMode: Dispatch<SetStateAction<Product["saleMode"]>>;
   category: string;
   setCategory: Dispatch<SetStateAction<string>>;
   categories: StoreCategory[];
@@ -53,6 +56,8 @@ export default function CreateProductModal({
   setPrice,
   retailPrice,
   setRetailPrice,
+  saleMode,
+  setSaleMode,
   category,
   setCategory,
   categories,
@@ -219,6 +224,46 @@ export default function CreateProductModal({
                   ))}
                 </select>
               </label>
+            </div>
+
+            <div className="grid gap-3 rounded-2xl border border-zinc-800 bg-zinc-950 p-3">
+              <p className="text-xs font-semibold uppercase text-zinc-500">
+                Modo de venta
+              </p>
+
+              <div className="grid gap-2 sm:grid-cols-2">
+                <button
+                  type="button"
+                  onClick={() => setSaleMode("unit")}
+                  className={`h-11 rounded-xl text-sm font-semibold transition ${
+                    saleMode === "unit"
+                      ? "bg-white text-black"
+                      : "bg-zinc-800 text-zinc-300 hover:bg-zinc-700"
+                  }`}
+                >
+                  Unidad
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setSaleMode("curve")}
+                  className={`h-11 rounded-xl text-sm font-semibold transition ${
+                    saleMode === "curve"
+                      ? "bg-white text-black"
+                      : "bg-zinc-800 text-zinc-300 hover:bg-zinc-700"
+                  }`}
+                >
+                  Unidad + Curva
+                </button>
+              </div>
+
+              {saleMode === "curve" && (
+                <p className="rounded-xl bg-zinc-900 p-3 text-sm leading-6 text-zinc-400">
+                  El cliente puede comprar por unidad o elegir curva. La curva
+                  toma automaticamente 1 unidad de cada talle cargado en el
+                  color elegido.
+                </p>
+              )}
             </div>
           </div>
 

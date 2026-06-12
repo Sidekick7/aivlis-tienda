@@ -96,6 +96,7 @@ const [skuCode, setSkuCode] = useState("");
 const [isSlugEdited, setIsSlugEdited] = useState(false);
 const [price, setPrice] = useState("");
 const [retailPrice, setRetailPrice] = useState("");
+const [saleMode, setSaleMode] = useState<Product["saleMode"]>("unit");
 const [products, setProducts] = useState<Product[]>([]);
 const [categoryOptions, setCategoryOptions] = useState<StoreCategory[]>(
   getFallbackCategories()
@@ -321,6 +322,7 @@ const createProduct = async () => {
     productRetailPrice: retailPrice,
     productCategory: category,
     productVariants: variants,
+    productSaleMode: saleMode,
   });
 
   if (validationError) {
@@ -355,6 +357,7 @@ const createProduct = async () => {
       description,
       detailsText,
       variants,
+      saleMode,
     });
 
     await refreshProducts();
@@ -367,6 +370,7 @@ const createProduct = async () => {
     setIsSlugEdited(false);
     setPrice("");
     setRetailPrice("");
+    setSaleMode("unit");
     setDescription("");
     setDetailsText("");
     setCategory(
@@ -777,6 +781,7 @@ const updateProduct = async () => {
       productRetailPrice: editingProduct.retailPrice,
       productCategory: editingProduct.category,
       productVariants: editingProduct.variants,
+      productSaleMode: editingProduct.saleMode,
     });
 
     if (validationError) {
@@ -1141,6 +1146,8 @@ if (!session) {
     setPrice={setPrice}
     retailPrice={retailPrice}
     setRetailPrice={setRetailPrice}
+    saleMode={saleMode}
+    setSaleMode={setSaleMode}
     category={category}
     setCategory={setCategory}
     categories={categoryOptions.filter(

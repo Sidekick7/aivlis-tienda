@@ -1,5 +1,6 @@
 import type { CartItem } from "@/context/CartContext";
 import { storeConfig } from "@/config/store";
+import { getCartItemUnits, isCurveProduct } from "@/lib/curve";
 import type { Product } from "@/types/product";
 
 export const wholesaleMinimum = storeConfig.wholesaleMinimum;
@@ -34,14 +35,15 @@ export function hasDifferentRetailPrice(
 export function getCartWholesaleSubtotal(cart: CartItem[]) {
   return cart.reduce(
     (total, item) =>
-      total + getWholesalePrice(item) * item.quantity,
+      total + getWholesalePrice(item) * getCartItemUnits(item),
     0
   );
 }
 
 export function getCartRetailSubtotal(cart: CartItem[]) {
   return cart.reduce(
-    (total, item) => total + getRetailPrice(item) * item.quantity,
+    (total, item) =>
+      total + getRetailPrice(item) * getCartItemUnits(item),
     0
   );
 }
@@ -49,19 +51,39 @@ export function getCartRetailSubtotal(cart: CartItem[]) {
 export function getCartPricing(cart: CartItem[]) {
   const wholesaleSubtotal = getCartWholesaleSubtotal(cart);
   const retailSubtotal = getCartRetailSubtotal(cart);
+  const curveWholesaleSubtotal = cart.reduce(
+    (total, item) =>
+      isCurveProduct(item)
+        ? total + getWholesalePrice(item) * getCartItemUnits(item)
+        : total,
+    0
+  );
+  const unitRetailSubtotal = cart.reduce(
+    (total, item) =>
+      isCurveProduct(item)
+        ? total
+        : total + getRetailPrice(item) * getCartItemUnits(item),
+    0
+  );
   const isWholesale = wholesaleSubtotal >= wholesaleMinimum;
-  const total = isWholesale ? wholesaleSubtotal : retailSubtotal;
+  const total = isWholesale
+    ? wholesaleSubtotal
+    : curveWholesaleSubtotal + unitRetailSubtotal;
+  const hasCurveWholesale = curveWholesaleSubtotal > 0;
 
   return {
     total,
     wholesaleSubtotal,
     retailSubtotal,
+    curveWholesaleSubtotal,
+    unitRetailSubtotal,
     isWholesale,
+    hasCurveWholesale,
     remainingForWholesale: Math.max(
       wholesaleMinimum - wholesaleSubtotal,
       0
     ),
-    savings: Math.max(retailSubtotal - wholesaleSubtotal, 0),
+    savings: Math.max(retailSubtotal - total, 0),
   };
 }
 
@@ -69,12 +91,14 @@ export function getCartItemUnitPrice(
   item: CartItem,
   isWholesale: boolean
 ) {
-  return isWholesale ? getWholesalePrice(item) : getRetailPrice(item);
+  return isWholesale || isCurveProduct(item)
+    ? getWholesalePrice(item)
+    : getRetailPrice(item);
 }
 
 export function getCartItemSubtotal(
   item: CartItem,
   isWholesale: boolean
 ) {
-  return getCartItemUnitPrice(item, isWholesale) * item.quantity;
+  return getCartItemUnitPrice(item, isWholesale) * getCartItemUnits(item);
 }

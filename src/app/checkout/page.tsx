@@ -11,6 +11,10 @@ import {
   validateCartStock,
 } from "@/lib/order";
 import {
+  getCartItemUnits,
+  isCurveProduct,
+} from "@/lib/curve";
+import {
   formatPrice,
   getCartItemSubtotal,
   getCartItemUnitPrice,
@@ -551,10 +555,14 @@ export default function CheckoutPage() {
               )}
 
               {isCartReady && cart.map((item) => {
+                const isCurveItem = isCurveProduct(item);
+                const itemUnits = getCartItemUnits(item);
                 const wholesaleUnitPrice = getWholesalePrice(item);
                 const retailUnitPrice = getRetailPrice(item);
+                const isItemWholesale =
+                  cartPricing.isWholesale || isCurveItem;
                 const hasWholesaleSavings =
-                  cartPricing.isWholesale &&
+                  isItemWholesale &&
                   retailUnitPrice > wholesaleUnitPrice;
 
                 return (
@@ -575,7 +583,11 @@ export default function CheckoutPage() {
                         )}
 
                         <span>
-                          {item.quantity} x{" "}
+                          {isCurveItem
+                            ? `${item.quantity} ${
+                                item.quantity === 1 ? "curva" : "curvas"
+                              } (${itemUnits} prendas) x `
+                            : `${item.quantity} x `}
                           {formatPrice(
                             getCartItemUnitPrice(
                               item,
@@ -589,7 +601,7 @@ export default function CheckoutPage() {
                     <div className="text-right">
                       {hasWholesaleSavings && (
                         <p className="text-xs font-semibold text-zinc-400 line-through">
-                          {formatPrice(retailUnitPrice * item.quantity)}
+                          {formatPrice(retailUnitPrice * itemUnits)}
                         </p>
                       )}
 
@@ -616,6 +628,8 @@ export default function CheckoutPage() {
             >
               {cartPricing.isWholesale
                 ? "Este pedido usa precio mayorista."
+                : cartPricing.hasCurveWholesale
+                ? "Las curvas usan precio mayorista. Las unidades sueltas quedan minoristas hasta alcanzar el minimo."
                 : "Este pedido usa precio minorista."}
 
               {!cartPricing.isWholesale && (

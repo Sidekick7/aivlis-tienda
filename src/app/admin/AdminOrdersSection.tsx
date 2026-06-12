@@ -174,8 +174,8 @@ export default function AdminOrdersSection({
     if (savingStatus || deletingOrderId || isDeletingSelected) return;
 
     const shouldDelete = window.confirm(
-      order.status === "confirmed"
-        ? "Este pedido esta confirmado. Si lo eliminas, se devuelve el stock. Continuar?"
+      order.status !== "cancelled"
+        ? "Este pedido tiene stock reservado. Si lo eliminas, se devuelve el stock. Continuar?"
         : "Seguro que queres eliminar este pedido?"
     );
 
@@ -199,12 +199,12 @@ export default function AdminOrdersSection({
 
     if (selectedOrders.length === 0) return;
 
-    const hasConfirmedOrder = selectedOrders.some(
-      (order) => order.status === "confirmed"
+    const hasReservedOrder = selectedOrders.some(
+      (order) => order.status !== "cancelled"
     );
     const shouldDelete = window.confirm(
-      hasConfirmedOrder
-        ? `Vas a eliminar ${selectedOrders.length} pedidos. Los confirmados devuelven stock. Continuar?`
+      hasReservedOrder
+        ? `Vas a eliminar ${selectedOrders.length} pedidos. Los pendientes o confirmados devuelven stock. Continuar?`
         : `Seguro que queres eliminar ${selectedOrders.length} pedidos?`
     );
 

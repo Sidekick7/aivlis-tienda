@@ -113,6 +113,8 @@ export default function Cart({
         <p className="mt-1 text-xs text-zinc-400">
           {cartPricing.isWholesale
             ? "Precio mayorista aplicado"
+            : cartPricing.hasCurveWholesale
+            ? `Curvas mayoristas · faltan ${formatPrice(cartPricing.remainingForWholesale)}`
             : `Faltan ${formatPrice(cartPricing.remainingForWholesale)} para mayorista`}
         </p>
       </div>
