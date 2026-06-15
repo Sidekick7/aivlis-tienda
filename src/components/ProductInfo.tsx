@@ -260,7 +260,7 @@ export default function ProductInfo({ product }: Props) {
 
   return (
 
-    <div className="grid lg:grid-cols-[1.1fr_.9fr] gap-16 items-start">
+    <div className="grid items-start gap-10 lg:grid-cols-[1.08fr_.92fr] lg:gap-14">
       <div className="space-y-4">
         <div className="flex flex-wrap items-center gap-2 text-sm text-zinc-500">
           <Link
@@ -286,7 +286,7 @@ export default function ProductInfo({ product }: Props) {
           </span>
         </div>
 
-        <div className="flex gap-5 items-start">
+        <div className="flex flex-col gap-4 md:flex-row md:items-start md:gap-5">
           <div
             className="w-full max-w-[700px] overflow-hidden rounded-3xl"
             onMouseMove={(e) => {
@@ -309,7 +309,7 @@ export default function ProductInfo({ product }: Props) {
               alt={product.name}
               width={700}
               height={800}
-              className="w-full max-h-[800px] object-cover transition-transform duration-300 hover:scale-150"
+              className="aspect-[7/8] w-full object-cover transition-transform duration-300 hover:scale-150"
               style={{
                 transformOrigin: `${zoomPosition.x}% ${zoomPosition.y}%`,
               }}
@@ -317,7 +317,7 @@ export default function ProductInfo({ product }: Props) {
 
 
           </div>
-          <div className="flex flex-col gap-3 pt-2">
+          <div className="flex gap-3 overflow-x-auto pb-1 md:flex-col md:overflow-visible md:pt-2">
 
             {thumbnails.map((thumbnail) => (
 
@@ -346,7 +346,7 @@ export default function ProductInfo({ product }: Props) {
                   alt=""
                   width={96}
                   height={128}
-                  className="w-24 h-32 object-cover"
+                  className="h-28 w-20 object-cover md:h-32 md:w-24"
                 />
 
               </button>
@@ -358,7 +358,7 @@ export default function ProductInfo({ product }: Props) {
       </div>
       <div className="lg:sticky lg:top-28">
 
-      <h1 className="text-5xl font-bold">
+      <h1 className="text-4xl font-bold leading-tight md:text-5xl">
         {product.name}
       </h1>
 
@@ -405,12 +405,6 @@ export default function ProductInfo({ product }: Props) {
             Agotado
           </div>
         ))}
-      {isCurveSale && curveStockLimit <= 3 && curveStockLimit > 0 && (
-        <div className="mt-4 inline-flex items-center gap-2 rounded-full bg-red-50 px-3 py-2 text-sm font-semibold text-red-600">
-          <AlertCircle size={16} />
-          Ultimas curvas disponibles
-        </div>
-      )}
       {isCurveSale && curveStockLimit <= 0 && (
         <div className="mt-4 inline-flex items-center gap-2 rounded-full bg-zinc-200 px-3 py-2 text-sm font-semibold text-zinc-600">
           <AlertCircle size={16} />
@@ -473,27 +467,84 @@ export default function ProductInfo({ product }: Props) {
           </div>
         )}
 
-        {isCurveSale ? (
-          <div className="rounded-2xl bg-zinc-50 p-4">
+        <div>
+          <div className="mb-3 flex items-center gap-3">
             <p className="text-sm font-semibold uppercase tracking-wide text-zinc-500">
-              Venta por curva
+              Color
             </p>
 
-            <p className="mt-2 text-xl font-bold">
+            {selectedColor && (
+              <span className="rounded-full bg-zinc-100 px-3 py-1 text-xs font-semibold text-zinc-700">
+                {selectedColor}
+              </span>
+            )}
+          </div>
+
+          <div className="flex flex-wrap gap-3">
+            {product.variants.map((variant) => (
+              <button
+                key={variant.color}
+                type="button"
+                title={variant.color}
+                aria-label={`Color ${variant.color}`}
+                onClick={() => {
+                  resetCartFeedback();
+                  setSelectedColor(variant.color);
+                  setSelectedImage(
+                    variant.images[0] ||
+                    product.images[0] ||
+                    fallbackProductImage
+                  );
+                  setSelectedSize(
+                    getDefaultSize(variant)
+                  );
+                }}
+                className={`flex h-10 w-10 cursor-pointer items-center justify-center rounded-full border-2 transition ${
+                  selectedColor === variant.color
+                    ? "scale-110 border-black"
+                    : "border-zinc-200 hover:border-black"
+                }`}
+              >
+                <span
+                  className="h-7 w-7 rounded-full border border-black/10"
+                  style={{
+                    backgroundColor: variant.hex,
+                  }}
+                />
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {isCurveSale ? (
+          <div className="rounded-2xl bg-zinc-50 p-3">
+            <div className="flex flex-wrap items-center gap-3">
+              <p className="text-sm font-semibold uppercase tracking-wide text-zinc-500">
+                Venta por curva
+              </p>
+
+              {curveStockLimit <= 3 && curveStockLimit > 0 && (
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-red-50 px-2.5 py-1 text-xs font-semibold text-red-600">
+                  <AlertCircle size={13} />
+                  Ultimas curvas
+                </span>
+              )}
+            </div>
+
+            <p className="mt-2 text-lg font-bold">
               {curveLabel}
             </p>
 
-            <p className="mt-2 text-sm leading-6 text-zinc-600">
-              Incluye 1 unidad de cada talle cargado para este color.
-              Total: {curveUnitsPerSet} prendas por curva.
+            <p className="mt-1 text-sm leading-5 text-zinc-600">
+              1 unidad de cada talle del color. Total: {curveUnitsPerSet} prendas.
             </p>
 
-            <div className="mt-4 grid gap-3 rounded-2xl bg-white p-4 sm:grid-cols-2">
+            <div className="mt-3 grid gap-2 rounded-2xl bg-white p-3 sm:grid-cols-2">
               <div>
                 <p className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
                   Precio por unidad
                 </p>
-                <p className="mt-1 text-lg font-bold text-zinc-900">
+                <p className="text-base font-bold text-zinc-900">
                   {formatPrice(product.price)}
                 </p>
               </div>
@@ -502,13 +553,13 @@ export default function ProductInfo({ product }: Props) {
                 <p className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
                   Precio por curva
                 </p>
-                <p className="mt-1 text-lg font-bold text-zinc-900">
+                <p className="text-base font-bold text-zinc-900">
                   {formatPrice(product.price * curveUnitsPerSet)}
                 </p>
               </div>
             </div>
 
-            <div className="mt-3 flex flex-wrap gap-2">
+            <div className="mt-2 flex flex-wrap gap-2">
               {curveSizes.map((size) => (
                 <span
                   key={size}
@@ -519,9 +570,6 @@ export default function ProductInfo({ product }: Props) {
               ))}
             </div>
 
-            <p className="mt-2 text-sm font-semibold text-zinc-700">
-              Disponibles: {curveStockLimit} curvas
-            </p>
           </div>
         ) : (
         <div>
@@ -591,54 +639,6 @@ export default function ProductInfo({ product }: Props) {
         </div>
         )}
 
-        <div>
-          <div className="mb-3 flex items-center gap-3">
-            <p className="text-sm font-semibold uppercase tracking-wide text-zinc-500">
-              Color
-            </p>
-
-            {selectedColor && (
-              <span className="rounded-full bg-zinc-100 px-3 py-1 text-xs font-semibold text-zinc-700">
-                {selectedColor}
-              </span>
-            )}
-          </div>
-
-          <div className="flex flex-wrap gap-3">
-            {product.variants.map((variant) => (
-              <button
-                key={variant.color}
-                type="button"
-                title={variant.color}
-                aria-label={`Color ${variant.color}`}
-                onClick={() => {
-                  resetCartFeedback();
-                  setSelectedColor(variant.color);
-                  setSelectedImage(
-                    variant.images[0] ||
-                    product.images[0] ||
-                    fallbackProductImage
-                  );
-                  setSelectedSize(
-                    getDefaultSize(variant)
-                  );
-                }}
-                className={`flex h-10 w-10 items-center justify-center rounded-full border-2 transition cursor-pointer ${
-                  selectedColor === variant.color
-                    ? "border-black scale-110"
-                    : "border-zinc-200 hover:border-black"
-                }`}
-              >
-                <span
-                  className="h-7 w-7 rounded-full border border-black/10"
-                  style={{
-                    backgroundColor: variant.hex,
-                  }}
-                />
-              </button>
-            ))}
-          </div>
-        </div>
       </div>
 
       <div className="mt-5 rounded-3xl bg-white p-3 shadow-sm">

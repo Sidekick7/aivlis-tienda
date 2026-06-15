@@ -58,6 +58,8 @@ export default function Home() {
   );
   const [productsError, setProductsError] = useState("");
   const [isProductsLoading, setIsProductsLoading] = useState(true);
+  const [isHomeContentLoading, setIsHomeContentLoading] =
+    useState(true);
   const swiperRef = useRef<SwiperRef>(null);
   const productPreviewRef = useRef<SwiperRef>(null);
 
@@ -77,6 +79,7 @@ export default function Home() {
         setProductsError("No se pudo cargar la seleccion de productos.");
       } finally {
         setIsProductsLoading(false);
+        setIsHomeContentLoading(false);
       }
     };
 
@@ -86,67 +89,73 @@ export default function Home() {
   return (
     <main className="home-main-offset min-h-screen overflow-x-hidden bg-zinc-100 text-black">
       <section className="relative h-[clamp(520px,70vh,760px)] w-full overflow-hidden max-[640px]:h-[clamp(430px,62vh,560px)]">
-        <Swiper
-          ref={swiperRef}
-          onSlideChange={(swiper) =>
-            setCurrentImage(swiper.realIndex)
-          }
-          modules={[Autoplay]}
-          spaceBetween={0}
-          slidesPerView={3}
-          breakpoints={{
-            0: {
-              slidesPerView: 1,
-            },
-            768: {
-              slidesPerView: 2,
-            },
-            1200: {
-              slidesPerView: 3,
-            },
-          }}
-          loop
-          grabCursor
-          autoplay={{
-            delay: 5000,
-            disableOnInteraction: false,
-          }}
-          className="h-[calc(100%-44px)] w-full pointer-events-auto"
-        >
-          {homeContent.heroImages.map((image) => (
-            <SwiperSlide
-              key={image}
-              className="overflow-hidden"
-            >
-              <Image
-                src={image}
-                alt=""
-                width={900}
-                height={1100}
-                draggable={false}
-                className="hero-slide-image h-full w-full object-cover object-center transition duration-700 hover:scale-105"
-              />
-            </SwiperSlide>
-          ))}
-        </Swiper>
-
-        <div className="relative mt-3 flex justify-center gap-3 pointer-events-auto">
-          {homeContent.heroImages.map((_, index) => (
-            <button
-              key={index}
-              type="button"
-              onClick={() =>
-                swiperRef.current?.swiper.slideToLoop(index)
+        {isHomeContentLoading ? (
+          <div className="h-[calc(100%-44px)] w-full animate-pulse bg-zinc-200" />
+        ) : (
+          <>
+            <Swiper
+              ref={swiperRef}
+              onSlideChange={(swiper) =>
+                setCurrentImage(swiper.realIndex)
               }
-              className={`h-3 w-3 cursor-pointer rounded-full transition-all ${
-                currentImage === index
-                  ? "scale-125 bg-black"
-                  : "bg-zinc-400"
-              }`}
-              aria-label={`Ver imagen ${index + 1}`}
-            />
-          ))}
-        </div>
+              modules={[Autoplay]}
+              spaceBetween={0}
+              slidesPerView={3}
+              breakpoints={{
+                0: {
+                  slidesPerView: 1,
+                },
+                768: {
+                  slidesPerView: 2,
+                },
+                1200: {
+                  slidesPerView: 3,
+                },
+              }}
+              loop
+              grabCursor
+              autoplay={{
+                delay: 5000,
+                disableOnInteraction: false,
+              }}
+              className="h-[calc(100%-44px)] w-full pointer-events-auto"
+            >
+              {homeContent.heroImages.map((image) => (
+                <SwiperSlide
+                  key={image}
+                  className="overflow-hidden"
+                >
+                  <Image
+                    src={image}
+                    alt=""
+                    width={900}
+                    height={1100}
+                    draggable={false}
+                    className="hero-slide-image h-full w-full object-cover object-center transition duration-700 hover:scale-105"
+                  />
+                </SwiperSlide>
+              ))}
+            </Swiper>
+
+            <div className="relative mt-3 flex justify-center gap-3 pointer-events-auto">
+              {homeContent.heroImages.map((_, index) => (
+                <button
+                  key={index}
+                  type="button"
+                  onClick={() =>
+                    swiperRef.current?.swiper.slideToLoop(index)
+                  }
+                  className={`h-3 w-3 cursor-pointer rounded-full transition-all ${
+                    currentImage === index
+                      ? "scale-125 bg-black"
+                      : "bg-zinc-400"
+                  }`}
+                  aria-label={`Ver imagen ${index + 1}`}
+                />
+              ))}
+            </div>
+          </>
+        )}
       </section>
 
       <section className="px-6 pb-1 pt-2 md:px-10">
