@@ -6,6 +6,7 @@ import type {
   CreateLocalSaleInput,
   LocalSale,
   LocalSaleItemInput,
+  LocalSaleStatus,
   SupabaseLocalSaleItemRow,
   SupabaseLocalSaleRow,
 } from "@/types/localSale";
@@ -23,6 +24,7 @@ function normalizeLocalSaleItem(
     size: row.size,
     quantity: Number(row.quantity),
     unitPrice: Number(row.unit_price),
+    unitCost: Number(row.unit_cost ?? 0),
     subtotal: Number(row.subtotal),
     imageUrl: row.image_url ?? "",
   };
@@ -139,6 +141,28 @@ async function adjustStockForLocalSale(
   }
 }
 
+async function attachUnitCostsToLocalSaleItems(
+  items: LocalSaleItemInput[]
+) {
+  const productIds = Array.from(
+    new Set(items.map((item) => item.productId))
+  );
+  const products = await getProductsByIds(productIds, {
+    includeInactive: true,
+  });
+  const productsById = new Map(
+    products.map((product) => [product.id, product])
+  );
+
+  return items.map((item) => ({
+    ...item,
+    unitCost:
+      item.unitCost ??
+      productsById.get(item.productId)?.cost ??
+      0,
+  }));
+}
+
 export async function createLocalSale({
   saleNumber,
   paymentMethod,
@@ -150,7 +174,9 @@ export async function createLocalSale({
     throw new Error("Agrega al menos un producto.");
   }
 
-  await adjustStockForLocalSale(items, -1);
+  const itemsWithCosts = await attachUnitCostsToLocalSaleItems(items);
+
+  await adjustStockForLocalSale(itemsWithCosts, -1);
 
   const { data: sale, error: saleError } = await supabase
     .from("local_sales")
@@ -176,7 +202,7 @@ export async function createLocalSale({
   const { error: itemsError } = await supabase
     .from("local_sale_items")
     .insert(
-      items.map((item) => ({
+      itemsWithCosts.map((item) => ({
         sale_id: saleId,
         product_id: item.productId,
         product_slug: item.productSlug,
@@ -186,6 +212,7 @@ export async function createLocalSale({
         size: item.size,
         quantity: item.quantity,
         unit_price: item.unitPrice,
+        unit_cost: item.unitCost,
         subtotal: item.subtotal,
         image_url: item.imageUrl || "",
       }))
@@ -217,14 +244,30 @@ export async function getLocalSales(): Promise<LocalSale[]> {
 }
 
 export async function cancelLocalSale(sale: LocalSale) {
-  if (sale.status === "cancelled") return;
+  await updateLocalSaleStatus(sale, "cancelled");
+}
 
-  await adjustStockForLocalSale(sale.items, 1);
+function isReservedLocalSaleStatus(status: LocalSaleStatus) {
+  return status !== "cancelled";
+}
+
+export async function updateLocalSaleStatus(
+  sale: LocalSale,
+  nextStatus: LocalSaleStatus
+) {
+  if (sale.status === nextStatus) return;
+
+  const wasReserved = isReservedLocalSaleStatus(sale.status);
+  const shouldBeReserved = isReservedLocalSaleStatus(nextStatus);
+
+  if (wasReserved !== shouldBeReserved) {
+    await adjustStockForLocalSale(sale.items, shouldBeReserved ? -1 : 1);
+  }
 
   const { error } = await supabase
     .from("local_sales")
     .update({
-      status: "cancelled",
+      status: nextStatus,
       updated_at: new Date().toISOString(),
     })
     .eq("id", sale.id);
@@ -234,7 +277,9 @@ export async function cancelLocalSale(sale: LocalSale) {
   }
 }
 
-export async function deleteLocalSale(saleId: string) {
+export async function deleteLocalSale(sale: LocalSale | string) {
+  const saleId = typeof sale === "string" ? sale : sale.id;
+
   const { error } = await supabase
     .from("local_sales")
     .delete()

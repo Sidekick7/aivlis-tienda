@@ -17,7 +17,38 @@ import type {
 } from "@/types/order";
 import type { Product, SupabaseProductRow } from "@/types/product";
 
-function normalizeOrderItem(row: SupabaseOrderItemRow) {
+function getOrderItemImageUrl(
+  row: SupabaseOrderItemRow,
+  productsById?: Map<number, Product>
+) {
+  const product =
+    typeof row.product_id === "number"
+      ? productsById?.get(row.product_id)
+      : undefined;
+  const variantImage = product?.variants.find(
+    (variant) => variant.color === row.variant_color
+  )?.images[0];
+
+  return variantImage || row.image_url || "";
+}
+
+function getCartItemVariantImage(item: {
+  selectedColor?: string;
+  selectedImage?: string;
+  images?: string[];
+  variants?: Product["variants"];
+}) {
+  const variantImage = item.variants?.find(
+    (variant) => variant.color === item.selectedColor
+  )?.images[0];
+
+  return variantImage || item.selectedImage || item.images?.[0] || "";
+}
+
+function normalizeOrderItem(
+  row: SupabaseOrderItemRow,
+  productsById?: Map<number, Product>
+) {
   return {
     id: row.id,
     productId: row.product_id,
@@ -28,12 +59,16 @@ function normalizeOrderItem(row: SupabaseOrderItemRow) {
     size: row.size,
     quantity: row.quantity,
     unitPrice: Number(row.unit_price),
+    unitCost: Number(row.unit_cost ?? 0),
     subtotal: Number(row.subtotal),
-    imageUrl: row.image_url,
+    imageUrl: getOrderItemImageUrl(row, productsById),
   };
 }
 
-function normalizeOrder(row: SupabaseOrderRow): AdminOrder {
+function normalizeOrder(
+  row: SupabaseOrderRow,
+  productsById?: Map<number, Product>
+): AdminOrder {
   return {
     id: row.id,
     orderNumber: row.order_number,
@@ -52,7 +87,9 @@ function normalizeOrder(row: SupabaseOrderRow): AdminOrder {
     whatsappMessage: row.whatsapp_message,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
-    items: (row.order_items ?? []).map(normalizeOrderItem),
+    items: (row.order_items ?? []).map((item) =>
+      normalizeOrderItem(item, productsById)
+    ),
   };
 }
 
@@ -200,8 +237,9 @@ export async function createOrderTicket({
           size: item.size || "",
           quantity: item.quantity,
           unit_price: unitPrice,
+          unit_cost: Number(item.cost ?? 0),
           subtotal: getCartItemSubtotal(item, cartPricing.isWholesale),
-          image_url: item.selectedImage || item.images?.[0] || "",
+          image_url: getCartItemVariantImage(item),
         },
       ];
     }
@@ -220,8 +258,9 @@ export async function createOrderTicket({
       size: sizeItem.size,
       quantity: quantityBySize,
       unit_price: unitPrice,
+      unit_cost: Number(item.cost ?? 0),
       subtotal: unitPrice * quantityBySize,
-      image_url: item.selectedImage || item.images?.[0] || "",
+      image_url: getCartItemVariantImage(item),
     }));
   });
   const { error } = await supabase.rpc("create_order_ticket", {
@@ -261,37 +300,41 @@ export async function getAdminOrders(): Promise<AdminOrder[]> {
     throw error;
   }
 
-  const orders = (data ?? []).map((row) =>
-    normalizeOrder(row as SupabaseOrderRow)
-  );
-  const productIdsWithoutSku = Array.from(
+  const productIds = Array.from(
     new Set(
-      orders.flatMap((order) =>
-        order.items
-          .filter((item) => !item.productSku && item.productId)
-          .map((item) => item.productId as number)
+      (data ?? []).flatMap((row) =>
+        ((row as SupabaseOrderRow).order_items ?? [])
+          .map((item) => item.product_id)
+          .filter((id): id is number => typeof id === "number")
       )
     )
   );
 
-  if (productIdsWithoutSku.length === 0) {
-    return orders;
+  if (productIds.length === 0) {
+    return (data ?? []).map((row) =>
+      normalizeOrder(row as SupabaseOrderRow)
+    );
   }
 
   const { data: productsData, error: productsError } = await supabase
     .from("products")
-    .select("id,sku")
-    .in("id", productIdsWithoutSku);
+    .select("*")
+    .in("id", productIds);
 
   if (productsError) {
     throw productsError;
   }
 
-  const skuByProductId = new Map(
-    (productsData ?? []).map((product) => [
-      Number(product.id),
-      typeof product.sku === "string" ? product.sku : "",
-    ])
+  const productsById = new Map(
+    (productsData ?? []).map((row) => {
+      const product = normalizeProduct(row as SupabaseProductRow);
+
+      return [product.id, product];
+    })
+  );
+
+  const orders = (data ?? []).map((row) =>
+    normalizeOrder(row as SupabaseOrderRow, productsById)
   );
 
   return orders.map((order) => ({
@@ -300,7 +343,9 @@ export async function getAdminOrders(): Promise<AdminOrder[]> {
       ...item,
       productSku:
         item.productSku ||
-        (item.productId ? skuByProductId.get(item.productId) : "") ||
+        (item.productId
+          ? productsById.get(item.productId)?.sku
+          : "") ||
         null,
     })),
   }));

@@ -65,10 +65,9 @@ export function getCartPricing(cart: CartItem[]) {
         : total + getRetailPrice(item) * getCartItemUnits(item),
     0
   );
-  const isWholesale = wholesaleSubtotal >= wholesaleMinimum;
-  const total = isWholesale
-    ? wholesaleSubtotal
-    : curveWholesaleSubtotal + unitRetailSubtotal;
+  const meetsWholesaleMinimum = wholesaleSubtotal >= wholesaleMinimum;
+  const isWholesale = true;
+  const total = wholesaleSubtotal;
   const hasCurveWholesale = curveWholesaleSubtotal > 0;
 
   return {
@@ -78,6 +77,7 @@ export function getCartPricing(cart: CartItem[]) {
     curveWholesaleSubtotal,
     unitRetailSubtotal,
     isWholesale,
+    meetsWholesaleMinimum,
     hasCurveWholesale,
     remainingForWholesale: Math.max(
       wholesaleMinimum - wholesaleSubtotal,

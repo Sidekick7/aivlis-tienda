@@ -20,11 +20,7 @@ import {
   getCurveUnitsPerSet,
   isCurveProduct,
 } from "@/lib/curve";
-import {
-  formatPrice,
-  getRetailPrice,
-  hasDifferentRetailPrice,
-} from "@/lib/pricing";
+import { formatPrice } from "@/lib/pricing";
 import type { Product, ProductVariant } from "@/types/product";
 
 type Props = {
@@ -106,8 +102,6 @@ export default function ProductInfo({ product }: Props) {
   );
   const [cartMessage, setCartMessage] = useState("");
   const [cartError, setCartError] = useState("");
-  const retailPrice = getRetailPrice(product);
-
   const [zoomPosition, setZoomPosition] = useState({
     x: 50,
     y: 50,
@@ -366,7 +360,7 @@ export default function ProductInfo({ product }: Props) {
         <div className="flex flex-wrap items-start gap-4">
           <div>
             <p className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
-              Precio mayorista
+              Precio
             </p>
 
             <p className="mt-1 text-4xl font-bold">
@@ -374,16 +368,6 @@ export default function ProductInfo({ product }: Props) {
             </p>
           </div>
 
-          {hasDifferentRetailPrice(product) && (
-            <div className="rounded-2xl bg-zinc-100 px-4 py-3 text-right">
-              <p className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
-                Minorista
-              </p>
-              <p className="mt-1 font-semibold text-zinc-900">
-                {formatPrice(retailPrice)}
-              </p>
-            </div>
-          )}
         </div>
 
         {product.details.length > 0 && (

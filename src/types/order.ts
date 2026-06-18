@@ -40,6 +40,7 @@ export type AdminOrderItem = {
   size?: string | null;
   quantity: number;
   unitPrice: number;
+  unitCost: number;
   subtotal: number;
   imageUrl?: string | null;
 };
@@ -75,6 +76,7 @@ export type SupabaseOrderItemRow = {
   size?: string | null;
   quantity: number;
   unit_price: number | string;
+  unit_cost?: number | string | null;
   subtotal: number | string;
   image_url?: string | null;
 };

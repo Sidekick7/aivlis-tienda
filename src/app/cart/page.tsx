@@ -15,8 +15,6 @@ import {
   formatPrice,
   getCartItemSubtotal,
   getCartItemUnitPrice,
-  getRetailPrice,
-  getWholesalePrice,
   getCartPricing,
   wholesaleMinimum,
 } from "@/lib/pricing";
@@ -85,7 +83,8 @@ const {
   const isCheckoutBlocked =
     isCheckingStock ||
     Boolean(stockError) ||
-    isFulfillmentMissing;
+    isFulfillmentMissing ||
+    !cartPricing.meetsWholesaleMinimum;
 
   useEffect(() => {
     queueMicrotask(() => {
@@ -251,17 +250,10 @@ const {
             item,
             cartPricing.isWholesale
           );
-          const wholesaleUnitPrice = getWholesalePrice(item);
-          const retailUnitPrice = getRetailPrice(item);
-          const isItemWholesale =
-            cartPricing.isWholesale || isCurveItem;
-          const hasWholesaleSavings =
-            isItemWholesale && retailUnitPrice > wholesaleUnitPrice;
           const itemSubtotal = getCartItemSubtotal(
             item,
             cartPricing.isWholesale
           );
-          const retailItemSubtotal = retailUnitPrice * itemUnits;
           const currentProduct = currentProductsById.get(item.id);
           const stockLimit = isCurveItem
             ? getCurveStockLimit({
@@ -338,20 +330,11 @@ const {
               </span>
 
               <div className="lg:min-h-[54px]">
-                {hasWholesaleSavings && (
-                  <p className="text-sm font-semibold text-zinc-400 line-through">
-                    {formatPrice(retailUnitPrice)}
-                  </p>
-                )}
-
                 <p className="text-lg font-semibold">
                   {formatPrice(unitPrice)}
                 </p>
               </div>
 
-              <p className="mt-1 text-xs text-zinc-500">
-                {isItemWholesale ? "Mayorista" : "Minorista"}
-              </p>
             </div>
 
             <div>
@@ -411,12 +394,6 @@ const {
               </span>
 
               <div>
-                {hasWholesaleSavings && (
-                  <p className="text-sm font-semibold text-zinc-400 line-through">
-                    {formatPrice(retailItemSubtotal)}
-                  </p>
-                )}
-
                 <p className="text-lg font-semibold">
                   {formatPrice(itemSubtotal)}
                 </p>
@@ -455,13 +432,6 @@ const {
                 Resumen
               </h2>
 
-              <span className="rounded-full bg-zinc-100 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-zinc-500">
-                {cartPricing.isWholesale
-                  ? "Mayorista"
-                  : cartPricing.hasCurveWholesale
-                  ? "Mixto"
-                  : "Minorista"}
-              </span>
             </div>
 
             <div className="mb-3 flex items-center justify-between text-sm text-zinc-600">
@@ -472,49 +442,14 @@ const {
             </div>
 
             <div className="mb-4 rounded-2xl bg-zinc-50 p-3">
-              {cartPricing.isWholesale ? (
-                <>
-                  <div className="flex items-center justify-between text-sm text-zinc-500">
-                    <span>Subtotal minorista</span>
-                    <span className="font-semibold line-through">
-                      {formatPrice(cartPricing.retailSubtotal)}
-                    </span>
-                  </div>
-
-                  <div className="mt-2 flex items-center justify-between">
-                    <span className="text-sm font-semibold text-zinc-700">
-                      Subtotal mayorista
-                    </span>
-                    <span className="text-xl font-bold text-zinc-950">
-                      {formatPrice(cartPricing.wholesaleSubtotal)}
-                    </span>
-                  </div>
-
-                </>
-              ) : (
-                <>
-                  <div className="flex items-center justify-between text-sm text-zinc-600">
-                    <span>Subtotal actual</span>
-                    <span className="font-semibold">
-                      {formatPrice(cartPricing.total)}
-                    </span>
-                  </div>
-
-                  {cartPricing.hasCurveWholesale && (
-                    <div className="mt-2 flex items-center justify-between text-sm text-zinc-500">
-                      <span>Curvas mayoristas</span>
-                      <span>
-                        {formatPrice(cartPricing.curveWholesaleSubtotal)}
-                      </span>
-                    </div>
-                  )}
-
-                  <div className="mt-2 flex items-center justify-between text-sm text-zinc-500">
-                    <span>Total si todo fuera mayorista</span>
-                    <span>{formatPrice(cartPricing.wholesaleSubtotal)}</span>
-                  </div>
-                </>
-              )}
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-semibold text-zinc-700">
+                  Subtotal productos
+                </span>
+                <span className="text-xl font-bold text-zinc-950">
+                  {formatPrice(cartPricing.wholesaleSubtotal)}
+                </span>
+              </div>
             </div>
 
             <div className="mb-4 rounded-2xl border border-zinc-200 bg-zinc-50 p-3">
@@ -602,7 +537,7 @@ const {
 
             <div
               className={`mb-3 rounded-2xl p-3 text-sm leading-6 ${
-                cartPricing.isWholesale
+                cartPricing.meetsWholesaleMinimum
                   ? "bg-emerald-50 text-emerald-700"
                   : "bg-amber-50 text-amber-800"
               }`}
@@ -610,7 +545,7 @@ const {
               <span className="mb-2 block h-2 overflow-hidden rounded-full bg-white">
                 <span
                   className={`block h-full rounded-full ${
-                    cartPricing.isWholesale
+                    cartPricing.meetsWholesaleMinimum
                       ? "bg-emerald-500"
                       : "bg-amber-500"
                   }`}
@@ -620,13 +555,11 @@ const {
                 />
               </span>
 
-              {cartPricing.isWholesale
-                ? `Precio mayorista aplicado. Superaste el minimo de ${formatPrice(wholesaleMinimum)}.`
-                : cartPricing.hasCurveWholesale
-                ? `Las curvas ya mantienen precio mayorista. Faltan ${formatPrice(cartPricing.remainingForWholesale)} para aplicar mayorista tambien a unidades sueltas.`
-                : `Faltan ${formatPrice(cartPricing.remainingForWholesale)} para aplicar precio mayorista.`}
+              {cartPricing.meetsWholesaleMinimum
+                ? `Minimo de compra alcanzado: ${formatPrice(wholesaleMinimum)}.`
+                : `Faltan ${formatPrice(cartPricing.remainingForWholesale)} para alcanzar el minimo de compra.`}
 
-              {!cartPricing.isWholesale && (
+              {!cartPricing.meetsWholesaleMinimum && (
                 <Link
                   href="/tienda"
                   className="mt-3 inline-flex h-10 items-center rounded-full bg-black px-4 text-sm font-semibold text-white transition hover:bg-zinc-800"
@@ -669,6 +602,14 @@ const {
                 Elegi una opcion de entrega para continuar.
               </p>
             )}
+
+            {isCartReady &&
+              cart.length > 0 &&
+              !cartPricing.meetsWholesaleMinimum && (
+                <p className="mb-3 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
+                  El minimo de compra es {formatPrice(wholesaleMinimum)}.
+                </p>
+              )}
 
             {(isCheckingStock || stockError) && (
               <p className="mb-3 rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-600">

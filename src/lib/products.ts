@@ -93,6 +93,7 @@ export function normalizeProduct(row: SupabaseProductRow): Product {
     name: row.name ?? "",
     price: Number(row.price ?? 0),
     retailPrice: Number(row.retail_price ?? row.price ?? 0),
+    cost: Number(row.cost ?? 0),
     saleMode: row.sale_mode === "curve" ? "curve" : "unit",
     category: row.category ?? "",
     description: row.description ?? "",

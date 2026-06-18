@@ -171,13 +171,9 @@ export default function Home() {
         </div>
       </section>
 
-      <section className="px-6 py-8 md:px-10">
+      <section className="px-6 py-6 md:px-10">
         <div className="mx-auto flex max-w-7xl flex-col items-center text-center">
-          <h1 className="text-5xl font-bold md:text-6xl">
-            {homeContent.storeTitle}
-          </h1>
-
-          <p className="mt-4 max-w-xl text-sm leading-6 text-zinc-600 md:text-base">
+          <p className="max-w-xl text-sm leading-6 text-zinc-600 md:text-base">
             {homeContent.storeDescription}
           </p>
 

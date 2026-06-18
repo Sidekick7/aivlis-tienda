@@ -12,6 +12,7 @@ export type LocalSaleItemInput = {
   size: string;
   quantity: number;
   unitPrice: number;
+  unitCost?: number;
   subtotal: number;
   imageUrl?: string;
 };
@@ -28,6 +29,7 @@ export type LocalSaleStatus = "completed" | "cancelled";
 
 export type LocalSaleItem = LocalSaleItemInput & {
   id: string;
+  unitCost: number;
 };
 
 export type LocalSale = {
@@ -52,6 +54,7 @@ export type SupabaseLocalSaleItemRow = {
   size: string;
   quantity: number;
   unit_price: number | string;
+  unit_cost?: number | string | null;
   subtotal: number | string;
   image_url?: string | null;
 };

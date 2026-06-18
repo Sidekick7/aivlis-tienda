@@ -19,8 +19,7 @@ import {
   getCartItemSubtotal,
   getCartItemUnitPrice,
   getCartPricing,
-  getRetailPrice,
-  getWholesalePrice,
+  wholesaleMinimum,
 } from "@/lib/pricing";
 import {
   createOrderNumber,
@@ -140,6 +139,10 @@ export default function CheckoutPage() {
   const hasNoProducts = isCartReady && cart.length === 0;
   const hasNoFulfillment =
     isCartReady && cart.length > 0 && !fulfillmentOption;
+  const isBelowMinimum =
+    isCartReady &&
+    cart.length > 0 &&
+    !cartPricing.meetsWholesaleMinimum;
   const visibleOrderError = checkoutStockError || orderError;
 
   useEffect(() => {
@@ -218,7 +221,12 @@ export default function CheckoutPage() {
   const handleWhatsApp = async () => {
     if (createdOrderNumber || isSubmittingRef.current) return;
 
-    if (hasEmptyFields || hasNoProducts || hasNoFulfillment) {
+    if (
+      hasEmptyFields ||
+      hasNoProducts ||
+      hasNoFulfillment ||
+      isBelowMinimum
+    ) {
       setShowError(true);
       return;
     }
@@ -278,6 +286,14 @@ export default function CheckoutPage() {
       getFulfillmentFee(fulfillmentOption);
     const enrichedFinalTotal =
       enrichedTotal + enrichedFulfillmentFee;
+
+    if (enrichedTotal < wholesaleMinimum) {
+      setOrderError(
+        `El minimo de compra es ${formatPrice(wholesaleMinimum)}.`
+      );
+      return;
+    }
+
     const orderNumber = createOrderNumber();
     const customer = {
       name,
@@ -289,6 +305,20 @@ export default function CheckoutPage() {
       zip: requiresShippingData ? zip : "",
       email,
       notes: notes.trim(),
+    };
+    const fulfillmentLabel =
+      fulfillmentOption === "pickup"
+        ? "Retiro presencial"
+        : "Despacho a transporte, correo, expreso";
+    const ticketNotes = [
+      selectedFulfillment ? `Entrega: ${fulfillmentLabel}` : "",
+      notes.trim(),
+    ]
+      .filter(Boolean)
+      .join("\n");
+    const ticketCustomer = {
+      ...customer,
+      notes: ticketNotes,
     };
     const message = buildOrderWhatsAppMessage({
       orderNumber,
@@ -328,7 +358,7 @@ export default function CheckoutPage() {
       await createOrderTicket({
         orderNumber,
         cart: enrichedCart,
-        customer,
+        customer: ticketCustomer,
         total: enrichedFinalTotal,
         whatsappMessage: message,
       });
@@ -557,13 +587,6 @@ export default function CheckoutPage() {
               {isCartReady && cart.map((item) => {
                 const isCurveItem = isCurveProduct(item);
                 const itemUnits = getCartItemUnits(item);
-                const wholesaleUnitPrice = getWholesalePrice(item);
-                const retailUnitPrice = getRetailPrice(item);
-                const isItemWholesale =
-                  cartPricing.isWholesale || isCurveItem;
-                const hasWholesaleSavings =
-                  isItemWholesale &&
-                  retailUnitPrice > wholesaleUnitPrice;
 
                 return (
                   <div
@@ -576,12 +599,6 @@ export default function CheckoutPage() {
                       </p>
 
                       <div className="mt-1 text-zinc-500">
-                        {hasWholesaleSavings && (
-                          <span className="mr-2 font-semibold line-through">
-                            {formatPrice(retailUnitPrice)}
-                          </span>
-                        )}
-
                         <span>
                           {isCurveItem
                             ? `${item.quantity} ${
@@ -599,12 +616,6 @@ export default function CheckoutPage() {
                     </div>
 
                     <div className="text-right">
-                      {hasWholesaleSavings && (
-                        <p className="text-xs font-semibold text-zinc-400 line-through">
-                          {formatPrice(retailUnitPrice * itemUnits)}
-                        </p>
-                      )}
-
                       <p className="font-semibold text-black">
                         {formatPrice(
                           getCartItemSubtotal(
@@ -621,22 +632,15 @@ export default function CheckoutPage() {
 
             <p
               className={`mb-3 rounded-2xl p-3 text-sm leading-5 ${
-                cartPricing.isWholesale
+                cartPricing.meetsWholesaleMinimum
                   ? "bg-green-500/10 text-green-700"
                   : "bg-yellow-500/10 text-yellow-800"
               }`}
             >
-              {cartPricing.isWholesale
-                ? "Este pedido usa precio mayorista."
-                : cartPricing.hasCurveWholesale
-                ? "Las curvas usan precio mayorista. Las unidades sueltas quedan minoristas hasta alcanzar el minimo."
-                : "Este pedido usa precio minorista."}
+              {cartPricing.meetsWholesaleMinimum
+                ? "Minimo de compra alcanzado."
+                : `Faltan ${formatPrice(cartPricing.remainingForWholesale)} para alcanzar el minimo de compra de ${formatPrice(wholesaleMinimum)}.`}
 
-              {!cartPricing.isWholesale && (
-                <span className="mt-1 block">
-                  Faltan {formatPrice(cartPricing.remainingForWholesale)} para precio mayorista.
-                </span>
-              )}
 
             </p>
 
@@ -706,6 +710,13 @@ export default function CheckoutPage() {
               </p>
             )}
 
+            {isBelowMinimum && (
+              <p className="mt-4 rounded-xl border border-amber-300 bg-amber-50 p-3 text-sm text-amber-800">
+                El minimo de compra es {formatPrice(wholesaleMinimum)}.
+                Faltan {formatPrice(cartPricing.remainingForWholesale)}.
+              </p>
+            )}
+
             {isCheckingCartStock && (
               <p className="mt-4 rounded-xl bg-white p-3 text-sm text-zinc-600">
                 Validando stock actual...
@@ -745,6 +756,7 @@ export default function CheckoutPage() {
               disabled={
                 hasNoProducts ||
                 hasNoFulfillment ||
+                isBelowMinimum ||
                 !isCartReady ||
                 isSubmitting ||
                 isCheckingCartStock ||

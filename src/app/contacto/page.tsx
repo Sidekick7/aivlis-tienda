@@ -52,7 +52,7 @@ const contactOptions = [
 export default function ContactPage() {
   return (
     <main className="home-main-offset min-h-screen bg-zinc-100 text-black">
-      <section className="mx-auto flex max-w-6xl flex-col gap-8 px-6 py-10 md:px-10 lg:py-14">
+      <section className="mx-auto flex max-w-6xl flex-col gap-8 px-6 pb-10 pt-5 md:px-10 lg:pb-12 lg:pt-7">
         <div className="max-w-3xl">
           <p className="mb-3 text-sm font-semibold uppercase tracking-wide text-zinc-500">
             Atencion

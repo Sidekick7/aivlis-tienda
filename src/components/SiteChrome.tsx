@@ -15,9 +15,10 @@ export default function SiteChrome({
   children,
 }: SiteChromeProps) {
   const pathname = usePathname();
-  const isAdmin = pathname.startsWith("/admin");
+  const isInternalPanel =
+    pathname.startsWith("/admin") || pathname.startsWith("/gestion");
 
-  if (isAdmin) {
+  if (isInternalPanel) {
     return children;
   }
 

@@ -957,12 +957,10 @@ export default function AdminLocalSaleSection({
   const handleDeleteSale = async (sale: LocalSale) => {
     if (deletingSaleId || cancellingSaleId) return;
 
-    const stockWarning =
-      sale.status === "completed"
-        ? " Esta accion no devuelve stock; usa Anular si necesitas reponerlo."
-        : "";
     const shouldDelete = window.confirm(
-      `Eliminar ${sale.saleNumber} del historial?${stockWarning}`
+      sale.status === "completed"
+        ? `La venta ${sale.saleNumber} esta confirmada. Para eliminarla se va a anular primero, devolver stock y despues borrar del historial. Continuar?`
+        : `Eliminar ${sale.saleNumber} del historial?`
     );
 
     if (!shouldDelete) return;
@@ -972,7 +970,11 @@ export default function AdminLocalSaleSection({
     setDeletingSaleId(sale.id);
 
     try {
-      await deleteLocalSale(sale.id);
+      if (sale.status !== "cancelled") {
+        await cancelLocalSale(sale);
+      }
+
+      await deleteLocalSale(sale);
       setLocalSales((currentSales) =>
         currentSales.filter((currentSale) => currentSale.id !== sale.id)
       );

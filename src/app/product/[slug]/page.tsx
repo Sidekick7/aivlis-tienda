@@ -5,11 +5,7 @@ import Link from "next/link";
 
 import { getProductBySlug, getProductsByCategory } from "@/lib/products";
 import { getProductImage } from "@/lib/productDisplay";
-import {
-  formatPrice,
-  getRetailPrice,
-  hasDifferentRetailPrice,
-} from "@/lib/pricing";
+import { formatPrice } from "@/lib/pricing";
 import type { Product } from "@/types/product";
 
 function RelatedProductCard({ product }: { product: Product }) {
@@ -33,15 +29,9 @@ function RelatedProductCard({ product }: { product: Product }) {
           {product.name}
         </h3>
 
-        <p className="mt-2 font-semibold text-black">
-          Mayorista {formatPrice(product.price)}
+        <p className="mt-2 text-lg font-bold text-black">
+          {formatPrice(product.price)}
         </p>
-
-        {hasDifferentRetailPrice(product) && (
-          <p className="text-sm text-zinc-500">
-            Minorista {formatPrice(getRetailPrice(product))}
-          </p>
-        )}
       </div>
     </Link>
   );
@@ -74,7 +64,7 @@ export default async function ProductPage({
   return (
     <main className="home-main-offset min-h-screen bg-zinc-100 px-6 pb-20 text-black">
 
-      <div className="mx-auto mt-4 max-w-7xl md:mt-6">
+      <div className="mx-auto mt-5 max-w-7xl md:mt-7">
 
         <ProductInfo product={product} />
 

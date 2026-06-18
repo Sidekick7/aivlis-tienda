@@ -17,17 +17,9 @@ import {
   updateHomeContent,
   uploadHomeImage,
 } from "@/lib/homeContent";
-import {
-  deleteOrder,
-  getAdminOrders,
-  updateOrderInternalNotes,
-  updateOrderStatus,
-} from "@/lib/orders";
-import { formatOrderNumber } from "@/lib/orderNumber";
 import AdminCategoriesSection from "@/app/admin/AdminCategoriesSection";
 import AdminHomeSection from "@/app/admin/AdminHomeSection";
 import AdminLocalSaleSection from "@/app/admin/AdminLocalSaleSection";
-import AdminOrdersSection from "@/app/admin/AdminOrdersSection";
 import AdminProductsSection from "@/app/admin/AdminProductsSection";
 import CreateProductModal from "@/app/admin/CreateProductModal";
 import EditProductModal from "@/app/admin/EditProductModal";
@@ -56,7 +48,6 @@ import type {
 import type { StoreCategory } from "@/types/category";
 import type { HomeContent } from "@/types/homeContent";
 import type { Product } from "@/types/product";
-import type { AdminOrder, OrderStatus } from "@/types/order";
 import type { Session } from "@supabase/supabase-js";
 
 type AdminNotice = {
@@ -67,12 +58,6 @@ type AdminNotice = {
 type SavingProductAction = {
   id: number;
   action: "featured" | "active" | "delete";
-};
-
-const orderStatusLabels: Record<OrderStatus, string> = {
-  pending_payment: "Pendiente de pago",
-  confirmed: "Confirmado",
-  cancelled: "Cancelado",
 };
 
 export default function AdminPage() {
@@ -108,9 +93,6 @@ const [homeContent, setHomeContent] =
 const [homeContentError, setHomeContentError] = useState("");
 const [isSavingHomeContent, setIsSavingHomeContent] = useState(false);
 const [isUploadingHomeImage, setIsUploadingHomeImage] = useState(false);
-const [orders, setOrders] = useState<AdminOrder[]>([]);
-const [isOrdersLoading, setIsOrdersLoading] = useState(false);
-const [orderError, setOrderError] = useState("");
 const [adminNotice, setAdminNotice] =
   useState<AdminNotice | null>(null);
 const [isCreatingProduct, setIsCreatingProduct] = useState(false);
@@ -189,7 +171,6 @@ useEffect(() => {
 
       setSession(null);
       setProducts([]);
-      setOrders([]);
       setAuthMessage("Este usuario no tiene permisos de administrador.");
       setIsAdminAllowed(false);
       setIsAdminCheckLoading(false);
@@ -245,25 +226,6 @@ const refreshCategories = async () => {
   }
 };
 
-const refreshOrders = async () => {
-  setIsOrdersLoading(true);
-  setOrderError("");
-
-  try {
-    const orders = await getAdminOrders();
-
-    setOrders(orders);
-  } catch (error) {
-    setOrderError(
-      error instanceof Error
-        ? error.message
-        : "No se pudieron cargar los pedidos"
-    );
-  } finally {
-    setIsOrdersLoading(false);
-  }
-};
-
 const refreshHomeContent = async () => {
   setHomeContentError("");
 
@@ -292,7 +254,6 @@ useEffect(() => {
   }).then(setProducts);
   Promise.resolve().then(refreshCategories);
   Promise.resolve().then(refreshHomeContent);
-  Promise.resolve().then(refreshOrders);
 
 }, [session, isAdminAllowed]);
 
@@ -864,104 +825,7 @@ const handleLogout = async () => {
   setShowLogoutConfirm(false);
   await supabase.auth.signOut();
   setSession(null);
-  setOrders([]);
   setProducts([]);
-};
-
-const handleOrderStatusChange = async (
-  order: AdminOrder,
-  status: OrderStatus
-) => {
-  const previousStatus = order.status;
-
-  try {
-    await updateOrderStatus(order, status);
-    await Promise.all([
-      refreshOrders(),
-      refreshProducts(),
-    ]);
-    setAdminNotice({
-      type: "success",
-      message: `Pedido ${formatOrderNumber(order.orderNumber)}: ${orderStatusLabels[previousStatus]} -> ${orderStatusLabels[status]}.`,
-    });
-  } catch (error) {
-    setAdminNotice({
-      type: "error",
-      message:
-        error instanceof Error
-          ? error.message
-          : "No se pudo actualizar el pedido.",
-    });
-  }
-};
-
-const handleDeleteOrder = async (order: AdminOrder) => {
-  try {
-    await deleteOrder(order);
-    await Promise.all([
-      refreshOrders(),
-      refreshProducts(),
-    ]);
-    setAdminNotice({
-      type: "success",
-      message: `Pedido ${formatOrderNumber(order.orderNumber)} eliminado.`,
-    });
-  } catch (error) {
-    setAdminNotice({
-      type: "error",
-      message:
-        error instanceof Error
-          ? error.message
-          : "No se pudo eliminar el pedido.",
-    });
-  }
-};
-
-const handleDeleteOrders = async (selectedOrders: AdminOrder[]) => {
-  try {
-    for (const order of selectedOrders) {
-      await deleteOrder(order);
-    }
-
-    await Promise.all([
-      refreshOrders(),
-      refreshProducts(),
-    ]);
-    setAdminNotice({
-      type: "success",
-      message: `${selectedOrders.length} pedidos eliminados.`,
-    });
-  } catch (error) {
-    setAdminNotice({
-      type: "error",
-      message:
-        error instanceof Error
-          ? error.message
-          : "No se pudieron eliminar los pedidos.",
-    });
-  }
-};
-
-const handleUpdateOrderInternalNotes = async (
-  orderId: string,
-  internalNotes: string
-) => {
-  try {
-    await updateOrderInternalNotes(orderId, internalNotes);
-    await refreshOrders();
-    setAdminNotice({
-      type: "success",
-      message: "Nota interna guardada.",
-    });
-  } catch (error) {
-    setAdminNotice({
-      type: "error",
-      message:
-        error instanceof Error
-          ? error.message
-          : "No se pudo guardar la nota interna.",
-    });
-  }
 };
 
 if (isAuthLoading || isAdminCheckLoading) {
@@ -1044,18 +908,6 @@ if (!session) {
 
           <button
             type="button"
-            onClick={() => setActiveSection("orders")}
-            className={`h-10 flex-1 rounded-xl px-4 text-sm font-semibold transition cursor-pointer md:flex-none ${
-              activeSection === "orders"
-                ? "bg-white text-black"
-                : "text-zinc-400 hover:text-white"
-            }`}
-          >
-            Pedidos ({orders.length})
-          </button>
-
-          <button
-            type="button"
             onClick={() => setActiveSection("home")}
             className={`h-10 flex-1 rounded-xl px-4 text-sm font-semibold transition cursor-pointer md:flex-none ${
               activeSection === "home"
@@ -1075,6 +927,13 @@ if (!session) {
         </Link>
 
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-end">
+          <Link
+            href="/gestion"
+            className="inline-flex h-10 items-center justify-center rounded-2xl border border-sky-500/40 bg-sky-500/10 px-5 text-sm font-semibold text-sky-300 transition hover:border-sky-300 hover:bg-sky-500/20"
+          >
+            Gestion
+          </Link>
+
           <button
             type="button"
             onClick={() => setActiveSection("local_sale")}
@@ -1191,18 +1050,6 @@ if (!session) {
   />
 )}
 
-{activeSection === "orders" && (
-  <AdminOrdersSection
-    orders={orders}
-    isLoading={isOrdersLoading}
-    error={orderError}
-    onRefresh={refreshOrders}
-    onStatusChange={handleOrderStatusChange}
-    onUpdateInternalNotes={handleUpdateOrderInternalNotes}
-    onDelete={handleDeleteOrder}
-    onDeleteMany={handleDeleteOrders}
-  />
-)}
 {activeSection === "products" && (
   <AdminProductsSection
     products={products}

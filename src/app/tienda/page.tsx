@@ -97,87 +97,103 @@ function ShopPageContent() {
 
   return (
     <main className="home-main-offset min-h-screen bg-zinc-100 text-black">
-      <section className="px-6 pb-14 pt-6 md:px-10 md:pt-8">
+      <section className="px-6 pb-14 pt-4 md:px-10 md:pt-5">
         <div className="mx-auto max-w-7xl">
-          <div className="mb-10 flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+          <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div>
-              <h1 className="text-5xl font-bold">
+              <h1 className="text-3xl font-bold md:text-4xl">
                 Tienda
               </h1>
-
-              <p className="mt-4 max-w-xl text-sm leading-6 text-zinc-600">
-                Filtra por categoria y ordena los productos para
-                encontrar mas rapido lo que estas buscando.
-              </p>
             </div>
 
-            <div className="flex flex-col gap-2">
-              <label
-                htmlFor="shop-sort"
-                className="text-xs font-semibold uppercase tracking-wide text-zinc-500"
-              >
-                Ordenar
-              </label>
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+              <div className="flex flex-col gap-2">
+                <span className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
+                  Filtro
+                </span>
 
-              <select
-                id="shop-sort"
-                value={sortBy}
-                onChange={(event) =>
-                  setSortBy(event.target.value as ShopSort)
-                }
-                className="h-11 rounded-full border border-zinc-300 bg-white px-4 text-sm font-semibold outline-none"
-              >
-                {sortOptions.map((option) => (
-                  <option
-                    key={option.value}
-                    value={option.value}
+                <div className="flex h-11 items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => updateCategory("all")}
+                    className={`h-11 rounded-full px-4 text-sm font-semibold transition ${
+                      categoryFilter === "all"
+                        ? "bg-black text-white"
+                        : "border border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-200"
+                    }`}
                   >
-                    {option.label}
-                  </option>
-                ))}
-              </select>
+                    Todos
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => updateCategory("featured")}
+                    className={`h-11 rounded-full px-4 text-sm font-semibold transition ${
+                      categoryFilter === "featured"
+                        ? "bg-black text-white"
+                        : "border border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-200"
+                    }`}
+                  >
+                    Destacados
+                  </button>
+                </div>
+              </div>
+
+              <div className="flex flex-col gap-2">
+                <label
+                  htmlFor="shop-category"
+                  className="text-xs font-semibold uppercase tracking-wide text-zinc-500"
+                >
+                  Categoria
+                </label>
+
+                <select
+                  id="shop-category"
+                  value={categoryFilter}
+                  onChange={(event) =>
+                    updateCategory(event.target.value)
+                  }
+                  className="h-11 min-w-48 rounded-full border border-zinc-300 bg-white px-4 text-sm font-semibold outline-none"
+                >
+                  <option value="all">Categorias</option>
+                  {categories.map((category) => (
+                    <option
+                      key={category.value}
+                      value={category.value}
+                    >
+                      {category.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="flex flex-col gap-2">
+                <label
+                  htmlFor="shop-sort"
+                  className="text-xs font-semibold uppercase tracking-wide text-zinc-500"
+                >
+                  Ordenar
+                </label>
+
+                <select
+                  id="shop-sort"
+                  value={sortBy}
+                  onChange={(event) =>
+                    setSortBy(event.target.value as ShopSort)
+                  }
+                  className="h-11 min-w-44 rounded-full border border-zinc-300 bg-white px-4 text-sm font-semibold outline-none"
+                >
+                  {sortOptions.map((option) => (
+                    <option
+                      key={option.value}
+                      value={option.value}
+                    >
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
             </div>
-          </div>
-
-          <div className="-mx-6 mb-8 flex gap-2 overflow-x-auto px-6 pb-2 md:mx-0 md:mb-10 md:flex-wrap md:overflow-visible md:px-0 md:pb-0">
-            <button
-              type="button"
-              onClick={() => updateCategory("all")}
-              className={`h-10 shrink-0 rounded-full px-4 text-sm font-semibold transition ${
-                categoryFilter === "all"
-                  ? "bg-black text-white"
-                  : "bg-white text-zinc-700 hover:bg-zinc-200"
-              }`}
-            >
-              Todos
-            </button>
-
-            <button
-              type="button"
-              onClick={() => updateCategory("featured")}
-              className={`h-10 shrink-0 rounded-full px-4 text-sm font-semibold transition ${
-                categoryFilter === "featured"
-                  ? "bg-black text-white"
-                  : "bg-white text-zinc-700 hover:bg-zinc-200"
-              }`}
-            >
-              Destacados
-            </button>
-
-            {categories.map((category) => (
-              <button
-                key={category.value}
-                type="button"
-                onClick={() => updateCategory(category.value)}
-                className={`h-10 shrink-0 rounded-full px-4 text-sm font-semibold transition ${
-                  categoryFilter === category.value
-                    ? "bg-black text-white"
-                    : "bg-white text-zinc-700 hover:bg-zinc-200"
-                }`}
-              >
-                {category.label}
-              </button>
-            ))}
           </div>
 
           <div className="grid grid-cols-2 gap-6 md:grid-cols-3 xl:grid-cols-4">

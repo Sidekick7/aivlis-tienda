@@ -6,12 +6,12 @@ const questions = [
     body: "Elegis producto, talle y color, lo agregas al carrito, seleccionas retiro o envio, completas tus datos y envias el pedido por WhatsApp.",
   },
   {
-    title: "Los precios son mayoristas?",
-    body: "Si. Los precios publicados son mayoristas. El minimo de compra para acceder a ese precio es de $150.000.",
+    title: "Hay minimo de compra?",
+    body: "Si. El minimo de compra es de $100.000.",
   },
   {
     title: "Que pasa si no llego al minimo?",
-    body: "Podes comprar igual. En el carrito vas a ver cuanto falta para llegar al minimo mayorista y, si no se alcanza, se aplica el precio minorista.",
+    body: "Podes armar el carrito, pero para finalizar el pedido tenes que llegar al minimo de compra. El carrito te muestra cuanto falta.",
   },
   {
     title: "Envios",
@@ -46,7 +46,7 @@ const questions = [
 export default function QuestionsPage() {
   return (
     <main className="home-main-offset min-h-screen bg-zinc-100 text-black">
-      <section className="mx-auto flex max-w-6xl flex-col gap-8 px-6 py-10 md:px-10 lg:py-14">
+      <section className="mx-auto flex max-w-6xl flex-col gap-8 px-6 pb-10 pt-5 md:px-10 lg:pb-12 lg:pt-7">
         <div className="max-w-3xl">
           <p className="mb-3 text-sm font-semibold uppercase tracking-wide text-zinc-500">
             Ayuda
@@ -57,8 +57,8 @@ export default function QuestionsPage() {
           </h1>
 
           <p className="mt-5 max-w-2xl text-zinc-600">
-            Resolvemos las dudas mas comunes antes de comprar: precios
-            mayoristas, envios, retiro, pruebas, cambios, pagos y stock.
+            Resolvemos las dudas mas comunes antes de comprar: minimo
+            de compra, envios, retiro, pruebas, cambios, pagos y stock.
           </p>
         </div>
 

@@ -40,6 +40,7 @@ begin
       or coalesce(item ->> 'size', '') = ''
       or coalesce((item ->> 'quantity')::integer, 0) <= 0
       or coalesce((item ->> 'unit_price')::numeric, 0) < 0
+      or coalesce((item ->> 'unit_cost')::numeric, 0) < 0
       or coalesce((item ->> 'subtotal')::numeric, 0) < 0
       or (item ->> 'subtotal')::numeric
         <> (item ->> 'unit_price')::numeric * (item ->> 'quantity')::integer
@@ -184,6 +185,7 @@ begin
     size,
     quantity,
     unit_price,
+    unit_cost,
     subtotal,
     image_url
   )
@@ -197,9 +199,12 @@ begin
     nullif(item ->> 'size', ''),
     (item ->> 'quantity')::integer,
     (item ->> 'unit_price')::numeric,
+    coalesce(product.cost, (item ->> 'unit_cost')::numeric, 0),
     (item ->> 'subtotal')::numeric,
     nullif(item ->> 'image_url', '')
-  from jsonb_array_elements(items) as item;
+  from jsonb_array_elements(items) as item
+  left join public.products as product
+    on product.id = nullif(item ->> 'product_id', '')::bigint;
 
   return order_id;
 end;

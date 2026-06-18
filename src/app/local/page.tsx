@@ -37,7 +37,7 @@ const localDetails = [
 export default function LocalPage() {
   return (
     <main className="home-main-offset min-h-screen bg-zinc-100 text-black">
-      <section className="mx-auto grid max-w-7xl gap-8 px-6 py-10 md:px-10 lg:grid-cols-[minmax(0,540px)_1fr] lg:items-stretch lg:py-14">
+      <section className="mx-auto grid max-w-7xl gap-8 px-6 pb-10 pt-5 md:px-10 lg:grid-cols-[minmax(0,540px)_1fr] lg:items-stretch lg:pb-12 lg:pt-7">
         <div className="overflow-hidden rounded-2xl bg-white shadow-sm lg:h-full">
           <Image
             src="/showroom-door.png"

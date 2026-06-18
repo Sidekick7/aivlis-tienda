@@ -7,11 +7,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useSearch } from "@/context/SearchContext";
 import { getProducts } from "@/lib/products";
 import { getProductImage } from "@/lib/productDisplay";
-import {
-  formatPrice,
-  getRetailPrice,
-  hasDifferentRetailPrice,
-} from "@/lib/pricing";
+import { formatPrice } from "@/lib/pricing";
 import type { Product } from "@/types/product";
 
 export default function SearchModal() {
@@ -124,14 +120,8 @@ export default function SearchModal() {
                   </p>
 
                   <p className="text-zinc-300">
-                    Mayorista {formatPrice(product.price)}
+                    {formatPrice(product.price)}
                   </p>
-
-                  {hasDifferentRetailPrice(product) && (
-                    <p className="text-sm text-zinc-500">
-                      Minorista {formatPrice(getRetailPrice(product))}
-                    </p>
-                  )}
                 </div>
               </div>
             </Link>

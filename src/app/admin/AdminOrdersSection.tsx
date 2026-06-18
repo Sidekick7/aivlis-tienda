@@ -1,21 +1,28 @@
 "use client";
 
 import Image from "next/image";
-import { Copy, Search, Trash2 } from "lucide-react";
+import {
+  Copy,
+  RefreshCw,
+  Search,
+  Trash2,
+} from "lucide-react";
 import { useState } from "react";
 import { formatOrderNumber } from "@/lib/orderNumber";
 import type { AdminOrder, OrderStatus } from "@/types/order";
 
 type OrderFilter = "all" | OrderStatus;
-type OrderDateFilter = "all" | "today" | "last_7_days" | "this_month";
 type OrderSort = "newest" | "oldest";
 
 const ORDERS_PER_PAGE = 10;
+const orderGridColumns =
+  "xl:grid-cols-[90px_90px_minmax(170px,1fr)_72px_58px_88px_210px_36px]";
 
 type Props = {
   orders: AdminOrder[];
   isLoading: boolean;
   error: string;
+  forcedStatusFilter?: OrderFilter;
   onRefresh: () => void;
   onStatusChange: (
     order: AdminOrder,
@@ -51,20 +58,34 @@ function getShortSku(sku?: string | null) {
   return sku?.startsWith("AIV-") ? sku.slice(4) : sku;
 }
 
-const orderStatusButtonClasses: Record<OrderStatus, string> = {
-  pending_payment:
-    "border-yellow-500/30 bg-yellow-500/15 text-yellow-200 hover:bg-yellow-500/25",
-  confirmed:
-    "border-emerald-500/30 bg-emerald-500/15 text-emerald-200 hover:bg-emerald-500/25",
-  cancelled:
-    "border-red-500/30 bg-red-500/15 text-red-200 hover:bg-red-500/25",
-};
+function parseDateInput(value: string) {
+  if (!value) return null;
 
-const orderStatusActionLabels: Record<OrderStatus, string> = {
-  pending_payment: "Pendiente",
-  confirmed: "Confirmado",
-  cancelled: "Cancelado",
-};
+  const [year, month, day] = value.split("-").map(Number);
+
+  if (!year || !month || !day) return null;
+
+  return new Date(year, month - 1, day);
+}
+
+function formatDateInput(date: Date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+
+  return `${year}-${month}-${day}`;
+}
+
+function formatDateButtonLabel(value: string, fallback: string) {
+  const date = parseDateInput(value);
+
+  return date
+    ? date.toLocaleDateString("es-AR", {
+        day: "2-digit",
+        month: "2-digit",
+      })
+    : fallback;
+}
 
 function formatCustomerData(order: AdminOrder) {
   return [
@@ -85,14 +106,30 @@ function getOrderFulfillmentLabel(order: AdminOrder) {
   const deliveryLine = order.notes
     ?.split("\n")
     .find((line) => line.startsWith("Entrega:"));
+  const whatsappDeliveryLine = order.whatsappMessage
+    ?.split("\n")
+    .find(
+      (line, index, lines) =>
+        lines[index - 1]?.trim().toUpperCase() === "ENTREGA" &&
+        line.trim()
+    );
 
-  return deliveryLine?.replace("Entrega:", "").trim() || "";
+  const label = (
+    deliveryLine?.replace("Entrega:", "").trim() ||
+    whatsappDeliveryLine?.replace(": sin costo", "").trim() ||
+    ""
+  );
+
+  if (!label) return "";
+
+  return label.toLowerCase().includes("retiro") ? "Retiro" : "Envio";
 }
 
 export default function AdminOrdersSection({
   orders,
   isLoading,
   error,
+  forcedStatusFilter,
   onRefresh,
   onStatusChange,
   onUpdateInternalNotes,
@@ -102,8 +139,11 @@ export default function AdminOrdersSection({
   const [orderSearch, setOrderSearch] = useState("");
   const [orderFilter, setOrderFilter] =
     useState<OrderFilter>("all");
-  const [orderDateFilter, setOrderDateFilter] =
-    useState<OrderDateFilter>("all");
+  const [orderDateFrom, setOrderDateFrom] = useState("");
+  const [orderDateTo, setOrderDateTo] = useState("");
+  const [datePickerTarget, setDatePickerTarget] =
+    useState<"from" | "to" | null>(null);
+  const [calendarMonth, setCalendarMonth] = useState(() => new Date());
   const [orderSort, setOrderSort] =
     useState<OrderSort>("newest");
   const [orderPage, setOrderPage] = useState(1);
@@ -127,6 +167,30 @@ export default function AdminOrdersSection({
     orderId: string;
     action: "customer" | "message";
   } | null>(null);
+  const [customerModalOrder, setCustomerModalOrder] =
+    useState<AdminOrder | null>(null);
+  const openDatePicker = (target: "from" | "to") => {
+    const selectedDate = parseDateInput(
+      target === "from" ? orderDateFrom : orderDateTo
+    );
+
+    setCalendarMonth(selectedDate ?? new Date());
+    setDatePickerTarget(target);
+  };
+  const selectCalendarDate = (date: Date) => {
+    const value = formatDateInput(date);
+
+    if (datePickerTarget === "from") {
+      setOrderDateFrom(value);
+    }
+
+    if (datePickerTarget === "to") {
+      setOrderDateTo(value);
+    }
+
+    setDatePickerTarget(null);
+    setOrderPage(1);
+  };
 
   const copyOrderText = async (
     order: AdminOrder,
@@ -244,25 +308,21 @@ export default function AdminOrdersSection({
   const normalizedOrderSearch = orderSearch
     .trim()
     .toLowerCase();
-  const now = new Date();
-  const todayStart = new Date(
-    now.getFullYear(),
-    now.getMonth(),
-    now.getDate()
-  );
-  const last7DaysStart = new Date(todayStart);
-  last7DaysStart.setDate(last7DaysStart.getDate() - 6);
-  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+  const orderDateFromValue = orderDateFrom
+    ? new Date(`${orderDateFrom}T00:00:00`)
+    : null;
+  const orderDateToValue = orderDateTo
+    ? new Date(`${orderDateTo}T23:59:59`)
+    : null;
 
+  const effectiveOrderFilter = forcedStatusFilter ?? orderFilter;
   const visibleOrders = orders.filter((order) => {
     const matchesFilter =
-      orderFilter === "all" || order.status === orderFilter;
+      effectiveOrderFilter === "all" || order.status === effectiveOrderFilter;
     const orderDate = new Date(order.createdAt);
     const matchesDate =
-      orderDateFilter === "all" ||
-      (orderDateFilter === "today" && orderDate >= todayStart) ||
-      (orderDateFilter === "last_7_days" && orderDate >= last7DaysStart) ||
-      (orderDateFilter === "this_month" && orderDate >= monthStart);
+      (!orderDateFromValue || orderDate >= orderDateFromValue) &&
+      (!orderDateToValue || orderDate <= orderDateToValue);
     const matchesSearch =
       !normalizedOrderSearch ||
       [
@@ -310,21 +370,51 @@ export default function AdminOrdersSection({
         : [...currentIds, orderId]
     );
   };
+  const pendingOrdersCount = orders.filter(
+    (order) => order.status === "pending_payment"
+  ).length;
+  const statusFilterOptions: [OrderFilter, string][] = [
+    ["all", "Todos"],
+    ["pending_payment", `Pendientes (${pendingOrdersCount})`],
+    ["confirmed", "Confirmados"],
+    ["cancelled", "Cancelados"],
+  ];
+  const calendarMonthStart = new Date(
+    calendarMonth.getFullYear(),
+    calendarMonth.getMonth(),
+    1
+  );
+  const calendarStart = new Date(calendarMonthStart);
+  calendarStart.setDate(
+    calendarStart.getDate() - ((calendarStart.getDay() + 6) % 7)
+  );
+  const calendarDays = Array.from({ length: 42 }, (_, index) => {
+    const date = new Date(calendarStart);
+    date.setDate(calendarStart.getDate() + index);
+
+    return date;
+  });
 
   return (
-    <section className="mt-10 bg-zinc-900 rounded-3xl p-6">
-      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between mb-6">
-        <div>
-          <h2 className="text-3xl font-bold">
-            Pedidos
+    <section className="grid h-full min-h-0 gap-4 overflow-hidden">
+      <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-2xl border border-zinc-800 bg-zinc-900 p-3 sm:p-4">
+      <div className="mb-3 grid shrink-0 gap-3 xl:grid-cols-[260px_minmax(0,1fr)] xl:items-start">
+        <div className="min-w-0">
+          <h2 className="text-xl font-bold">
+            Bandeja de pedidos
           </h2>
 
-          <p className="text-zinc-400 mt-2">
+          <p className="mt-1 text-sm text-zinc-400">
             {visibleOrders.length} de {orders.length} tickets
+          </p>
+
+          <p className="hidden">
+            {visibleOrders.length} de {orders.length} tickets ·{" "}
           </p>
         </div>
 
-        <div className="flex flex-col gap-3 md:flex-row md:items-center">
+        <div className="grid gap-2">
+          <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-end">
           <div className="relative w-full md:w-80">
             <Search
               size={18}
@@ -339,79 +429,273 @@ export default function AdminOrdersSection({
                 setOrderSearch(event.target.value);
                 setOrderPage(1);
               }}
-              className="h-11 w-full rounded-xl border border-zinc-800 bg-zinc-950 pl-11 pr-4 outline-none transition focus:border-zinc-500"
+              className="h-10 w-full rounded-xl border border-zinc-800 bg-zinc-950 pl-11 pr-4 outline-none transition focus:border-zinc-500"
             />
           </div>
 
           <button
             type="button"
             onClick={onRefresh}
-            className="h-11 px-5 rounded-xl bg-zinc-800 text-white font-semibold hover:bg-zinc-700 transition cursor-pointer"
+            className="inline-flex h-10 items-center gap-2 rounded-xl bg-zinc-800 px-4 text-sm font-semibold text-white transition hover:bg-zinc-700 cursor-pointer"
           >
+            <RefreshCw size={17} />
             Actualizar
           </button>
+          </div>
+
+          <div className="flex flex-wrap gap-2 md:justify-end">
+            {!forcedStatusFilter &&
+              statusFilterOptions.map(([value, label]) => (
+                <button
+                  key={value}
+                  type="button"
+                  onClick={() => {
+                    setOrderFilter(value);
+                    setOrderPage(1);
+                  }}
+                  className={`h-9 rounded-xl px-3 text-xs font-semibold transition cursor-pointer ${
+                    orderFilter === value
+                      ? "bg-white text-black"
+                      : "bg-zinc-800 text-zinc-300 hover:text-white"
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => openDatePicker("from")}
+                className="h-9 rounded-xl border border-zinc-800 bg-zinc-950 px-3 text-xs font-semibold text-white transition hover:border-zinc-500 cursor-pointer"
+              >
+                Desde {formatDateButtonLabel(orderDateFrom, "-")}
+              </button>
+
+              {datePickerTarget === "from" && (
+                <div className="absolute right-0 top-11 z-30 w-64 rounded-2xl border border-zinc-700 bg-zinc-950 p-3 shadow-2xl">
+                  <div className="mb-3 flex items-center justify-between gap-2">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setCalendarMonth(
+                          new Date(
+                            calendarMonth.getFullYear(),
+                            calendarMonth.getMonth() - 1,
+                            1
+                          )
+                        )
+                      }
+                      className="h-8 w-8 rounded-lg bg-zinc-800 text-sm font-bold text-white transition hover:bg-zinc-700"
+                    >
+                      {"<"}
+                    </button>
+                    <p className="text-sm font-semibold capitalize text-white">
+                      {calendarMonth.toLocaleDateString("es-AR", {
+                        month: "long",
+                        year: "numeric",
+                      })}
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setCalendarMonth(
+                          new Date(
+                            calendarMonth.getFullYear(),
+                            calendarMonth.getMonth() + 1,
+                            1
+                          )
+                        )
+                      }
+                      className="h-8 w-8 rounded-lg bg-zinc-800 text-sm font-bold text-white transition hover:bg-zinc-700"
+                    >
+                      {">"}
+                    </button>
+                  </div>
+
+                  <div className="grid grid-cols-7 gap-1 text-center text-[10px] font-semibold uppercase text-zinc-500">
+                    {["L", "M", "M", "J", "V", "S", "D"].map((day, index) => (
+                      <span key={`${day}-${index}`}>{day}</span>
+                    ))}
+                  </div>
+
+                  <div className="mt-2 grid grid-cols-7 gap-1">
+                    {calendarDays.map((date) => {
+                      const value = formatDateInput(date);
+                      const isSelected = value === orderDateFrom;
+                      const isCurrentMonth =
+                        date.getMonth() === calendarMonth.getMonth();
+
+                      return (
+                        <button
+                          key={value}
+                          type="button"
+                          onClick={() => selectCalendarDate(date)}
+                          className={`h-8 rounded-lg text-xs font-semibold transition ${
+                            isSelected
+                              ? "bg-white text-black"
+                              : isCurrentMonth
+                                ? "bg-zinc-900 text-zinc-200 hover:bg-zinc-800"
+                                : "bg-transparent text-zinc-600 hover:bg-zinc-900"
+                          }`}
+                        >
+                          {date.getDate()}
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setOrderDateFrom("");
+                      setDatePickerTarget(null);
+                      setOrderPage(1);
+                    }}
+                    className="mt-3 h-8 w-full rounded-lg bg-zinc-800 text-xs font-semibold text-zinc-300 transition hover:bg-zinc-700"
+                  >
+                    Quitar desde
+                  </button>
+                </div>
+              )}
+            </div>
+
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => openDatePicker("to")}
+                className="h-9 rounded-xl border border-zinc-800 bg-zinc-950 px-3 text-xs font-semibold text-white transition hover:border-zinc-500 cursor-pointer"
+              >
+                Hasta {formatDateButtonLabel(orderDateTo, "-")}
+              </button>
+
+              {datePickerTarget === "to" && (
+                <div className="absolute right-0 top-11 z-30 w-64 rounded-2xl border border-zinc-700 bg-zinc-950 p-3 shadow-2xl">
+                  <div className="mb-3 flex items-center justify-between gap-2">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setCalendarMonth(
+                          new Date(
+                            calendarMonth.getFullYear(),
+                            calendarMonth.getMonth() - 1,
+                            1
+                          )
+                        )
+                      }
+                      className="h-8 w-8 rounded-lg bg-zinc-800 text-sm font-bold text-white transition hover:bg-zinc-700"
+                    >
+                      {"<"}
+                    </button>
+                    <p className="text-sm font-semibold capitalize text-white">
+                      {calendarMonth.toLocaleDateString("es-AR", {
+                        month: "long",
+                        year: "numeric",
+                      })}
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setCalendarMonth(
+                          new Date(
+                            calendarMonth.getFullYear(),
+                            calendarMonth.getMonth() + 1,
+                            1
+                          )
+                        )
+                      }
+                      className="h-8 w-8 rounded-lg bg-zinc-800 text-sm font-bold text-white transition hover:bg-zinc-700"
+                    >
+                      {">"}
+                    </button>
+                  </div>
+
+                  <div className="grid grid-cols-7 gap-1 text-center text-[10px] font-semibold uppercase text-zinc-500">
+                    {["L", "M", "M", "J", "V", "S", "D"].map((day, index) => (
+                      <span key={`${day}-${index}`}>{day}</span>
+                    ))}
+                  </div>
+
+                  <div className="mt-2 grid grid-cols-7 gap-1">
+                    {calendarDays.map((date) => {
+                      const value = formatDateInput(date);
+                      const isSelected = value === orderDateTo;
+                      const isCurrentMonth =
+                        date.getMonth() === calendarMonth.getMonth();
+
+                      return (
+                        <button
+                          key={value}
+                          type="button"
+                          onClick={() => selectCalendarDate(date)}
+                          className={`h-8 rounded-lg text-xs font-semibold transition ${
+                            isSelected
+                              ? "bg-white text-black"
+                              : isCurrentMonth
+                                ? "bg-zinc-900 text-zinc-200 hover:bg-zinc-800"
+                                : "bg-transparent text-zinc-600 hover:bg-zinc-900"
+                          }`}
+                        >
+                          {date.getDate()}
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setOrderDateTo("");
+                      setDatePickerTarget(null);
+                      setOrderPage(1);
+                    }}
+                    className="mt-3 h-8 w-full rounded-lg bg-zinc-800 text-xs font-semibold text-zinc-300 transition hover:bg-zinc-700"
+                  >
+                    Quitar hasta
+                  </button>
+                </div>
+              )}
+            </div>
+
+            <select
+              aria-label="Ordenar pedidos"
+              value={orderSort}
+              onChange={(event) => {
+                setOrderSort(event.target.value as OrderSort);
+                setOrderPage(1);
+              }}
+              className="h-9 rounded-xl border border-zinc-800 bg-zinc-950 px-3 text-xs font-semibold text-white outline-none transition focus:border-zinc-500"
+            >
+              <option value="newest">Mas recientes</option>
+              <option value="oldest">Mas antiguos</option>
+            </select>
+
+            <button
+              type="button"
+              onClick={() => {
+                setOrderSearch("");
+                setOrderFilter("all");
+                setOrderDateFrom("");
+                setOrderDateTo("");
+                setOrderSort("newest");
+                setOrderPage(1);
+              }}
+              disabled={
+                !orderSearch &&
+                (forcedStatusFilter || orderFilter === "all") &&
+                !orderDateFrom &&
+                !orderDateTo &&
+                orderSort === "newest"
+              }
+              className="h-9 rounded-xl bg-zinc-800 px-3 text-xs font-semibold text-zinc-300 transition hover:bg-zinc-700 disabled:cursor-not-allowed disabled:opacity-35"
+            >
+              Limpiar
+            </button>
+          </div>
         </div>
       </div>
 
-      <div className="mb-6 flex flex-wrap gap-2">
-        {([
-          ["all", "Todos"],
-          ["pending_payment", "Pendientes"],
-          ["confirmed", "Confirmados"],
-          ["cancelled", "Cancelados"],
-        ] as [OrderFilter, string][]).map(([value, label]) => (
-          <button
-            key={value}
-            type="button"
-            onClick={() => {
-              setOrderFilter(value);
-              setOrderPage(1);
-            }}
-            className={`h-10 rounded-xl px-4 text-sm font-semibold transition cursor-pointer ${
-              orderFilter === value
-                ? "bg-white text-black"
-                : "bg-zinc-800 text-zinc-300 hover:text-white"
-            }`}
-          >
-            {label}
-          </button>
-        ))}
-      </div>
-
-      <div className="mb-6 grid gap-3 md:grid-cols-2">
-        <label className="grid gap-2 text-sm text-zinc-400">
-          Ordenar por fecha
-          <select
-            value={orderSort}
-            onChange={(event) => {
-              setOrderSort(event.target.value as OrderSort);
-              setOrderPage(1);
-            }}
-            className="h-11 rounded-xl border border-zinc-800 bg-zinc-950 px-4 text-white outline-none transition focus:border-zinc-500"
-          >
-            <option value="newest">Mas recientes primero</option>
-            <option value="oldest">Mas antiguos primero</option>
-          </select>
-        </label>
-
-        <label className="grid gap-2 text-sm text-zinc-400">
-          Filtrar por fecha
-          <select
-            value={orderDateFilter}
-            onChange={(event) => {
-              setOrderDateFilter(event.target.value as OrderDateFilter);
-              setOrderPage(1);
-            }}
-            className="h-11 rounded-xl border border-zinc-800 bg-zinc-950 px-4 text-white outline-none transition focus:border-zinc-500"
-          >
-            <option value="all">Todos los dias</option>
-            <option value="today">Hoy</option>
-            <option value="last_7_days">Ultimos 7 dias</option>
-            <option value="this_month">Este mes</option>
-          </select>
-        </label>
-      </div>
-
+      <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden pr-1 [scrollbar-gutter:stable]">
       {error && (
         <p className="mb-4 rounded-xl border border-red-500/30 bg-red-500/10 p-4 text-red-300">
           {error}
@@ -463,7 +747,18 @@ export default function AdminOrdersSection({
         </div>
       )}
 
-      <div className="flex flex-col gap-3">
+      <div className={`hidden ${orderGridColumns} gap-2 border-y border-zinc-800 px-2 py-2 text-xs font-semibold uppercase tracking-wide text-zinc-500 xl:grid`}>
+        <span>Fecha</span>
+        <span>Pedido</span>
+        <span>Cliente</span>
+        <span>Entrega</span>
+        <span>Items</span>
+        <span>Importe</span>
+        <span>Estado</span>
+        <span />
+      </div>
+
+      <div className="flex flex-col gap-2 xl:gap-0">
         {paginatedOrders.map((order) => {
           const isExpanded = expandedOrderId === order.id;
           const isSavingOrder =
@@ -480,66 +775,130 @@ export default function AdminOrdersSection({
             0
           );
           const fulfillmentLabel = getOrderFulfillmentLabel(order);
+          const customerAddressLine = [
+            order.customerAddress,
+            order.customerCity,
+            order.customerProvince,
+            order.customerZip ? `CP ${order.customerZip}` : "",
+          ]
+            .filter(Boolean)
+            .join(", ");
 
           return (
             <article
               key={order.id}
-              className={`rounded-2xl p-3 ${
+              className={`rounded-2xl p-3 xl:rounded-none xl:border-b xl:border-zinc-800 ${
                 isSelected
                   ? "bg-zinc-800 ring-1 ring-white/40"
-                  : "bg-zinc-800"
+                  : "bg-zinc-800 xl:bg-transparent xl:hover:bg-zinc-800/60"
               }`}
             >
-              <div className="grid gap-3 xl:grid-cols-[minmax(320px,1fr)_auto_auto] xl:items-center">
-                <div className="flex min-w-0 gap-3">
+              <div className={`grid gap-2 ${orderGridColumns} xl:items-center`}>
+                <div className="flex items-center gap-2">
                   <input
                     type="checkbox"
                     aria-label={`Seleccionar pedido ${formatOrderNumber(order.orderNumber)}`}
                     checked={isSelected}
                     onChange={() => toggleOrderSelection(order.id)}
-                    className="mt-1 h-4 w-4 shrink-0 accent-white"
+                    className="h-4 w-4 shrink-0 accent-white"
                   />
 
-                  <div className="min-w-0">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <h3 className="font-semibold">
-                        {formatOrderNumber(order.orderNumber)}
-                      </h3>
-
-                      <span
-                        className={`text-xs px-3 py-1 rounded-full border ${orderStatusClasses[order.status]}`}
-                      >
-                        {orderStatusLabels[order.status]}
-                      </span>
-
-                      <span className="rounded-full bg-zinc-700 px-2 py-1 text-xs text-zinc-300">
-                        {orderItemsCount} un.
-                      </span>
-
-                      {order.internalNotes && (
-                        <span className="rounded-full bg-sky-500/15 px-2 py-1 text-xs text-sky-200">
-                          Nota interna
-                        </span>
-                      )}
-
-                      {fulfillmentLabel && (
-                        <span className="rounded-full bg-zinc-700 px-2 py-1 text-xs text-zinc-300">
-                          {fulfillmentLabel}
-                        </span>
-                      )}
-                    </div>
-
-                    <p className="mt-1 text-sm text-zinc-400">
-                      {new Date(order.createdAt).toLocaleString("es-AR")} - {currencyFormatter.format(order.total)}
+                  <div>
+                    <p className="text-xs font-semibold uppercase text-zinc-500 xl:hidden">
+                      Fecha
                     </p>
-
-                    <p className="mt-1 truncate text-sm text-zinc-300">
-                      {order.customerName} - DNI {order.customerDni} - {order.customerWhatsapp}
+                    <p className="text-sm font-semibold text-zinc-200">
+                      {new Date(order.createdAt).toLocaleDateString("es-AR")}
+                    </p>
+                    <p className="text-xs text-zinc-500">
+                      {new Date(order.createdAt).toLocaleTimeString("es-AR", {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })}
                     </p>
                   </div>
                 </div>
 
-                <div className="flex flex-wrap gap-2 xl:justify-start">
+                <div>
+                  <p className="text-xs font-semibold uppercase text-zinc-500 xl:hidden">
+                    Pedido
+                  </p>
+                  <p className="truncate font-semibold">
+                    {formatOrderNumber(order.orderNumber)}
+                  </p>
+                  {order.internalNotes && (
+                    <span className="mt-1 inline-flex rounded-full bg-sky-500/15 px-2 py-0.5 text-[11px] font-semibold text-sky-200">
+                      Nota
+                    </span>
+                  )}
+                </div>
+
+                <div className="min-w-0">
+                  <p className="text-xs font-semibold uppercase text-zinc-500 xl:hidden">
+                    Cliente
+                  </p>
+                  <p className="truncate font-semibold text-zinc-100">
+                    {order.customerName}
+                  </p>
+                  <p className="truncate text-xs text-zinc-400">
+                    DNI {order.customerDni} · {order.customerWhatsapp}
+                  </p>
+                </div>
+
+                <div>
+                  <p className="text-xs font-semibold uppercase text-zinc-500 xl:hidden">
+                    Entrega
+                  </p>
+                  <span className="inline-flex rounded-full bg-zinc-700 px-2.5 py-1 text-xs font-semibold text-zinc-300">
+                    {fulfillmentLabel || "Sin dato"}
+                  </span>
+                </div>
+
+                <div>
+                  <p className="text-xs font-semibold uppercase text-zinc-500 xl:hidden">
+                    Items
+                  </p>
+                  <p className="font-semibold text-zinc-100">
+                    {orderItemsCount} un.
+                  </p>
+                </div>
+
+                <div>
+                  <p className="text-xs font-semibold uppercase text-zinc-500 xl:hidden">
+                    Importe
+                  </p>
+                  <p className="truncate font-semibold text-zinc-100">
+                    {currencyFormatter.format(order.total)}
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-[minmax(0,1fr)_68px] items-center gap-1.5">
+                  <select
+                    aria-label={`Estado del pedido ${formatOrderNumber(order.orderNumber)}`}
+                    value={order.status}
+                    onChange={(event) => {
+                      const nextStatus = event.target.value as OrderStatus;
+
+                      if (nextStatus !== order.status) {
+                        void handleStatusChange(order, nextStatus);
+                      }
+                    }}
+                    disabled={isSavingOrder}
+                    className={`h-9 w-full rounded-lg border px-1.5 text-[11px] font-semibold outline-none transition cursor-pointer disabled:cursor-not-allowed disabled:opacity-60 ${orderStatusClasses[order.status]}`}
+                  >
+                    {(["pending_payment", "confirmed", "cancelled"] as OrderStatus[]).map(
+                      (status) => (
+                        <option
+                          key={status}
+                          value={status}
+                          className="bg-zinc-950 text-white"
+                        >
+                          {orderStatusLabels[status]}
+                        </option>
+                      )
+                    )}
+                  </select>
+
                   <button
                     type="button"
                     onClick={() =>
@@ -547,34 +906,15 @@ export default function AdminOrdersSection({
                         currentId === order.id ? null : order.id
                       )
                     }
-                    className="h-9 rounded-lg bg-zinc-700 px-3 text-xs font-semibold text-white transition hover:bg-zinc-600 cursor-pointer"
+                    className="h-9 rounded-lg bg-zinc-700 px-2 text-[11px] font-semibold text-white transition hover:bg-zinc-600 cursor-pointer"
                   >
-                    {isExpanded ? "Ocultar" : "Ver detalle"}
+                    {isExpanded ? "Ocultar" : "Detalle"}
                   </button>
 
-                  {(["pending_payment", "confirmed", "cancelled"] as OrderStatus[]).map(
-                    (status) => (
-                      <button
-                        key={status}
-                        type="button"
-                        onClick={() => handleStatusChange(order, status)}
-                        disabled={
-                          order.status === status || isSavingOrder
-                        }
-                        className={`h-9 rounded-lg border px-3 text-xs font-semibold transition cursor-pointer disabled:cursor-default ${
-                          order.status === status
-                            ? "bg-white text-black border-white"
-                            : isSavingOrder
-                              ? "border-zinc-600 bg-zinc-700 text-zinc-300"
-                            : orderStatusButtonClasses[status]
-                        }`}
-                      >
-                        {savingStatus?.orderId === order.id &&
-                        savingStatus.status === status
-                          ? "Guardando..."
-                          : orderStatusActionLabels[status]}
-                      </button>
-                    )
+                  {isSavingOrder && (
+                    <span className="col-span-2 inline-flex h-5 items-center text-xs font-semibold text-zinc-400">
+                      Guardando...
+                    </span>
                   )}
                 </div>
 
@@ -583,84 +923,94 @@ export default function AdminOrdersSection({
                     type="button"
                     onClick={() => handleDeleteOrder(order)}
                     disabled={deletingOrderId === order.id}
-                    className="flex h-9 items-center gap-2 rounded-lg bg-red-500/15 px-3 text-xs font-semibold text-red-200 transition hover:bg-red-500/25 cursor-pointer disabled:cursor-not-allowed disabled:opacity-60"
+                    className="flex h-9 w-9 items-center justify-center rounded-lg bg-red-500/15 text-red-200 transition hover:bg-red-500/25 cursor-pointer disabled:cursor-not-allowed disabled:opacity-60"
+                    title="Eliminar pedido"
                   >
                     <Trash2 size={16} />
-                    {deletingOrderId === order.id ? "Eliminando..." : "Eliminar"}
                   </button>
                 </div>
               </div>
 
               {isExpanded && (
-                <div className="mt-4 grid gap-3 border-t border-zinc-700 pt-3">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="rounded-lg bg-zinc-950 px-3 py-1.5 text-sm font-semibold text-white">
-                      Pedido {formatOrderNumber(order.orderNumber)}
-                    </span>
-                  </div>
-
-                  <div className="grid gap-1 text-sm text-zinc-400 md:grid-cols-2">
-                    <p>
-                      {order.customerAddress}, {order.customerCity}, {order.customerProvince} ({order.customerZip})
-                    </p>
-
-                    <p>
-                      WhatsApp: {order.customerWhatsapp}
-                      {order.customerEmail ? ` - Email: ${order.customerEmail}` : ""}
-                    </p>
-
-                    {order.notes && (
-                      <p className="text-zinc-300 md:col-span-2">
-                        Nota: {order.notes}
+                <div className="mt-3 border-t border-zinc-700 pt-3">
+                  <div className="grid gap-3 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto]">
+                    <div className="rounded-xl bg-zinc-900 p-3">
+                      <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">
+                        Contacto
                       </p>
-                    )}
-                  </div>
+                      <div className="mt-1 grid gap-0.5 text-sm">
+                        <p className="font-semibold text-white">
+                          {order.customerName}
+                        </p>
+                        <p className="text-zinc-400">
+                          DNI {order.customerDni} · {order.customerWhatsapp}
+                        </p>
+                        {order.customerEmail && (
+                          <p className="truncate text-zinc-400">
+                            {order.customerEmail}
+                          </p>
+                        )}
+                      </div>
+                    </div>
 
-                  <div className="flex flex-wrap gap-2">
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setEditingNoteOrderId((currentOrderId) =>
-                          currentOrderId === order.id ? null : order.id
-                        )
-                      }
-                      className="flex h-9 items-center gap-2 rounded-lg bg-sky-500/15 px-3 text-xs font-semibold text-sky-200 transition hover:bg-sky-500/25"
-                    >
-                      {isEditingInternalNote
-                        ? "Ocultar nota"
-                        : order.internalNotes
-                          ? "Editar nota interna"
-                          : "Nota interna"}
-                    </button>
+                    <div className="rounded-xl bg-zinc-900 p-3">
+                      <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">
+                        Entrega
+                      </p>
+                      <p className="mt-1 text-sm font-semibold text-white">
+                        {fulfillmentLabel || "Sin metodo cargado"}
+                      </p>
+                      <p className="mt-0.5 text-sm text-zinc-400">
+                        {customerAddressLine || "Sin direccion cargada"}
+                      </p>
+                      {order.notes && (
+                        <p className="mt-2 line-clamp-2 text-sm text-zinc-300">
+                          {order.notes}
+                        </p>
+                      )}
+                    </div>
 
-                    <button
-                      type="button"
-                      onClick={() => copyOrderText(order, "customer")}
-                      className="flex h-9 items-center gap-2 rounded-lg bg-zinc-700 px-3 text-xs font-semibold text-white transition hover:bg-zinc-600"
-                    >
-                      <Copy size={16} />
-                      {copiedAction?.orderId === order.id &&
-                      copiedAction.action === "customer"
-                        ? "Copiado"
-                        : "Copiar cliente"}
-                    </button>
+                    <div className="flex flex-wrap content-start gap-2 xl:max-w-[320px] xl:justify-end">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setEditingNoteOrderId((currentOrderId) =>
+                            currentOrderId === order.id ? null : order.id
+                          )
+                        }
+                        className="h-9 rounded-lg bg-sky-500/15 px-3 text-xs font-semibold text-sky-200 transition hover:bg-sky-500/25 cursor-pointer"
+                      >
+                        {isEditingInternalNote
+                          ? "Ocultar nota"
+                          : order.internalNotes
+                            ? "Editar nota"
+                            : "Nota interna"}
+                      </button>
 
-                    <button
-                      type="button"
-                      onClick={() => copyOrderText(order, "message")}
-                      className="flex h-9 items-center gap-2 rounded-lg bg-zinc-700 px-3 text-xs font-semibold text-white transition hover:bg-zinc-600"
-                    >
-                      <Copy size={16} />
-                      {copiedAction?.orderId === order.id &&
-                      copiedAction.action === "message"
-                        ? "Copiado"
-                        : "Copiar mensaje"}
-                    </button>
+                      <button
+                        type="button"
+                        onClick={() => setCustomerModalOrder(order)}
+                        className="flex h-9 items-center gap-2 rounded-lg bg-zinc-700 px-3 text-xs font-semibold text-white transition hover:bg-zinc-600 cursor-pointer"
+                      >
+                        Cliente
+                      </button>
 
+                      <button
+                        type="button"
+                        onClick={() => copyOrderText(order, "message")}
+                        className="flex h-9 items-center gap-2 rounded-lg bg-zinc-700 px-3 text-xs font-semibold text-white transition hover:bg-zinc-600 cursor-pointer"
+                      >
+                        <Copy size={15} />
+                        {copiedAction?.orderId === order.id &&
+                        copiedAction.action === "message"
+                          ? "Copiado"
+                          : "Mensaje"}
+                      </button>
+                    </div>
                   </div>
 
                   {isEditingInternalNote && (
-                    <div className="grid gap-2 rounded-2xl border border-zinc-700 bg-zinc-900 p-3">
+                    <div className="mt-3 grid gap-2 rounded-xl border border-zinc-700 bg-zinc-900 p-3">
                       <textarea
                         value={internalNoteValue}
                         onChange={(event) =>
@@ -671,7 +1021,7 @@ export default function AdminOrdersSection({
                         }
                         rows={2}
                         placeholder="Ej: esperando transferencia, retira el viernes..."
-                        className="min-h-20 rounded-xl border border-zinc-700 bg-zinc-950 p-3 text-sm text-white outline-none transition focus:border-zinc-500"
+                        className="min-h-16 rounded-lg border border-zinc-700 bg-zinc-950 p-3 text-sm text-white outline-none transition focus:border-zinc-500"
                       />
 
                       <div className="flex justify-end">
@@ -690,44 +1040,71 @@ export default function AdminOrdersSection({
                     </div>
                   )}
 
-                  {order.items.map((item) => (
-                    <div
-                      key={item.id}
-                      className="flex items-center justify-between gap-4 border-t border-zinc-700 pt-3"
-                    >
-                      <div className="flex items-center gap-3 min-w-0">
-                        {item.imageUrl && (
-                          <Image
-                            src={item.imageUrl}
-                            alt={item.productName}
-                            width={48}
-                            height={48}
-                            className="h-12 w-12 rounded-lg object-cover"
-                          />
-                        )}
+                  <div className="mt-3 overflow-hidden rounded-xl border border-zinc-700">
+                    <div className="hidden grid-cols-[90px_minmax(0,1fr)_170px_70px_110px] gap-3 bg-zinc-950 px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-zinc-500 md:grid">
+                      <span>SKU</span>
+                      <span>Producto</span>
+                      <span>Variante</span>
+                      <span>Cant.</span>
+                      <span className="text-right">Subtotal</span>
+                    </div>
 
-                        <div className="min-w-0">
-                          <p className="font-medium truncate">
-                            {item.productName}
+                    <div className="divide-y divide-zinc-800">
+                      {order.items.map((item) => (
+                        <div
+                          key={item.id}
+                          className="grid gap-2 p-3 md:grid-cols-[90px_minmax(0,1fr)_170px_70px_110px] md:items-center"
+                        >
+                          <p className="w-fit rounded-lg bg-zinc-800 px-2 py-1 text-xs font-semibold text-zinc-300">
+                            {item.productSku ? getShortSku(item.productSku) : "-"}
                           </p>
 
-                          {item.productSku && (
-                            <p className="mt-1 w-fit rounded-lg bg-zinc-800 px-2 py-1 text-xs font-semibold text-zinc-300">
-                              SKU {getShortSku(item.productSku)}
-                            </p>
-                          )}
+                          <div className="flex min-w-0 items-center gap-3">
+                            {item.imageUrl && (
+                              <Image
+                                src={item.imageUrl}
+                                alt={item.productName}
+                                width={44}
+                                height={44}
+                                className="h-11 w-11 rounded-lg object-cover"
+                              />
+                            )}
 
-                          <p className="text-zinc-400 text-sm">
-                            {item.variantColor || "Sin color"} - Talle {item.size || "-"} - x{item.quantity}
+                            <p className="truncate text-sm font-semibold text-zinc-100">
+                              {item.productName}
+                            </p>
+                          </div>
+
+                          <div className="flex flex-wrap gap-2 text-[11px] font-semibold text-zinc-400">
+                            <span className="inline-flex items-center gap-1">
+                              Color
+                              <span className="inline-flex items-center rounded-full bg-zinc-800 px-2 py-1 font-semibold text-zinc-300">
+                                {item.variantColor || "-"}
+                              </span>
+                            </span>
+                            <span className="inline-flex items-center gap-1">
+                              Talle
+                              <span className="inline-flex items-center rounded-full bg-white px-2 py-1 font-bold text-black">
+                                {item.size || "-"}
+                              </span>
+                            </span>
+                          </div>
+
+                          <p className="hidden">
+                            {item.variantColor || "Sin color"} · Talle {item.size || "-"}
+                          </p>
+
+                          <p className="text-sm font-semibold text-zinc-200">
+                            x{item.quantity}
+                          </p>
+
+                          <p className="text-sm font-semibold text-zinc-100 md:text-right">
+                            {currencyFormatter.format(item.subtotal)}
                           </p>
                         </div>
-                      </div>
-
-                      <p className="text-zinc-300 font-semibold shrink-0">
-                        {currencyFormatter.format(item.subtotal)}
-                      </p>
+                      ))}
                     </div>
-                  ))}
+                  </div>
                 </div>
               )}
             </article>
@@ -771,6 +1148,83 @@ export default function AdminOrdersSection({
           </div>
         </div>
       )}
+      </div>
+
+      {customerModalOrder && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"
+          onClick={() => setCustomerModalOrder(null)}
+        >
+          <div
+            className="w-full max-w-lg rounded-2xl border border-zinc-700 bg-zinc-950 p-4 shadow-2xl"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="flex items-start justify-between gap-4 border-b border-zinc-800 pb-3">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
+                  Datos del cliente
+                </p>
+                <h3 className="mt-1 text-xl font-bold text-white">
+                  {customerModalOrder.customerName}
+                </h3>
+                <p className="mt-1 text-sm text-zinc-400">
+                  Pedido {formatOrderNumber(customerModalOrder.orderNumber)}
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setCustomerModalOrder(null)}
+                className="flex h-9 w-9 items-center justify-center rounded-lg bg-zinc-800 text-sm font-bold text-zinc-300 transition hover:bg-zinc-700 hover:text-white cursor-pointer"
+                aria-label="Cerrar datos del cliente"
+              >
+                x
+              </button>
+            </div>
+
+            <div className="mt-4 grid gap-2">
+              {[
+                ["DNI/CUIT", customerModalOrder.customerDni],
+                ["WhatsApp", customerModalOrder.customerWhatsapp],
+                ["Email", customerModalOrder.customerEmail || "-"],
+                ["Direccion", customerModalOrder.customerAddress || "-"],
+                ["Localidad", customerModalOrder.customerCity || "-"],
+                ["Provincia", customerModalOrder.customerProvince || "-"],
+                ["Codigo postal", customerModalOrder.customerZip || "-"],
+                ["Entrega", getOrderFulfillmentLabel(customerModalOrder) || "-"],
+                ["Notas", customerModalOrder.notes || "-"],
+              ].map(([label, value]) => (
+                <div
+                  key={label}
+                  className="grid gap-1 rounded-xl bg-zinc-900 px-3 py-2 sm:grid-cols-[120px_minmax(0,1fr)] sm:items-center"
+                >
+                  <span className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
+                    {label}
+                  </span>
+                  <span className="text-sm font-semibold text-zinc-100">
+                    {value}
+                  </span>
+                </div>
+              ))}
+            </div>
+
+            <div className="mt-4 flex flex-wrap justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => copyOrderText(customerModalOrder, "customer")}
+                className="inline-flex h-10 items-center gap-2 rounded-xl bg-white px-4 text-sm font-semibold text-black transition hover:bg-zinc-200 cursor-pointer"
+              >
+                <Copy size={16} />
+                {copiedAction?.orderId === customerModalOrder.id &&
+                copiedAction.action === "customer"
+                  ? "Copiado"
+                  : "Copiar datos"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      </div>
     </section>
   );
 }
