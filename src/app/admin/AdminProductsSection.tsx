@@ -313,129 +313,173 @@ export default function AdminProductsSection({
         </div>
       )}
 
-      <div className="flex flex-col gap-3">
+      <div className="overflow-hidden rounded-2xl border border-zinc-800">
+        <div className="hidden grid-cols-[92px_56px_minmax(220px,1fr)_116px_104px_104px_64px_142px_108px] gap-2 bg-zinc-900 px-3 py-2 text-xs font-bold uppercase text-zinc-500 xl:grid">
+          <span>SKU</span>
+          <span>Foto</span>
+          <span>Producto</span>
+          <span>Categoria</span>
+          <span>Web</span>
+          <span>Minorista</span>
+          <span>Stock</span>
+          <span>Estado</span>
+          <span className="text-right">Acciones</span>
+        </div>
+
+        <div className="divide-y divide-zinc-800">
         {paginatedProducts.map((product) => {
           const isSavingProduct =
             savingProductAction?.id === product.id;
           const totalStock = getProductTotalStock(product);
           const skuParts = getSkuParts(product.sku);
+          const stockStatus =
+            totalStock <= 0
+              ? "Sin stock"
+              : product.variants.some((variant) =>
+                  variant.sizes.some(
+                    (size) => size.stock > 0 && size.stock <= 3
+                  )
+                )
+                ? "Stock bajo"
+                : "Stock OK";
 
           return (
             <div
               key={product.id}
-              className="grid gap-4 rounded-2xl border border-zinc-800 bg-zinc-900 p-4 transition hover:border-zinc-700 xl:grid-cols-[minmax(420px,1fr)_150px] xl:items-center"
+              className="bg-zinc-950 px-3 py-2 transition hover:bg-zinc-900/70"
             >
-            <div className="flex min-w-0 items-center gap-4">
-              <Image
-                src={getProductImage(product)}
-                alt={product.name}
-                width={76}
-                height={76}
-                className="h-[76px] w-[76px] shrink-0 rounded-xl bg-zinc-950 object-cover"
-              />
-
-              <div className="min-w-0 flex-1">
-                <div className="flex flex-wrap items-center gap-2">
-                  <h3 className="max-w-full truncate text-xl font-bold text-white">
-                    {product.name}
-                  </h3>
-
-                  <button
-                    type="button"
-                    onClick={() => onToggleActive(product)}
-                    disabled={isSavingProduct}
-                    className={`rounded-full px-3 py-1 text-xs font-semibold transition cursor-pointer disabled:cursor-not-allowed disabled:opacity-60 ${
-                    product.active
-                      ? "bg-emerald-500/15 text-emerald-200"
-                      : "bg-zinc-800 text-zinc-300"
-                  }`}>
-                    {isSavingProduct &&
-                    savingProductAction.action === "active"
-                      ? "Guardando..."
-                      : product.active
-                        ? "Publicado"
-                        : "Oculto"}
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => onToggleFeatured(product)}
-                    disabled={isSavingProduct}
-                    className={`rounded-full px-3 py-1 text-xs font-semibold transition cursor-pointer disabled:cursor-not-allowed disabled:opacity-60 ${
-                      product.featured
-                        ? "bg-amber-400/15 text-amber-200"
-                        : "border border-zinc-700 text-zinc-400 hover:text-white"
-                    }`}
-                  >
-                    {isSavingProduct &&
-                    savingProductAction.action === "featured"
-                      ? "Guardando..."
-                      : product.featured
-                        ? "Destacado"
-                        : "Destacar"}
-                  </button>
-                </div>
-
-                <p className="mt-1 truncate text-sm font-medium text-zinc-500">
-                  {getCategoryLabel(product.category)} / {product.slug}
-                </p>
-
-                <div className="mt-3 flex flex-wrap gap-2 text-sm">
-                  {skuParts && (
-                    <span className="inline-flex overflow-hidden rounded-lg border border-zinc-700 bg-zinc-950 text-xs font-semibold">
+            <div
+              role="button"
+              tabIndex={0}
+              onClick={() =>
+                setExpandedStockProductId((currentId) =>
+                  currentId === product.id ? null : product.id
+                )
+              }
+              onKeyDown={(event) => {
+                if (event.key === "Enter" || event.key === " ") {
+                  event.preventDefault();
+                  setExpandedStockProductId((currentId) =>
+                    currentId === product.id ? null : product.id
+                  );
+                }
+              }}
+              className="grid cursor-pointer gap-2 rounded-lg xl:grid-cols-[92px_56px_minmax(220px,1fr)_116px_104px_104px_64px_142px_108px] xl:items-center"
+            >
+              <div>
+                {skuParts && (
+                    <span className="inline-flex overflow-hidden rounded-lg border border-zinc-700 bg-black text-xs font-semibold">
                       {skuParts.prefix && (
-                        <span className="border-r border-zinc-700 bg-zinc-800 px-2.5 py-1.5 text-zinc-400">
+                        <span className="border-r border-zinc-700 bg-zinc-800 px-2 py-1 text-zinc-400">
                           {skuParts.prefix}
                         </span>
                       )}
-                      <span className="px-3 py-1.5 text-zinc-100">
+                      <span className="px-2.5 py-1 text-zinc-100">
                         {skuParts.code}
                       </span>
                     </span>
-                  )}
-
-                  <span className="rounded-lg bg-zinc-950 px-3 py-1.5 font-semibold text-zinc-100">
-                    Mayorista {currencyFormatter.format(product.price)}
-                  </span>
-
-                  <span className="rounded-lg bg-zinc-950 px-3 py-1.5 text-zinc-200">
-                    Minorista {currencyFormatter.format(getRetailPrice(product))}
-                  </span>
-
-                  <span className="rounded-lg bg-zinc-950 px-3 py-1.5 text-zinc-200">
-                    Stock {totalStock}
-                  </span>
-
-                  <span className="rounded-lg bg-zinc-950 px-3 py-1.5 text-zinc-300">
-                    {product.variants.length} colores
-                  </span>
-
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setExpandedStockProductId((currentId) =>
-                        currentId === product.id ? null : product.id
-                      )
-                    }
-                    className="rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-1.5 text-xs font-semibold text-zinc-300 transition hover:border-zinc-500 hover:text-white cursor-pointer"
-                  >
-                    {expandedStockProductId === product.id
-                      ? "Ocultar stock"
-                      : "Ver stock"}
-                  </button>
-                </div>
+                )}
               </div>
-            </div>
 
-            <div className="flex items-center justify-end gap-2 xl:ml-auto">
+              <Image
+                src={getProductImage(product)}
+                alt={product.name}
+                width={48}
+                height={48}
+                className="h-12 w-12 shrink-0 rounded-lg bg-zinc-950 object-cover"
+              />
+
+              <div className="min-w-0">
+                  <h3 className="truncate text-sm font-bold text-white">
+                    {product.name}
+                  </h3>
+
+                <p className="mt-0.5 truncate text-xs font-medium text-zinc-500 xl:hidden">
+                  {getCategoryLabel(product.category)}
+                </p>
+              </div>
+
+              <span className="truncate text-sm font-semibold text-zinc-300 xl:hidden">
+                Categoria: {getCategoryLabel(product.category)}
+              </span>
+              <span className="hidden truncate text-xs font-semibold text-zinc-300 xl:block">
+                {getCategoryLabel(product.category)}
+              </span>
+
+              <span className="text-sm font-black text-white tabular-nums">
+                {currencyFormatter.format(product.price)}
+              </span>
+
+              <span className="text-sm font-black text-zinc-200 tabular-nums">
+                {currencyFormatter.format(getRetailPrice(product))}
+              </span>
+
+              <span
+                className={`w-fit rounded-lg px-2 py-0.5 text-sm font-black ${
+                  totalStock <= 0
+                    ? "bg-red-500/10 text-red-200"
+                    : stockStatus === "Stock bajo"
+                      ? "bg-amber-400/10 text-amber-200"
+                      : "bg-emerald-500/10 text-emerald-200"
+                }`}
+              >
+                {totalStock}
+              </span>
+
+              <div className="flex flex-col items-start gap-1">
+                <button
+                  type="button"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    onToggleActive(product);
+                  }}
+                  disabled={isSavingProduct}
+                  className={`rounded-full px-2.5 py-1 text-xs font-semibold transition cursor-pointer disabled:cursor-not-allowed disabled:opacity-60 ${
+                    product.active
+                      ? "bg-emerald-500/15 text-emerald-200"
+                      : "bg-zinc-800 text-zinc-300"
+                  }`}
+                >
+                  {isSavingProduct &&
+                  savingProductAction.action === "active"
+                    ? "..."
+                    : product.active
+                      ? "Publicado"
+                      : "Oculto"}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    onToggleFeatured(product);
+                  }}
+                  disabled={isSavingProduct}
+                  className={`rounded-full px-2.5 py-1 text-xs font-semibold transition cursor-pointer disabled:cursor-not-allowed disabled:opacity-60 ${
+                    product.featured
+                      ? "bg-amber-400/15 text-amber-200"
+                      : "border border-zinc-700 text-zinc-400 hover:text-white"
+                  }`}
+                >
+                  {isSavingProduct &&
+                  savingProductAction.action === "featured"
+                    ? "..."
+                    : product.featured
+                      ? "Destacado"
+                      : "Destacar"}
+                </button>
+              </div>
+
+            <div className="flex flex-wrap items-center gap-1.5 xl:justify-end">
               <button
                 type="button"
-                onClick={() => {
+                onClick={(event) => {
+                  event.stopPropagation();
                   setOpenProductMenuId(null);
                   onEdit(product);
                 }}
                 disabled={isSavingProduct}
-                className="h-11 rounded-xl bg-white px-6 text-sm font-semibold text-black transition hover:opacity-90 cursor-pointer disabled:cursor-not-allowed disabled:opacity-60"
+                className="h-8 rounded-lg bg-white px-4 text-xs font-bold text-black transition hover:opacity-90 cursor-pointer disabled:cursor-not-allowed disabled:opacity-60"
               >
                 Editar
               </button>
@@ -446,13 +490,14 @@ export default function AdminProductsSection({
               >
                 <button
                   type="button"
-                  onClick={() =>
+                  onClick={(event) => {
+                    event.stopPropagation();
                     setOpenProductMenuId((currentId) =>
                       currentId === product.id ? null : product.id
-                    )
-                  }
+                    );
+                  }}
                   disabled={isSavingProduct}
-                  className="flex h-11 w-11 items-center justify-center rounded-xl border border-zinc-700 text-zinc-300 transition hover:bg-zinc-800 hover:text-white cursor-pointer disabled:cursor-not-allowed disabled:opacity-60"
+                  className="flex h-8 w-8 items-center justify-center rounded-lg border border-zinc-700 text-zinc-300 transition hover:bg-zinc-800 hover:text-white cursor-pointer disabled:cursor-not-allowed disabled:opacity-60"
                   aria-label="Mas acciones"
                 >
                   <MoreVertical size={18} />
@@ -462,7 +507,8 @@ export default function AdminProductsSection({
                   <div className="absolute right-0 top-[calc(100%+8px)] z-10 min-w-36 rounded-xl border border-zinc-700 bg-zinc-950 p-1.5 shadow-xl shadow-black/30">
                     <button
                       type="button"
-                      onClick={async () => {
+                      onClick={async (event) => {
+                        event.stopPropagation();
                         await onDelete(product);
                         setOpenProductMenuId(null);
                       }}
@@ -478,48 +524,79 @@ export default function AdminProductsSection({
                 )}
               </div>
             </div>
+            </div>
 
             {expandedStockProductId === product.id && (
-              <div className="col-span-full grid gap-2 border-t border-zinc-800 pt-4">
-                {product.variants.map((variant) => (
-                  <div
-                    key={variant.color}
-                    className="flex flex-col gap-3 rounded-xl bg-zinc-950 px-4 py-3 sm:flex-row sm:items-center"
-                  >
-                    <div className="flex min-w-32 items-center gap-2">
+              <div className="mt-2 border-t border-zinc-800 px-1 pb-1 pt-2">
+                <div className="grid gap-1.5">
+                {product.variants.map((variant) => {
+                  const hasVariantStock = variant.sizes.some(
+                    (size) => size.stock > 0
+                  );
+
+                  return (
+                    <div
+                      key={variant.color}
+                      className={`grid gap-1.5 rounded-lg px-2 py-1.5 sm:grid-cols-[96px_minmax(0,1fr)] sm:items-center ${
+                        hasVariantStock
+                          ? "bg-black"
+                          : "bg-black/45 opacity-60"
+                      }`}
+                    >
+                    <div className="flex min-w-0 items-center gap-1.5">
                       <span
-                        className="h-5 w-5 rounded-full border border-zinc-700"
+                        className="h-3.5 w-3.5 shrink-0 rounded-full border border-zinc-700"
                         style={{ backgroundColor: variant.hex || "#000000" }}
                       />
 
-                      <p className="text-sm font-semibold text-white">
+                      <p
+                        className={`truncate text-xs font-bold uppercase ${
+                          hasVariantStock ? "text-white" : "text-zinc-500"
+                        }`}
+                      >
                         {variant.color}
                       </p>
                     </div>
 
-                    <div className="flex flex-wrap gap-2">
-                      {variant.sizes.map((size) => (
-                        <span
-                          key={size.size}
-                          className={`rounded-lg px-3 py-1 text-xs font-semibold ${
-                            size.stock <= 0
-                              ? "bg-red-500/10 text-red-300"
-                              : size.stock <= 3
-                                ? "bg-amber-400/10 text-amber-200"
-                                : "bg-zinc-800 text-zinc-200"
-                          }`}
-                        >
-                          {size.size}: {size.stock}
-                        </span>
-                      ))}
+                    <div className="flex flex-wrap gap-1">
+                      {variant.sizes.map((size) => {
+                        const hasStock = size.stock > 0;
+
+                        return (
+                          <span
+                            key={size.size}
+                            className={`inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-xs font-semibold ${
+                              hasStock
+                                ? "bg-zinc-900 text-zinc-300"
+                                : "bg-zinc-950 text-zinc-600 ring-1 ring-zinc-900"
+                            }`}
+                          >
+                            <span className={hasStock ? "" : "line-through"}>
+                              {size.size}
+                            </span>
+                            <span
+                              className={`rounded px-1.5 py-0.5 font-black ${
+                                hasStock
+                                  ? "bg-emerald-900/80 text-emerald-100"
+                                  : "bg-zinc-900 text-zinc-600"
+                              }`}
+                            >
+                              {size.stock}
+                            </span>
+                          </span>
+                        );
+                      })}
                     </div>
                   </div>
-                ))}
+                  );
+                })}
+                </div>
               </div>
             )}
           </div>
           );
         })}
+        </div>
       </div>
 
       {visibleProducts.length > PRODUCTS_PER_PAGE && (

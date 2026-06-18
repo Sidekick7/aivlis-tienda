@@ -31,7 +31,6 @@ export type EditableProduct = Omit<
 
 export type AdminSection =
   | "products"
-  | "local_sale"
   | "home";
 
 export type ProductFilter =

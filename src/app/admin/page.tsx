@@ -19,7 +19,6 @@ import {
 } from "@/lib/homeContent";
 import AdminCategoriesSection from "@/app/admin/AdminCategoriesSection";
 import AdminHomeSection from "@/app/admin/AdminHomeSection";
-import AdminLocalSaleSection from "@/app/admin/AdminLocalSaleSection";
 import AdminProductsSection from "@/app/admin/AdminProductsSection";
 import CreateProductModal from "@/app/admin/CreateProductModal";
 import EditProductModal from "@/app/admin/EditProductModal";
@@ -934,18 +933,6 @@ if (!session) {
             Gestion
           </Link>
 
-          <button
-            type="button"
-            onClick={() => setActiveSection("local_sale")}
-            className={`h-10 rounded-2xl border px-5 text-sm font-semibold transition cursor-pointer ${
-              activeSection === "local_sale"
-                ? "border-emerald-400 bg-emerald-400 text-black"
-                : "border-emerald-500/40 bg-emerald-500/10 text-emerald-300 hover:border-emerald-300 hover:bg-emerald-500/20"
-            }`}
-          >
-            Venta local
-          </button>
-
           <div className="hidden h-8 w-px bg-zinc-800 sm:block" />
 
           <div className="relative">
@@ -1064,13 +1051,6 @@ if (!session) {
       setAdminNotice(null);
       setShowCreate(true);
     }}
-  />
-)}
-{activeSection === "local_sale" && (
-  <AdminLocalSaleSection
-    products={products}
-    categories={categoryOptions}
-    onSaleCreated={refreshProducts}
   />
 )}
 {activeSection === "home" && (
