@@ -33,12 +33,6 @@ const navItems = [
     featured: true,
   },
   {
-    title: "Catalogo",
-    href: "/gestion/catalogo",
-    icon: Images,
-    active: true,
-  },
-  {
     title: "Ventas",
     href: "/gestion/ventas",
     icon: ClipboardList,
@@ -62,6 +56,12 @@ const navItems = [
     title: "Estadisticas",
     href: "/gestion/estadisticas",
     icon: BarChart3,
+  },
+  {
+    title: "Catalogo",
+    href: "/gestion/catalogo",
+    icon: Images,
+    active: true,
   },
 ];
 
@@ -112,6 +112,9 @@ export default function GestionCatalogoPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [activeFilter, setActiveFilter] = useState<CatalogFilter>("all");
   const [detailProduct, setDetailProduct] = useState<Product | null>(null);
+  const [selectedDetailImageIndex, setSelectedDetailImageIndex] = useState(0);
+  const [selectedDetailVariantIndex, setSelectedDetailVariantIndex] =
+    useState(0);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
@@ -330,11 +333,45 @@ export default function GestionCatalogoPage() {
   }
 
   const detailImages = detailProduct ? getProductImages(detailProduct) : [];
+  const safeDetailImageIndex =
+    detailImages.length > 0
+      ? Math.min(selectedDetailImageIndex, detailImages.length - 1)
+      : 0;
+  const selectedDetailImage =
+    detailImages[safeDetailImageIndex] ||
+    (detailProduct ? getProductImage(detailProduct) : "");
+  const safeDetailVariantIndex = detailProduct
+    ? Math.min(
+        selectedDetailVariantIndex,
+        detailProduct.variants.length - 1
+      )
+    : 0;
+  const selectedDetailVariant =
+    detailProduct?.variants[safeDetailVariantIndex] ?? null;
 
   return (
     <main className="min-h-screen bg-[#090909] text-white lg:h-screen lg:overflow-hidden">
+      <div className="sticky top-0 z-40 flex h-14 items-center justify-between border-b border-zinc-800 bg-zinc-950 px-3 lg:hidden">
+        <Link
+          href="/"
+          className="text-lg font-black tracking-[0.28em] text-white"
+        >
+          AIVLIS
+        </Link>
+        <span className="rounded-full bg-zinc-900 px-3 py-1 text-xs font-black uppercase text-zinc-300">
+          Catalogo
+        </span>
+        <button
+          type="button"
+          onClick={handleLogout}
+          className="h-9 rounded-xl bg-zinc-900 px-3 text-xs font-bold text-zinc-300"
+        >
+          Salir
+        </button>
+      </div>
+
       <div className="grid min-h-screen lg:h-full lg:min-h-0 lg:grid-cols-[190px_minmax(0,1fr)]">
-        <aside className="border-b border-zinc-800 bg-zinc-950 px-2 py-3 lg:border-b-0 lg:border-r lg:overflow-y-auto">
+        <aside className="hidden border-b border-zinc-800 bg-zinc-950 px-2 py-3 lg:block lg:border-b-0 lg:border-r lg:overflow-y-auto">
           <div className="flex items-center justify-between gap-3 lg:block">
             <Link
               href="/"
@@ -397,8 +434,8 @@ export default function GestionCatalogoPage() {
         </aside>
 
         <section className="min-h-0 min-w-0 px-3 py-3 lg:flex lg:flex-col lg:overflow-hidden">
-          <header className="sticky top-0 z-20 -mx-3 border-b border-zinc-800 bg-[#090909]/95 px-3 pb-3 pt-1 backdrop-blur lg:static lg:mx-0 lg:shrink-0 lg:rounded-2xl lg:border lg:bg-zinc-950 lg:p-3">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <header className="sticky top-14 z-20 -mx-3 border-b border-zinc-800 bg-[#090909]/95 px-3 pb-3 pt-3 backdrop-blur lg:static lg:mx-0 lg:shrink-0 lg:rounded-2xl lg:border lg:bg-zinc-950 lg:p-3">
+            <div className="hidden flex-col gap-3 sm:flex-row sm:items-center sm:justify-between lg:flex">
               <div>
                 <p className="text-xs font-semibold uppercase tracking-[0.2em] text-zinc-500">
                   Gestion
@@ -418,7 +455,8 @@ export default function GestionCatalogoPage() {
               </button>
             </div>
 
-            <div className="mt-3 grid gap-2 lg:grid-cols-[minmax(0,1fr)_auto]">
+            <div className="grid gap-2 lg:mt-3 lg:grid-cols-[minmax(0,1fr)_auto]">
+              <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-2 lg:block">
               <label className="relative block">
                 <Search
                   size={16}
@@ -432,6 +470,15 @@ export default function GestionCatalogoPage() {
                   className="h-11 w-full rounded-xl bg-zinc-900 pl-10 pr-3 text-sm font-semibold text-white outline-none ring-1 ring-zinc-800 transition focus:ring-white"
                 />
               </label>
+              <button
+                type="button"
+                onClick={() => void refreshProducts()}
+                disabled={isLoadingProducts}
+                className="h-11 rounded-xl bg-white px-3 text-xs font-black text-black transition hover:bg-zinc-200 disabled:cursor-not-allowed disabled:opacity-60 lg:hidden"
+              >
+                {isLoadingProducts ? "..." : "Actualizar"}
+              </button>
+              </div>
 
               <div className="flex gap-2 overflow-x-auto pb-1 lg:pb-0">
                 {catalogFilters.map((filter) => {
@@ -478,7 +525,7 @@ export default function GestionCatalogoPage() {
               </p>
             )}
 
-            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
+            <div className="grid gap-2 sm:grid-cols-2 sm:gap-3 xl:grid-cols-3 2xl:grid-cols-4">
               {visibleProducts.map((product) => {
                 const stock = getProductStock(product);
                 const image = getProductImage(product);
@@ -487,10 +534,14 @@ export default function GestionCatalogoPage() {
                   <button
                     key={product.id}
                     type="button"
-                    onClick={() => setDetailProduct(product)}
-                    className="group overflow-hidden rounded-2xl border border-zinc-800 bg-zinc-950 text-left transition hover:border-zinc-600"
+                    onClick={() => {
+                      setDetailProduct(product);
+                      setSelectedDetailImageIndex(0);
+                      setSelectedDetailVariantIndex(0);
+                    }}
+                    className="group grid grid-cols-[92px_minmax(0,1fr)] overflow-hidden rounded-2xl border border-zinc-800 bg-zinc-950 text-left transition hover:border-zinc-600 sm:block"
                   >
-                    <div className="relative aspect-[4/5] bg-zinc-900">
+                    <div className="relative h-full min-h-32 bg-zinc-900 sm:aspect-[4/5] sm:h-auto">
                       <Image
                         src={image}
                         alt={product.name}
@@ -499,7 +550,7 @@ export default function GestionCatalogoPage() {
                         className="object-cover transition group-hover:scale-105"
                       />
                       <span
-                        className={`absolute left-3 top-3 rounded-full px-2.5 py-1 text-xs font-black ${
+                        className={`absolute left-1.5 top-1.5 rounded-full px-2 py-0.5 text-[10px] font-black sm:left-3 sm:top-3 sm:px-2.5 sm:py-1 sm:text-xs ${
                           product.active
                             ? "bg-emerald-500/90 text-black"
                             : "bg-zinc-950/90 text-zinc-200"
@@ -508,7 +559,7 @@ export default function GestionCatalogoPage() {
                         {product.active ? "Publicado" : "Oculto"}
                       </span>
                       <span
-                        className={`absolute bottom-3 right-3 rounded-full px-2.5 py-1 text-xs font-black ${
+                        className={`absolute bottom-1.5 right-1.5 rounded-full px-2 py-0.5 text-[10px] font-black sm:bottom-3 sm:right-3 sm:px-2.5 sm:py-1 sm:text-xs ${
                           stock > 0
                             ? "bg-emerald-950/90 text-emerald-100"
                             : "bg-red-950/90 text-red-100"
@@ -518,28 +569,28 @@ export default function GestionCatalogoPage() {
                       </span>
                     </div>
 
-                    <div className="grid gap-2 p-3">
+                    <div className="grid min-w-0 gap-2 p-3">
                       <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0">
                           <p className="truncate text-sm font-black text-white">
                             {product.name}
                           </p>
-                          <p className="mt-0.5 text-xs font-semibold text-zinc-500">
+                          <p className="mt-0.5 truncate text-xs font-semibold text-zinc-500">
                             SKU {getShortSku(product.sku)} · {product.category}
                           </p>
                         </div>
                       </div>
 
                       <div className="flex items-center justify-between gap-3">
-                        <div>
+                        <div className="min-w-0">
                           <p className="text-xs text-zinc-500">Web</p>
-                          <p className="text-sm font-black text-white">
+                          <p className="truncate text-sm font-black text-white">
                             {formatPrice(product.price)}
                           </p>
                         </div>
-                        <div className="text-right">
+                        <div className="min-w-0 text-right">
                           <p className="text-xs text-zinc-500">Local</p>
-                          <p className="text-sm font-black text-white">
+                          <p className="truncate text-sm font-black text-white">
                             {formatPrice(product.retailPrice)}
                           </p>
                         </div>
@@ -576,14 +627,14 @@ export default function GestionCatalogoPage() {
       </div>
 
       {detailProduct && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-3">
-          <div className="flex max-h-[92vh] w-full max-w-5xl flex-col overflow-hidden rounded-3xl border border-zinc-800 bg-zinc-950 shadow-2xl shadow-black/60">
-            <header className="flex shrink-0 items-start justify-between gap-4 border-b border-zinc-800 p-4">
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/75 p-0 sm:items-center sm:p-3">
+          <div className="flex max-h-[92vh] w-full max-w-5xl flex-col overflow-hidden rounded-t-3xl border border-zinc-800 bg-zinc-950 shadow-2xl shadow-black/60 sm:rounded-3xl">
+            <header className="flex shrink-0 items-start justify-between gap-4 border-b border-zinc-800 p-3 sm:p-4">
               <div className="min-w-0">
                 <p className="text-xs font-semibold uppercase tracking-[0.2em] text-zinc-500">
                   SKU {getShortSku(detailProduct.sku)}
                 </p>
-                <h2 className="mt-1 truncate text-2xl font-black text-white">
+                <h2 className="mt-1 truncate text-xl font-black text-white sm:text-2xl">
                   {detailProduct.name}
                 </h2>
                 <p className="mt-1 text-sm font-semibold text-zinc-500">
@@ -601,28 +652,44 @@ export default function GestionCatalogoPage() {
               </button>
             </header>
 
-            <div className="min-h-0 flex-1 overflow-y-auto p-4">
+            <div className="min-h-0 flex-1 overflow-y-auto p-3 sm:p-4">
               <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(320px,0.8fr)]">
                 <div className="grid gap-3">
-                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-                    {(detailImages.length > 0
-                      ? detailImages
-                      : [getProductImage(detailProduct)]
-                    ).map((image, index) => (
-                      <div
-                        key={`${image}-${index}`}
-                        className="relative aspect-[4/5] overflow-hidden rounded-2xl bg-zinc-900"
-                      >
-                        <Image
-                          src={image}
-                          alt={detailProduct.name}
-                          fill
-                          sizes="(max-width: 640px) 50vw, 220px"
-                          className="object-cover"
-                        />
-                      </div>
-                    ))}
+                  <div className="relative aspect-[4/5] overflow-hidden rounded-2xl bg-zinc-900">
+                    <Image
+                      src={selectedDetailImage}
+                      alt={detailProduct.name}
+                      fill
+                      sizes="(max-width: 640px) 100vw, 520px"
+                      className="object-cover"
+                    />
                   </div>
+
+                  {detailImages.length > 1 && (
+                    <div className="flex gap-2 overflow-x-auto pb-1">
+                      {detailImages.map((image, index) => (
+                        <button
+                          key={`${image}-${index}`}
+                          type="button"
+                          onClick={() => setSelectedDetailImageIndex(index)}
+                          className={`relative h-16 w-12 shrink-0 overflow-hidden rounded-lg border transition ${
+                            safeDetailImageIndex === index
+                              ? "border-white"
+                              : "border-zinc-800 opacity-70"
+                          }`}
+                          aria-label={`Ver imagen ${index + 1}`}
+                        >
+                          <Image
+                            src={image}
+                            alt=""
+                            fill
+                            sizes="48px"
+                            className="object-cover"
+                          />
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
 
                 <div className="grid content-start gap-3">
@@ -647,70 +714,105 @@ export default function GestionCatalogoPage() {
                     </div>
                   </section>
 
-                  {detailProduct.variants.map((variant) => {
-                    const variantStock = variant.sizes.reduce(
-                      (total, size) => total + size.stock,
-                      0
-                    );
+                  <section className="rounded-2xl border border-zinc-800 bg-zinc-900/50 p-3">
+                    <p className="mb-2 text-xs font-bold uppercase text-zinc-500">
+                      Colores
+                    </p>
 
-                    return (
-                      <section
-                        key={`${detailProduct.id}-${variant.color}`}
-                        className={`rounded-2xl border border-zinc-800 p-3 ${
-                          variantStock > 0
-                            ? "bg-zinc-900/70"
-                            : "bg-zinc-900/30 opacity-70"
-                        }`}
-                      >
-                        <div className="mb-3 flex items-center justify-between gap-3">
-                          <div className="flex min-w-0 items-center gap-2">
+                    <div className="flex gap-2 overflow-x-auto pb-1">
+                      {detailProduct.variants.map((variant, index) => {
+                        const variantStock = variant.sizes.reduce(
+                          (total, size) => total + size.stock,
+                          0
+                        );
+                        const isSelected =
+                          safeDetailVariantIndex === index;
+
+                        return (
+                          <button
+                            key={`${detailProduct.id}-${variant.color}`}
+                            type="button"
+                            onClick={() =>
+                              setSelectedDetailVariantIndex(index)
+                            }
+                            className={`flex shrink-0 items-center gap-2 rounded-xl border px-3 py-2 text-xs font-black transition ${
+                              isSelected
+                                ? "border-white bg-zinc-950 text-white"
+                                : "border-zinc-800 bg-zinc-950/60 text-zinc-400"
+                            }`}
+                          >
                             <span
-                              className="h-5 w-5 shrink-0 rounded-full border border-zinc-700"
+                              className="h-4 w-4 rounded-full border border-zinc-700"
                               style={{
                                 backgroundColor: variant.hex || "#000000",
                               }}
                             />
-                            <h3 className="truncate text-sm font-black text-white">
-                              {variant.color}
-                            </h3>
-                          </div>
-                          <span className="rounded-lg bg-zinc-950 px-2 py-1 text-xs font-black text-zinc-200">
-                            {variantStock}
-                          </span>
-                        </div>
+                            {variant.color}
+                            <span className="rounded bg-zinc-900 px-1.5 py-0.5">
+                              {variantStock}
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </section>
 
-                        <div className="flex flex-wrap gap-1.5">
-                          {variant.sizes.map((size) => (
+                  {selectedDetailVariant && (
+                    <section
+                      className={`rounded-2xl border border-zinc-800 p-3 ${
+                        selectedDetailVariant.sizes.some(
+                          (size) => size.stock > 0
+                        )
+                          ? "bg-zinc-900/70"
+                          : "bg-zinc-900/30 opacity-70"
+                      }`}
+                    >
+                      <div className="mb-3 flex items-center justify-between gap-3">
+                        <div className="flex min-w-0 items-center gap-2">
+                          <span
+                            className="h-5 w-5 shrink-0 rounded-full border border-zinc-700"
+                            style={{
+                              backgroundColor:
+                                selectedDetailVariant.hex || "#000000",
+                            }}
+                          />
+                          <h3 className="truncate text-sm font-black text-white">
+                            {selectedDetailVariant.color}
+                          </h3>
+                        </div>
+                      </div>
+
+                      <div className="flex flex-wrap gap-1.5">
+                        {selectedDetailVariant.sizes.map((size) => (
+                          <span
+                            key={`${selectedDetailVariant.color}-${size.size}`}
+                            className={`inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-xs font-semibold ${
+                              size.stock > 0
+                                ? "bg-zinc-950 text-zinc-300"
+                                : "bg-zinc-950 text-zinc-600"
+                            }`}
+                          >
                             <span
-                              key={`${variant.color}-${size.size}`}
-                              className={`inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-xs font-semibold ${
+                              className={
+                                size.stock > 0 ? "" : "line-through"
+                              }
+                            >
+                              {size.size}
+                            </span>
+                            <span
+                              className={`rounded px-1.5 py-0.5 font-black ${
                                 size.stock > 0
-                                  ? "bg-zinc-950 text-zinc-300"
-                                  : "bg-zinc-950 text-zinc-600"
+                                  ? "bg-emerald-900/80 text-emerald-100"
+                                  : "bg-zinc-900 text-zinc-600"
                               }`}
                             >
-                              <span
-                                className={
-                                  size.stock > 0 ? "" : "line-through"
-                                }
-                              >
-                                {size.size}
-                              </span>
-                              <span
-                                className={`rounded px-1.5 py-0.5 font-black ${
-                                  size.stock > 0
-                                    ? "bg-emerald-900/80 text-emerald-100"
-                                    : "bg-zinc-900 text-zinc-600"
-                                }`}
-                              >
-                                {size.stock}
-                              </span>
+                              {size.stock}
                             </span>
-                          ))}
-                        </div>
-                      </section>
-                    );
-                  })}
+                          </span>
+                        ))}
+                      </div>
+                    </section>
+                  )}
                 </div>
               </div>
             </div>

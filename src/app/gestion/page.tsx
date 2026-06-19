@@ -76,13 +76,6 @@ const modules = [
     section: "sales" as const,
   },
   {
-    title: "Catalogo",
-    description: "Vista mobile para fotos, precios y existencias.",
-    status: "Activo",
-    icon: Images,
-    href: "/gestion/catalogo",
-  },
-  {
     title: "Envios",
     description: "Preparacion, despacho y control de entregas pendientes.",
     status: "Preparado",
@@ -109,6 +102,13 @@ const modules = [
     status: "Activo",
     icon: BarChart3,
     href: "/gestion/estadisticas",
+  },
+  {
+    title: "Catalogo",
+    description: "Vista mobile para fotos, precios y existencias.",
+    status: "Activo",
+    icon: Images,
+    href: "/gestion/catalogo",
   },
 ];
 

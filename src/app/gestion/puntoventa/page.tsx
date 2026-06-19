@@ -33,11 +33,6 @@ const navItems = [
     icon: ClipboardList,
   },
   {
-    title: "Catalogo",
-    href: "/gestion/catalogo",
-    icon: Images,
-  },
-  {
     title: "Envios",
     href: "/gestion",
     icon: Truck,
@@ -56,6 +51,11 @@ const navItems = [
     title: "Estadisticas",
     href: "/gestion/estadisticas",
     icon: BarChart3,
+  },
+  {
+    title: "Catalogo",
+    href: "/gestion/catalogo",
+    icon: Images,
   },
 ];
 
