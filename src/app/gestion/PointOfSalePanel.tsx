@@ -1958,7 +1958,8 @@ export default function PointOfSalePanel({
                 </h2>
                 <p className="mt-1 text-xs font-semibold text-zinc-500">
                   SKU {getShortSku(selectedProduct.sku)} ·{" "}
-                  {formatPrice(selectedProduct.price)}
+                  Web {formatPrice(selectedProduct.price)} · Local{" "}
+                  {formatPrice(getRetailPrice(selectedProduct))}
                 </p>
               </div>
 
@@ -2141,7 +2142,7 @@ export default function PointOfSalePanel({
 
       {isProductListOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
-          <div className="flex max-h-[78vh] w-full max-w-3xl flex-col overflow-hidden rounded-2xl border border-zinc-800 bg-zinc-950 shadow-2xl shadow-black/50">
+          <div className="flex max-h-[78vh] w-full max-w-4xl flex-col overflow-hidden rounded-2xl border border-zinc-800 bg-zinc-950 shadow-2xl shadow-black/50">
             <div className="flex items-center justify-between border-b border-zinc-800 p-4">
               <div>
                 <p className="text-xs font-semibold uppercase text-zinc-500">
@@ -2165,10 +2166,11 @@ export default function PointOfSalePanel({
                 </p>
               ) : (
                 <div className="grid gap-2">
-                  <div className="grid grid-cols-[88px_minmax(0,1fr)_132px_90px_96px] gap-2 px-3 text-xs font-semibold uppercase tracking-wide text-zinc-500">
+                  <div className="grid grid-cols-[80px_minmax(0,1fr)_104px_104px_76px_92px] gap-2 px-3 text-xs font-semibold uppercase tracking-wide text-zinc-500">
                     <span>SKU</span>
                     <span>Nombre</span>
-                    <span className="text-right">Precio</span>
+                    <span className="text-right">Web</span>
+                    <span className="text-right">Local</span>
                     <span className="text-right">Stock</span>
                     <span />
                   </div>
@@ -2178,7 +2180,7 @@ export default function PointOfSalePanel({
                       key={product.id}
                       className="rounded-xl border border-zinc-800 bg-zinc-900 transition hover:border-zinc-500"
                     >
-                      <div className="grid grid-cols-[88px_minmax(0,1fr)_132px_90px_96px] items-center gap-2 p-3">
+                      <div className="grid grid-cols-[80px_minmax(0,1fr)_104px_104px_76px_92px] items-center gap-2 p-3">
                         <button
                           type="button"
                           onClick={() => selectProduct(product)}
@@ -2199,6 +2201,10 @@ export default function PointOfSalePanel({
 
                         <span className="text-right text-sm font-bold text-zinc-100">
                           {formatPrice(product.price)}
+                        </span>
+
+                        <span className="text-right text-sm font-bold text-emerald-100">
+                          {formatPrice(getRetailPrice(product))}
                         </span>
 
                         <span className="text-right text-sm font-semibold text-zinc-400">
