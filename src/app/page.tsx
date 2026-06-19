@@ -173,13 +173,9 @@ export default function Home() {
 
       <section className="px-6 py-6 md:px-10">
         <div className="mx-auto flex max-w-7xl flex-col items-center text-center">
-          <p className="max-w-xl text-sm leading-6 text-zinc-600 md:text-base">
-            {homeContent.storeDescription}
-          </p>
-
           <Link
             href="/tienda"
-            className="mt-6 inline-flex h-12 items-center justify-center rounded-full bg-black px-8 text-sm font-semibold uppercase tracking-wide text-white transition hover:bg-zinc-800"
+            className="inline-flex h-12 items-center justify-center rounded-full bg-black px-8 text-sm font-semibold uppercase tracking-wide text-white transition hover:bg-zinc-800"
           >
             {homeContent.storeButtonLabel}
           </Link>

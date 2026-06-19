@@ -38,15 +38,26 @@ export default function AdminHomeSection({
   const [trustItemsText, setTrustItemsText] = useState(
     arrayToLines(content.trustItems)
   );
+  const [draftContent, setDraftContent] = useState(content);
   const heroImages = linesToArray(heroImagesText);
   const trustItems = linesToArray(trustItemsText);
 
   const saveContent = async () => {
     await onSave({
-      ...content,
+      ...draftContent,
       heroImages,
       trustItems,
     });
+  };
+
+  const updateDraftContent = (
+    field: keyof Omit<HomeContent, "heroImages" | "trustItems">,
+    value: string
+  ) => {
+    setDraftContent((current) => ({
+      ...current,
+      [field]: value,
+    }));
   };
 
   const removeHeroImage = (imageToRemove: string) => {
@@ -93,15 +104,15 @@ export default function AdminHomeSection({
   };
 
   return (
-    <div className="mt-10 rounded-3xl bg-zinc-900 p-6">
-      <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+    <div className="mt-6 rounded-3xl bg-zinc-900 p-4 md:p-6">
+      <div className="mb-5 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h2 className="text-3xl font-bold">
-            Home
+          <h2 className="text-2xl font-black">
+            Editar Home
           </h2>
 
-          <p className="mt-2 text-zinc-400">
-            Editar imagenes del hero y mensajes informativos
+          <p className="mt-1 text-sm text-zinc-500">
+            Hero, textos principales, destacados y accesos.
           </p>
         </div>
 
@@ -121,9 +132,9 @@ export default function AdminHomeSection({
         </div>
       )}
 
-      <div className="grid gap-8 xl:grid-cols-[1fr_1fr]">
+      <div className="grid gap-5 xl:grid-cols-[minmax(0,1.35fr)_minmax(360px,0.65fr)]">
         <div className="space-y-5">
-          <div className="rounded-2xl bg-zinc-950 p-4">
+          <section className="rounded-2xl bg-zinc-950 p-4">
             <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <p className="text-sm font-semibold text-zinc-300">
@@ -250,9 +261,138 @@ export default function AdminHomeSection({
                 Subiendo imagenes...
               </p>
             )}
-          </div>
+          </section>
 
-          <div className="rounded-2xl bg-zinc-950 p-4">
+          <section className="grid gap-4 rounded-2xl bg-zinc-950 p-4">
+            <div>
+              <p className="text-sm font-semibold text-zinc-300">
+                Textos de tienda
+              </p>
+              <p className="mt-1 text-xs text-zinc-500">
+                Controla el boton que manda a Tienda y los titulos de bloques.
+              </p>
+            </div>
+
+            <div className="grid gap-3 md:grid-cols-2">
+              <label className="grid gap-1.5">
+                <span className="text-xs font-semibold uppercase text-zinc-500">
+                  Boton tienda
+                </span>
+                <input
+                  type="text"
+                  value={draftContent.storeButtonLabel}
+                  onChange={(event) =>
+                    updateDraftContent(
+                      "storeButtonLabel",
+                      event.target.value
+                    )
+                  }
+                  disabled={isSaving}
+                  className="h-11 rounded-xl bg-zinc-900 px-4 text-sm font-semibold outline-none disabled:opacity-60"
+                />
+              </label>
+
+              <label className="grid gap-1.5">
+                <span className="text-xs font-semibold uppercase text-zinc-500">
+                  Titulo tienda interno
+                </span>
+                <input
+                  type="text"
+                  value={draftContent.storeTitle}
+                  onChange={(event) =>
+                    updateDraftContent("storeTitle", event.target.value)
+                  }
+                  disabled={isSaving}
+                  className="h-11 rounded-xl bg-zinc-900 px-4 text-sm font-semibold outline-none disabled:opacity-60"
+                />
+              </label>
+
+              <label className="grid gap-1.5">
+                <span className="text-xs font-semibold uppercase text-zinc-500">
+                  Etiqueta destacados
+                </span>
+                <input
+                  type="text"
+                  value={draftContent.featuredEyebrow}
+                  onChange={(event) =>
+                    updateDraftContent(
+                      "featuredEyebrow",
+                      event.target.value
+                    )
+                  }
+                  disabled={isSaving}
+                  className="h-11 rounded-xl bg-zinc-900 px-4 text-sm font-semibold outline-none disabled:opacity-60"
+                />
+              </label>
+
+              <label className="grid gap-1.5">
+                <span className="text-xs font-semibold uppercase text-zinc-500">
+                  Titulo destacados
+                </span>
+                <input
+                  type="text"
+                  value={draftContent.featuredTitle}
+                  onChange={(event) =>
+                    updateDraftContent("featuredTitle", event.target.value)
+                  }
+                  disabled={isSaving}
+                  className="h-11 rounded-xl bg-zinc-900 px-4 text-sm font-semibold outline-none disabled:opacity-60"
+                />
+              </label>
+
+              <label className="grid gap-1.5">
+                <span className="text-xs font-semibold uppercase text-zinc-500">
+                  Etiqueta categorias
+                </span>
+                <input
+                  type="text"
+                  value={draftContent.categoryEyebrow}
+                  onChange={(event) =>
+                    updateDraftContent(
+                      "categoryEyebrow",
+                      event.target.value
+                    )
+                  }
+                  disabled={isSaving}
+                  className="h-11 rounded-xl bg-zinc-900 px-4 text-sm font-semibold outline-none disabled:opacity-60"
+                />
+              </label>
+
+              <label className="grid gap-1.5">
+                <span className="text-xs font-semibold uppercase text-zinc-500">
+                  Titulo categorias
+                </span>
+                <input
+                  type="text"
+                  value={draftContent.categoryTitle}
+                  onChange={(event) =>
+                    updateDraftContent("categoryTitle", event.target.value)
+                  }
+                  disabled={isSaving}
+                  className="h-11 rounded-xl bg-zinc-900 px-4 text-sm font-semibold outline-none disabled:opacity-60"
+                />
+              </label>
+            </div>
+
+            <label className="grid gap-1.5">
+              <span className="text-xs font-semibold uppercase text-zinc-500">
+                Texto boton de categoria
+              </span>
+              <input
+                type="text"
+                value={draftContent.categoryCardText}
+                onChange={(event) =>
+                  updateDraftContent("categoryCardText", event.target.value)
+                }
+                disabled={isSaving}
+                className="h-11 rounded-xl bg-zinc-900 px-4 text-sm font-semibold outline-none disabled:opacity-60"
+              />
+            </label>
+          </section>
+        </div>
+
+        <div className="space-y-5">
+          <section className="rounded-2xl bg-zinc-950 p-4">
             <div className="mb-4 flex items-center justify-between gap-3">
               <div>
                 <p className="text-sm font-semibold text-zinc-300">
@@ -270,7 +410,7 @@ export default function AdminHomeSection({
                 disabled={isSaving}
                 className="h-10 rounded-lg bg-white px-4 text-sm font-semibold text-black transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
               >
-                Agregar frase
+                Agregar
               </button>
             </div>
 
@@ -287,14 +427,14 @@ export default function AdminHomeSection({
                       updateTrustItem(index, event.target.value)
                     }
                     disabled={isSaving}
-                    className="h-11 min-w-0 flex-1 rounded-xl bg-zinc-900 px-4 text-sm outline-none disabled:opacity-60"
+                    className="h-10 min-w-0 flex-1 rounded-xl bg-zinc-900 px-3 text-sm outline-none disabled:opacity-60"
                   />
 
                   <button
                     type="button"
                     onClick={() => removeTrustItem(index)}
                     disabled={isSaving}
-                    className="h-11 rounded-xl border border-red-500/30 px-3 text-xs font-semibold text-red-300 transition hover:bg-red-500/15 disabled:cursor-not-allowed disabled:opacity-50"
+                    className="h-10 rounded-xl border border-red-500/30 px-3 text-xs font-semibold text-red-300 transition hover:bg-red-500/15 disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     Quitar
                   </button>
@@ -307,37 +447,27 @@ export default function AdminHomeSection({
                 Todavia no hay frases cargadas.
               </p>
             )}
-          </div>
-        </div>
+          </section>
 
-        <div className="space-y-5">
-          <div className="rounded-2xl bg-zinc-950 p-5">
-            <h3 className="text-xl font-bold">
-              Links superiores
-            </h3>
-
-            <p className="mt-2 text-sm leading-6 text-zinc-400">
-              Este espacio queda reservado para editar los botones del
-              navbar, como Contacto, Local, Preguntas y Tienda.
+          <section className="rounded-2xl border border-zinc-800 bg-zinc-950 p-4">
+            <p className="text-sm font-semibold text-zinc-300">
+              Descripcion de tienda
             </p>
-          </div>
-
-          <div className="rounded-2xl bg-zinc-950 p-5">
-            <h3 className="text-xl font-bold">
-              Redes y contacto
-            </h3>
-
-            <p className="mt-2 text-sm leading-6 text-zinc-400">
-              Aca vamos a conectar WhatsApp, Instagram, TikTok,
-              direccion del local y horarios cuando pasemos esa
-              informacion a Supabase.
+            <p className="mt-1 text-xs text-zinc-500">
+              Este campo queda guardado, pero hoy no se muestra en Home.
             </p>
-          </div>
-
-          <div className="rounded-2xl border border-zinc-800 p-5 text-sm text-zinc-500">
-            Los textos fijos de Home se conservan igual; por ahora no
-            hace falta editarlos desde esta pantalla.
-          </div>
+            <textarea
+              value={draftContent.storeDescription}
+              onChange={(event) =>
+                updateDraftContent(
+                  "storeDescription",
+                  event.target.value
+                )
+              }
+              disabled={isSaving}
+              className="mt-3 min-h-24 w-full rounded-xl bg-zinc-900 p-3 text-sm outline-none disabled:opacity-60"
+            />
+          </section>
         </div>
       </div>
 

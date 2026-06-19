@@ -22,10 +22,11 @@ export type EditableVariant = {
 
 export type EditableProduct = Omit<
   Product,
-  "price" | "retailPrice" | "variants"
+  "price" | "retailPrice" | "cost" | "variants"
 > & {
   price: number | string;
   retailPrice: number | string;
+  cost: number | string;
   variants: EditableVariant[];
 };
 
@@ -36,8 +37,4 @@ export type AdminSection =
 export type ProductFilter =
   | "all"
   | "active"
-  | "inactive"
-  | "featured"
-  | "in_stock"
-  | "low_stock"
-  | "out_of_stock";
+  | "inactive";

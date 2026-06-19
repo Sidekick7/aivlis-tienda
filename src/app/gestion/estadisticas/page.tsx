@@ -7,6 +7,7 @@ import {
   Boxes,
   ClipboardList,
   CreditCard,
+  Images,
   LogOut,
   Settings,
   ShoppingBag,
@@ -49,6 +50,11 @@ const navItems = [
     title: "Ventas",
     href: "/gestion/ventas",
     icon: ClipboardList,
+  },
+  {
+    title: "Catalogo",
+    href: "/gestion/catalogo",
+    icon: Images,
   },
   {
     title: "Envios",

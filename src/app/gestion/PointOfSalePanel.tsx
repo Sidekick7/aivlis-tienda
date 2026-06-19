@@ -687,19 +687,16 @@ export default function PointOfSalePanel({
     return () => window.clearTimeout(focusTimer);
   }, [isSaleConfirmOpen, paymentMethod]);
 
-  const activeProducts = useMemo(
-    () => products.filter((product) => product.active),
-    [products]
-  );
+  const saleProducts = useMemo(() => products, [products]);
   const productsById = useMemo(
-    () => new Map(activeProducts.map((product) => [product.id, product])),
-    [activeProducts]
+    () => new Map(saleProducts.map((product) => [product.id, product])),
+    [saleProducts]
   );
   const normalizedSearch = searchQuery.trim().toLowerCase();
   const searchResults = useMemo(() => {
-    if (!normalizedSearch) return activeProducts.slice(0, 8);
+    if (!normalizedSearch) return saleProducts.slice(0, 8);
 
-    return activeProducts
+    return saleProducts
       .filter((product) =>
         [
           product.name,
@@ -713,14 +710,14 @@ export default function PointOfSalePanel({
           .includes(normalizedSearch)
       )
       .slice(0, 8);
-  }, [activeProducts, normalizedSearch]);
+  }, [saleProducts, normalizedSearch]);
   const productListItems = useMemo(
-    () => [...activeProducts].sort((first, second) => second.id - first.id),
-    [activeProducts]
+    () => [...saleProducts].sort((first, second) => second.id - first.id),
+    [saleProducts]
   );
 
   const selectedProduct =
-    activeProducts.find((product) => product.id === selectedProductId) ||
+    saleProducts.find((product) => product.id === selectedProductId) ||
     null;
   const selectedVariant =
     selectedProduct?.variants.find(

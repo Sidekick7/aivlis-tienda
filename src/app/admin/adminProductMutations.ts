@@ -36,6 +36,7 @@ export function getProductFormError({
   productSku,
   productPrice,
   productRetailPrice,
+  productCost,
   productCategory,
   productVariants,
   productSaleMode = "unit",
@@ -45,6 +46,7 @@ export function getProductFormError({
   productSku: string;
   productPrice: string | number;
   productRetailPrice: string | number;
+  productCost: string | number;
   productCategory: string;
   productVariants: ProductFormVariant[];
   productSaleMode?: Product["saleMode"];
@@ -70,6 +72,13 @@ export function getProductFormError({
   }
   if (Number(effectiveRetailPrice) < Number(productPrice)) {
     return "El precio minorista no puede ser menor al mayorista.";
+  }
+  if (
+    String(productCost).trim() === "" ||
+    !Number.isFinite(Number(productCost)) ||
+    Number(productCost) < 0
+  ) {
+    return "El costo debe ser 0 o mayor.";
   }
   if (!productCategory.trim()) return "La categoria es obligatoria.";
   if (productVariants.length === 0) {
@@ -178,6 +187,7 @@ export async function createAdminProduct({
   sku,
   price,
   retailPrice,
+  cost,
   category,
   description,
   detailsText,
@@ -189,6 +199,7 @@ export async function createAdminProduct({
   sku: string;
   price: string;
   retailPrice: string;
+  cost: string;
   category: string;
   description: string;
   detailsText: string;
@@ -206,6 +217,7 @@ export async function createAdminProduct({
         sku,
         price: Number(price),
         retail_price: Number(retailPrice || price),
+        cost: Number(cost),
         sale_mode: saleMode,
         category,
         description,
@@ -243,6 +255,7 @@ export async function updateAdminProduct({
       sku: product.sku,
       price: Number(product.price),
       retail_price: Number(product.retailPrice || product.price),
+      cost: Number(product.cost),
       sale_mode: product.saleMode,
       category: product.category,
       description: product.description,

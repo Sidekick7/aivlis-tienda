@@ -20,8 +20,7 @@ export const fallbackHomeContent: HomeContent = {
     "Pedido por WhatsApp",
   ],
   storeTitle: "TIENDA",
-  storeDescription:
-    "Explora productos por categoria, ordena por precio o novedades, y elegi talle y color con stock actualizado.",
+  storeDescription: "",
   storeButtonLabel: "Ir a tienda",
   featuredEyebrow: "Seleccion",
   featuredTitle: "Destacados",

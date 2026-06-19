@@ -8,6 +8,7 @@ import {
   ClipboardList,
   Copy,
   CreditCard,
+  Images,
   LogOut,
   Printer,
   Search,
@@ -83,6 +84,11 @@ const navItems = [
     href: "/gestion/ventas",
     icon: ClipboardList,
     active: true,
+  },
+  {
+    title: "Catalogo",
+    href: "/gestion/catalogo",
+    icon: Images,
   },
   {
     title: "Envios",
@@ -182,10 +188,27 @@ function getSaleStatusClassName(sale: UnifiedSale) {
 
 function getPaymentLabel(sale: UnifiedSale) {
   if (sale.source === "web") {
-    return sale.status === "pending_payment" ? "A coordinar" : "Web";
+    return sale.payment || "A coordinar";
   }
 
   return paymentLabels[sale.payment];
+}
+
+function getWebPaymentLabel(order: AdminOrder) {
+  const text = [order.whatsappMessage, order.notes]
+    .filter(Boolean)
+    .join("\n")
+    .toLowerCase();
+
+  if (text.includes("forma de pago: transferencia")) {
+    return "Transferencia";
+  }
+
+  if (text.includes("forma de pago: efectivo")) {
+    return "Efectivo";
+  }
+
+  return "A coordinar";
 }
 
 function formatSaleTableDate(value: string) {
@@ -605,7 +628,7 @@ export default function GestionVentasPage() {
       customer: order.customerName || "Cliente web",
       total: order.total,
       status: order.status,
-      payment: "Web",
+      payment: getWebPaymentLabel(order),
       createdAt: order.createdAt,
       itemsCount: order.items.reduce(
         (total, item) => total + item.quantity,
@@ -656,6 +679,7 @@ export default function GestionVentasPage() {
         getSaleNumber(sale),
         sale.customer,
         sale.source,
+        getPaymentLabel(sale),
         getSaleStatusLabel(sale),
       ]
         .join(" ")

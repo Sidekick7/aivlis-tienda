@@ -82,6 +82,7 @@ export function buildOrderWhatsAppMessage({
   cart,
   customer,
   fulfillment,
+  payment,
   total,
 }: {
   orderNumber: string;
@@ -91,6 +92,10 @@ export function buildOrderWhatsAppMessage({
     label: string;
     description: string;
     fee: number;
+  };
+  payment?: {
+    label: string;
+    surcharge: number;
   };
   total: number;
 }) {
@@ -124,6 +129,16 @@ ${fulfillment.description}
 
 `
     : "";
+  const paymentBlock = payment
+    ? `PAGO
+Forma de pago: ${payment.label}${
+        payment.surcharge > 0
+          ? `\nRecargo transferencia 5%: ${formatPrice(payment.surcharge)}`
+          : ""
+      }
+
+`
+    : "";
 
   return `Hola! Quiero realizar este pedido:
 
@@ -132,6 +147,7 @@ Pedido ${formatOrderNumber(orderNumber)}
 ${formatCartItemsForWhatsApp(cart)}
 
 ${fulfillmentBlock}
+${paymentBlock}
 TOTAL: ${formatPrice(total)}
 
 DATOS DEL CLIENTE

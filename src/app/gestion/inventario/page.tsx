@@ -7,15 +7,29 @@ import {
   Boxes,
   ClipboardList,
   CreditCard,
+  Images,
   LogOut,
+  Plus,
   Search,
   Settings,
   ShoppingBag,
   Truck,
 } from "lucide-react";
+import {
+  formatSku,
+  getNextSku,
+  getSkuCode,
+  normalizeSkuCode,
+  slugifyProductName,
+} from "@/app/admin/adminUtils";
+import {
+  getCategories,
+  getFallbackCategories,
+} from "@/lib/categories";
 import { getProducts } from "@/lib/products";
 import { formatPrice } from "@/lib/pricing";
 import { supabase } from "@/lib/supabase";
+import type { StoreCategory } from "@/types/category";
 import type { Product } from "@/types/product";
 import type { Session } from "@supabase/supabase-js";
 
@@ -26,6 +40,22 @@ type InventoryTab =
   | "critical"
   | "inactive";
 type InventorySort = "stock_asc" | "stock_desc" | "newest" | "sku" | "category";
+type QuickProductDraft = {
+  name: string;
+  skuCode: string;
+  category: string;
+  cost: string;
+  price: string;
+  retailPrice: string;
+  colors: Array<{
+    color: string;
+    hex: string;
+    sizes: Array<{
+      size: string;
+      stock: string;
+    }>;
+  }>;
+};
 
 const lowStockLimit = 2;
 
@@ -40,6 +70,11 @@ const navItems = [
     title: "Ventas",
     href: "/gestion/ventas",
     icon: ClipboardList,
+  },
+  {
+    title: "Catalogo",
+    href: "/gestion/catalogo",
+    icon: Images,
   },
   {
     title: "Envios",
@@ -147,6 +182,8 @@ export default function GestionInventarioPage() {
   const [authMessage, setAuthMessage] = useState("");
   const [isSendingLogin, setIsSendingLogin] = useState(false);
   const [products, setProducts] = useState<Product[]>([]);
+  const [categoryOptions, setCategoryOptions] =
+    useState<StoreCategory[]>(getFallbackCategories());
   const [isLoadingProducts, setIsLoadingProducts] = useState(false);
   const [inventoryError, setInventoryError] = useState("");
   const [activeTab, setActiveTab] = useState<InventoryTab>("all");
@@ -174,10 +211,16 @@ export default function GestionInventarioPage() {
   } | null>(null);
   const [isSavingPrice, setIsSavingPrice] = useState(false);
   const [isSavingStock, setIsSavingStock] = useState(false);
+  const [isSavingQuickProduct, setIsSavingQuickProduct] =
+    useState(false);
   const [savingActiveProductId, setSavingActiveProductId] = useState<
     number | null
   >(null);
   const [inventoryNotice, setInventoryNotice] = useState("");
+  const [quickProductDraft, setQuickProductDraft] =
+    useState<QuickProductDraft | null>(null);
+  const [selectedQuickColorIndex, setSelectedQuickColorIndex] =
+    useState(0);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
@@ -240,11 +283,18 @@ export default function GestionInventarioPage() {
     setInventoryError("");
 
     try {
-      const nextProducts = await getProducts({
-        includeInactive: true,
-      });
+      const [nextProducts, nextCategories] = await Promise.all([
+        getProducts({
+          includeInactive: true,
+        }),
+        getCategories({
+          includeInactive: false,
+          fallbackToStatic: true,
+        }),
+      ]);
 
       setProducts(nextProducts);
+      setCategoryOptions(nextCategories);
     } catch (error) {
       setInventoryError(
         error instanceof Error
@@ -324,6 +374,34 @@ export default function GestionInventarioPage() {
           stock: String(size.stock),
         })),
       })),
+    });
+  };
+
+  const openQuickProductCreator = () => {
+    const nextSkuCode = getSkuCode(getNextSku(products));
+
+    setInventoryError("");
+    setInventoryNotice("");
+    setSelectedQuickColorIndex(0);
+    setQuickProductDraft({
+      name: "",
+      skuCode: nextSkuCode,
+      category: categoryOptions[0]?.value || "",
+      cost: "",
+      price: "",
+      retailPrice: "",
+      colors: [
+        {
+          color: "",
+          hex: "#000000",
+          sizes: [
+            {
+              size: "",
+              stock: "",
+            },
+          ],
+        },
+      ],
     });
   };
 
@@ -521,6 +599,310 @@ export default function GestionInventarioPage() {
     }
   };
 
+  const handleCreateQuickProduct = async (
+    event: FormEvent<HTMLFormElement>
+  ) => {
+    event.preventDefault();
+
+    if (!quickProductDraft || isSavingQuickProduct) return;
+
+    const name = quickProductDraft.name.trim();
+    const slug = slugifyProductName(name);
+    const skuCode = normalizeSkuCode(quickProductDraft.skuCode);
+    const category = quickProductDraft.category.trim();
+    const cost = parseInventoryPriceInput(quickProductDraft.cost);
+    const price = parseInventoryPriceInput(quickProductDraft.price);
+    const retailPrice = parseInventoryPriceInput(
+      quickProductDraft.retailPrice || quickProductDraft.price
+    );
+    const draftColors = quickProductDraft.colors.map((colorItem) => ({
+      color: colorItem.color.trim(),
+      hex: colorItem.hex || "#000000",
+      sizes: colorItem.sizes.map((size) => ({
+        size: size.size.trim(),
+        stock: Number(size.stock),
+      })),
+    }));
+
+    if (!name) {
+      setInventoryError("El nombre del producto es obligatorio.");
+      return;
+    }
+
+    if (!slug) {
+      setInventoryError("No se pudo generar un slug valido.");
+      return;
+    }
+
+    if (!/^[A-Z0-9-]{3,6}$/.test(skuCode)) {
+      setInventoryError("El SKU debe tener entre 3 y 6 caracteres.");
+      return;
+    }
+
+    if (products.some((product) => product.slug === slug)) {
+      setInventoryError("Ya existe un producto con ese nombre/slug.");
+      return;
+    }
+
+    if (products.some((product) => getSkuCode(product.sku) === skuCode)) {
+      setInventoryError("Ya existe un producto con ese SKU.");
+      return;
+    }
+
+    if (!category) {
+      setInventoryError("La categoria es obligatoria.");
+      return;
+    }
+
+    if (
+      !Number.isFinite(cost) ||
+      !Number.isFinite(price) ||
+      !Number.isFinite(retailPrice) ||
+      cost < 0 ||
+      price <= 0 ||
+      retailPrice <= 0
+    ) {
+      setInventoryError("Costo y precios tienen que ser numeros validos.");
+      return;
+    }
+
+    if (retailPrice < price) {
+      setInventoryError("El precio minorista no puede ser menor al precio web.");
+      return;
+    }
+
+    if (draftColors.length === 0) {
+      setInventoryError("Agrega al menos un color.");
+      return;
+    }
+
+    if (
+      draftColors.some(
+        (colorItem) =>
+          !colorItem.color ||
+          colorItem.sizes.length === 0 ||
+          colorItem.sizes.some(
+            (size) =>
+              !size.size ||
+              !Number.isInteger(size.stock) ||
+              size.stock < 0
+          )
+      )
+    ) {
+      setInventoryError(
+        "Completa cada color con talles y stock de 0 o mas."
+      );
+      return;
+    }
+
+    const variants = draftColors.map((colorItem) => ({
+      color: colorItem.color,
+      hex: colorItem.hex,
+      stock: colorItem.sizes.reduce(
+        (total, size) => total + size.stock,
+        0
+      ),
+      sizes: colorItem.sizes,
+      images: [],
+    }));
+    const stock = variants.reduce(
+      (total, variant) => total + variant.stock,
+      0
+    );
+
+    setIsSavingQuickProduct(true);
+    setInventoryError("");
+
+    try {
+      const { error } = await supabase.from("products").insert([
+        {
+          name,
+          slug,
+          sku: formatSku(skuCode),
+          price,
+          retail_price: retailPrice,
+          cost,
+          sale_mode: "unit",
+          category,
+          description: "",
+          details: [],
+          stock,
+          featured: false,
+          active: false,
+          variants,
+          images: [],
+        },
+      ]);
+
+      if (error) {
+        throw error;
+      }
+
+      await refreshProducts();
+      setQuickProductDraft(null);
+      setSelectedQuickColorIndex(0);
+      setActiveTab("inactive");
+      setSortMode("newest");
+      setInventoryNotice(
+        `${name} creado oculto. Completa fotos en Admin antes de publicarlo.`
+      );
+    } catch (error) {
+      setInventoryError(
+        error instanceof Error
+          ? error.message
+          : "No se pudo crear el producto."
+      );
+    } finally {
+      setIsSavingQuickProduct(false);
+    }
+  };
+
+  const updateQuickColor = (
+    colorIndex: number,
+    updates: Partial<QuickProductDraft["colors"][number]>
+  ) => {
+    setQuickProductDraft((currentDraft) =>
+      currentDraft
+        ? {
+            ...currentDraft,
+            colors: currentDraft.colors.map((currentColor, currentIndex) =>
+              currentIndex === colorIndex
+                ? {
+                    ...currentColor,
+                    ...updates,
+                  }
+                : currentColor
+            ),
+          }
+        : currentDraft
+    );
+  };
+
+  const updateQuickSize = (
+    colorIndex: number,
+    sizeIndex: number,
+    updates: Partial<QuickProductDraft["colors"][number]["sizes"][number]>
+  ) => {
+    setQuickProductDraft((currentDraft) =>
+      currentDraft
+        ? {
+            ...currentDraft,
+            colors: currentDraft.colors.map((currentColor, currentIndex) =>
+              currentIndex === colorIndex
+                ? {
+                    ...currentColor,
+                    sizes: currentColor.sizes.map(
+                      (currentSize, currentSizeIndex) =>
+                        currentSizeIndex === sizeIndex
+                          ? {
+                              ...currentSize,
+                              ...updates,
+                            }
+                          : currentSize
+                    ),
+                  }
+                : currentColor
+            ),
+          }
+        : currentDraft
+    );
+  };
+
+  const addQuickColor = () => {
+    setQuickProductDraft((currentDraft) => {
+      if (!currentDraft) return currentDraft;
+
+      const nextColorIndex = currentDraft.colors.length;
+
+      setSelectedQuickColorIndex(nextColorIndex);
+
+      return {
+        ...currentDraft,
+        colors: [
+          ...currentDraft.colors,
+          {
+                                      color: "",
+            hex: "#000000",
+            sizes: [
+              {
+                size: "",
+                stock: "",
+              },
+            ],
+          },
+        ],
+      };
+    });
+  };
+
+  const removeQuickColor = (colorIndex: number) => {
+    setQuickProductDraft((currentDraft) => {
+      if (!currentDraft || currentDraft.colors.length === 1) {
+        return currentDraft;
+      }
+
+      const nextColors = currentDraft.colors.filter(
+        (_, currentIndex) => currentIndex !== colorIndex
+      );
+
+      setSelectedQuickColorIndex((currentIndex) =>
+        Math.min(
+          currentIndex > colorIndex ? currentIndex - 1 : currentIndex,
+          nextColors.length - 1
+        )
+      );
+
+      return {
+        ...currentDraft,
+        colors: nextColors,
+      };
+    });
+  };
+
+  const addQuickSize = (colorIndex: number) => {
+    setQuickProductDraft((currentDraft) =>
+      currentDraft
+        ? {
+            ...currentDraft,
+            colors: currentDraft.colors.map((currentColor, currentIndex) =>
+              currentIndex === colorIndex
+                ? {
+                    ...currentColor,
+                    sizes: [
+                      ...currentColor.sizes,
+                      {
+                        size: "",
+                        stock: "",
+                      },
+                    ],
+                  }
+                : currentColor
+            ),
+          }
+        : currentDraft
+    );
+  };
+
+  const removeQuickSize = (colorIndex: number, sizeIndex: number) => {
+    setQuickProductDraft((currentDraft) =>
+      currentDraft
+        ? {
+            ...currentDraft,
+            colors: currentDraft.colors.map((currentColor, currentIndex) =>
+              currentIndex === colorIndex && currentColor.sizes.length > 1
+                ? {
+                    ...currentColor,
+                    sizes: currentColor.sizes.filter(
+                      (_, currentSizeIndex) => currentSizeIndex !== sizeIndex
+                    ),
+                  }
+                : currentColor
+            ),
+          }
+        : currentDraft
+    );
+  };
+
   const stockSummary = useMemo(() => {
     const activeProducts = products.filter((product) => product.active);
     const stockTotal = activeProducts.reduce(
@@ -551,18 +933,14 @@ export default function GestionInventarioPage() {
     };
   }, [products]);
 
-  const categories = useMemo(
-    () =>
-      Array.from(
-        new Set(
-          products
-            .map((product) => product.category.trim())
-            .filter(Boolean)
-        )
-      ).sort((firstCategory, secondCategory) =>
-        firstCategory.localeCompare(secondCategory, "es")
-      ),
-    [products]
+  const categories = Array.from(
+    new Set(
+      products
+        .map((product) => product.category.trim())
+        .filter(Boolean)
+    )
+  ).sort((firstCategory, secondCategory) =>
+    firstCategory.localeCompare(secondCategory, "es")
   );
   const criticalEntries = products
     .filter((product) => product.active)
@@ -715,6 +1093,15 @@ export default function GestionInventarioPage() {
     );
   }
 
+  const activeQuickColorIndex = quickProductDraft
+    ? Math.min(
+        selectedQuickColorIndex,
+        quickProductDraft.colors.length - 1
+      )
+    : 0;
+  const activeQuickColor =
+    quickProductDraft?.colors[activeQuickColorIndex] ?? null;
+
   return (
     <main className="h-screen overflow-hidden bg-[#090909] text-white">
       <div className="grid h-full min-h-0 lg:grid-cols-[190px_minmax(0,1fr)]">
@@ -792,6 +1179,15 @@ export default function GestionInventarioPage() {
             </div>
 
             <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={openQuickProductCreator}
+                className="inline-flex h-9 items-center gap-2 rounded-xl bg-emerald-400 px-3 text-xs font-black text-black transition hover:bg-emerald-300"
+              >
+                <Plus size={15} />
+                Nuevo producto
+              </button>
+
               <Link
                 href="/admin"
                 className="h-9 rounded-xl bg-zinc-900 px-3 py-2 text-xs font-bold text-zinc-300 transition hover:bg-zinc-800"
@@ -1467,6 +1863,455 @@ export default function GestionInventarioPage() {
                 {isSavingPrice ? "Guardando..." : "Guardar"}
               </button>
             </div>
+          </form>
+        </div>
+      )}
+
+      {quickProductDraft && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-3">
+          <form
+            onSubmit={handleCreateQuickProduct}
+            className="flex max-h-[92vh] w-full max-w-6xl flex-col overflow-hidden rounded-3xl border border-zinc-800 bg-zinc-900 shadow-2xl shadow-black/40"
+          >
+            <header className="flex shrink-0 items-center justify-between gap-4 border-b border-zinc-800 px-4 py-3">
+              <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-4 gap-y-2">
+                <h2 className="truncate text-2xl font-black text-white">
+                  {quickProductDraft.name || "Producto nuevo"}
+                </h2>
+                <span className="rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-1 text-xs font-bold text-emerald-100">
+                  Se crea oculto y sin fotos para completar en Admin tienda
+                </span>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setQuickProductDraft(null)}
+                disabled={isSavingQuickProduct}
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-zinc-800 text-sm font-black text-zinc-300 transition hover:bg-zinc-700 hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
+                aria-label="Cerrar creador de producto"
+              >
+                x
+              </button>
+            </header>
+
+            <div className="min-h-0 flex-1 overflow-y-auto p-4">
+              <div className="grid gap-4 xl:grid-cols-[minmax(0,0.95fr)_minmax(0,1.25fr)]">
+                <div className="grid content-start gap-4">
+                  <section className="grid gap-3 rounded-2xl border border-zinc-800 bg-zinc-950 p-3">
+                    <h3 className="text-sm font-black uppercase text-zinc-300">
+                      Datos
+                    </h3>
+
+                    <label className="grid min-w-0 gap-1.5">
+                      <span className="text-xs font-semibold uppercase text-zinc-500">
+                        Nombre
+                      </span>
+                      <input
+                        type="text"
+                        placeholder="Nombre"
+                        value={quickProductDraft.name}
+                        onChange={(event) =>
+                          setQuickProductDraft((currentDraft) =>
+                            currentDraft
+                              ? {
+                                  ...currentDraft,
+                                  name: event.target.value,
+                                }
+                              : currentDraft
+                          )
+                        }
+                        className="h-10 min-w-0 rounded-xl bg-zinc-800 px-3 text-sm outline-none ring-1 ring-transparent transition focus:ring-white"
+                      />
+                    </label>
+
+                    <div className="grid min-w-0 gap-3 sm:grid-cols-[minmax(0,1fr)_150px]">
+                      <label className="grid min-w-0 gap-1.5">
+                        <span className="text-xs font-semibold uppercase text-zinc-500">
+                          Categoria
+                        </span>
+                        <select
+                          value={quickProductDraft.category}
+                          onChange={(event) =>
+                            setQuickProductDraft((currentDraft) =>
+                              currentDraft
+                                ? {
+                                    ...currentDraft,
+                                    category: event.target.value,
+                                  }
+                                : currentDraft
+                            )
+                          }
+                          className="h-10 min-w-0 rounded-xl bg-zinc-800 px-3 text-sm outline-none ring-1 ring-transparent transition focus:ring-white"
+                        >
+                          <option value="">
+                            Seleccionar
+                          </option>
+                          {categoryOptions.map((categoryOption) => (
+                            <option
+                              key={categoryOption.value}
+                              value={categoryOption.value}
+                            >
+                              {categoryOption.label}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+
+                      <label className="grid min-w-0 gap-1.5">
+                        <span className="text-xs font-semibold uppercase text-zinc-500">
+                          SKU / Codigo
+                        </span>
+                        <div className="flex h-10 overflow-hidden rounded-xl bg-zinc-800">
+                          <input
+                            type="text"
+                            value={quickProductDraft.skuCode}
+                            maxLength={6}
+                            onChange={(event) =>
+                              setQuickProductDraft((currentDraft) =>
+                                currentDraft
+                                  ? {
+                                      ...currentDraft,
+                                      skuCode: normalizeSkuCode(
+                                        event.target.value
+                                      ),
+                                    }
+                                  : currentDraft
+                              )
+                            }
+                            className="min-w-0 flex-1 bg-transparent px-3 text-sm outline-none"
+                          />
+                        </div>
+                      </label>
+                    </div>
+                  </section>
+
+                  <section className="grid gap-3 rounded-2xl border border-zinc-800 bg-zinc-950 p-3">
+                    <h3 className="text-sm font-black uppercase text-zinc-300">
+                      Precios
+                    </h3>
+
+                    <div className="grid gap-3 sm:grid-cols-3">
+                      <label className="grid min-w-0 gap-1.5">
+                        <span className="text-xs font-semibold uppercase text-zinc-500">
+                          Costo
+                        </span>
+                        <input
+                          type="text"
+                          inputMode="numeric"
+                          placeholder="Costo"
+                          value={quickProductDraft.cost}
+                          onChange={(event) =>
+                            setQuickProductDraft((currentDraft) =>
+                              currentDraft
+                                ? {
+                                    ...currentDraft,
+                                    cost: formatInventoryPriceInput(
+                                      event.target.value
+                                    ),
+                                  }
+                                : currentDraft
+                            )
+                          }
+                          className="h-10 min-w-0 rounded-xl bg-zinc-800 px-3 text-sm font-bold outline-none ring-1 ring-transparent transition focus:ring-white"
+                        />
+                      </label>
+
+                      <label className="grid min-w-0 gap-1.5">
+                        <span className="text-xs font-semibold uppercase text-zinc-500">
+                          Precio web
+                        </span>
+                        <input
+                          type="text"
+                          inputMode="numeric"
+                          placeholder="Web"
+                          value={quickProductDraft.price}
+                          onChange={(event) =>
+                            setQuickProductDraft((currentDraft) =>
+                              currentDraft
+                                ? {
+                                    ...currentDraft,
+                                    price: formatInventoryPriceInput(
+                                      event.target.value
+                                    ),
+                                  }
+                                : currentDraft
+                            )
+                          }
+                          className="h-10 min-w-0 rounded-xl bg-zinc-800 px-3 text-sm font-bold outline-none ring-1 ring-transparent transition focus:ring-white"
+                        />
+                      </label>
+
+                      <label className="grid min-w-0 gap-1.5">
+                        <span className="text-xs font-semibold uppercase text-zinc-500">
+                          Precio local
+                        </span>
+                        <input
+                          type="text"
+                          inputMode="numeric"
+                          placeholder="Local"
+                          value={quickProductDraft.retailPrice}
+                          onChange={(event) =>
+                            setQuickProductDraft((currentDraft) =>
+                              currentDraft
+                                ? {
+                                    ...currentDraft,
+                                    retailPrice: formatInventoryPriceInput(
+                                      event.target.value
+                                    ),
+                                  }
+                                : currentDraft
+                            )
+                          }
+                          className="h-10 min-w-0 rounded-xl bg-zinc-800 px-3 text-sm font-bold outline-none ring-1 ring-transparent transition focus:ring-white"
+                        />
+                      </label>
+                    </div>
+                  </section>
+                </div>
+
+                <div className="grid content-start gap-4">
+                  <section className="grid gap-3 rounded-2xl border border-zinc-800 bg-zinc-950 p-3">
+                    <div className="flex items-center justify-between gap-3">
+                      <h3 className="text-sm font-black uppercase text-zinc-300">
+                        Stock inicial
+                      </h3>
+                      <button
+                        type="button"
+                        onClick={addQuickColor}
+                        className="h-8 rounded-lg bg-white px-3 text-xs font-black text-black transition hover:bg-zinc-200"
+                      >
+                        + color
+                      </button>
+                    </div>
+
+                    <div className="grid gap-2">
+                      {quickProductDraft.colors.map((colorItem, colorIndex) => {
+                        const colorStock = colorItem.sizes.reduce(
+                          (total, sizeItem) =>
+                            total + Number(sizeItem.stock || 0),
+                          0
+                        );
+                        const isSelected =
+                          activeQuickColorIndex === colorIndex;
+
+                        return (
+                          <button
+                            key={colorIndex}
+                            type="button"
+                            onClick={() =>
+                              setSelectedQuickColorIndex(colorIndex)
+                            }
+                            className={`grid grid-cols-[24px_minmax(0,1fr)_auto] items-center gap-3 rounded-xl border p-2 text-left transition ${
+                              isSelected
+                                ? "border-white bg-zinc-900"
+                                : "border-zinc-800 bg-zinc-900/60 hover:bg-zinc-900"
+                            }`}
+                          >
+                            <span
+                              className="h-6 w-6 rounded-full border border-zinc-700"
+                              style={{
+                                backgroundColor:
+                                  colorItem.hex || "#000000",
+                              }}
+                            />
+                            <span className="min-w-0">
+                              <span className="block truncate text-sm font-bold text-white">
+                                {colorItem.color ||
+                                  `Color ${colorIndex + 1}`}
+                              </span>
+                              <span className="text-xs font-semibold text-zinc-500">
+                                {colorItem.sizes.length} talles
+                              </span>
+                            </span>
+                            <span className="rounded-lg bg-zinc-800 px-2 py-1 text-xs font-black text-zinc-200">
+                              {colorStock}
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+
+                    {activeQuickColor && (
+                      <div className="grid gap-3 rounded-2xl border border-zinc-800 bg-zinc-900/60 p-3">
+                        <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_90px_42px]">
+                          <label className="grid min-w-0 gap-1.5">
+                            <span className="text-xs font-semibold uppercase text-zinc-500">
+                              Color
+                            </span>
+                            <input
+                              type="text"
+                              value={activeQuickColor.color}
+                              placeholder="Negro"
+                              onChange={(event) =>
+                                updateQuickColor(activeQuickColorIndex, {
+                                  color: event.target.value,
+                                })
+                              }
+                              className="h-10 min-w-0 rounded-xl bg-zinc-800 px-3 text-sm outline-none ring-1 ring-transparent transition focus:ring-white"
+                            />
+                          </label>
+
+                          <label className="grid min-w-0 gap-1.5">
+                            <span className="text-xs font-semibold uppercase text-zinc-500">
+                              Muestra
+                            </span>
+                            <input
+                              type="color"
+                              value={activeQuickColor.hex}
+                              onChange={(event) =>
+                                updateQuickColor(activeQuickColorIndex, {
+                                  hex: event.target.value,
+                                })
+                              }
+                              className="h-10 min-w-0 rounded-xl bg-zinc-800 p-1"
+                            />
+                          </label>
+
+                          <button
+                            type="button"
+                            onClick={() =>
+                              removeQuickColor(activeQuickColorIndex)
+                            }
+                            disabled={quickProductDraft.colors.length === 1}
+                            className="mt-auto h-10 rounded-xl border border-red-500/30 text-xs font-black text-red-300 transition hover:bg-red-500/15 disabled:cursor-not-allowed disabled:opacity-40"
+                          >
+                            x
+                          </button>
+                        </div>
+
+                        <div className="grid min-w-0 gap-2">
+                          <div className="flex items-center gap-3">
+                            <span className="text-xs font-semibold uppercase text-zinc-500">
+                              Talles y stock
+                            </span>
+
+                            <button
+                              type="button"
+                              onClick={() =>
+                                addQuickSize(activeQuickColorIndex)
+                              }
+                              className="h-8 rounded-lg bg-white px-3 text-xs font-black text-black transition hover:bg-zinc-200"
+                            >
+                              + talle
+                            </button>
+                          </div>
+
+                          <div className="overflow-hidden rounded-xl border border-zinc-800">
+                            <div className="grid grid-cols-[minmax(0,1fr)_90px_42px] gap-2 bg-zinc-900 px-3 py-2 text-xs font-black uppercase text-zinc-500">
+                              <span>Talle</span>
+                              <span>Stock</span>
+                              <span></span>
+                            </div>
+
+                            <div className="grid gap-1 bg-zinc-950 p-2">
+                              {activeQuickColor.sizes.map(
+                                (sizeItem, sizeIndex) => {
+                                  const hasStock =
+                                    Number(sizeItem.stock || 0) > 0;
+
+                                  return (
+                                    <div
+                                      key={sizeIndex}
+                                      className={`grid grid-cols-[minmax(0,1fr)_90px_42px] items-center gap-2 rounded-lg p-1.5 ${
+                                        hasStock
+                                          ? "bg-zinc-900"
+                                          : "bg-zinc-900/50"
+                                      }`}
+                                    >
+                                      <input
+                                        type="text"
+                                        value={sizeItem.size}
+                                        placeholder="S"
+                                        onChange={(event) =>
+                                          updateQuickSize(
+                                            activeQuickColorIndex,
+                                            sizeIndex,
+                                            {
+                                              size: event.target.value,
+                                            }
+                                          )
+                                        }
+                                        className="h-9 min-w-0 rounded-lg bg-zinc-800 px-3 text-sm font-bold text-white outline-none ring-1 ring-transparent transition focus:ring-white"
+                                      />
+
+                                      <input
+                                        type="number"
+                                        min="0"
+                                        step="1"
+                                        value={sizeItem.stock}
+                                        onChange={(event) =>
+                                          updateQuickSize(
+                                            activeQuickColorIndex,
+                                            sizeIndex,
+                                            {
+                                              stock: event.target.value,
+                                            }
+                                          )
+                                        }
+                                        className={`h-9 rounded-lg px-2 text-center text-sm font-black outline-none ring-1 ring-transparent transition focus:bg-white focus:text-black ${
+                                          hasStock
+                                            ? "bg-emerald-950 text-emerald-100"
+                                            : "bg-zinc-800 text-zinc-500"
+                                        }`}
+                                      />
+
+                                      <button
+                                        type="button"
+                                        onClick={() =>
+                                          removeQuickSize(
+                                            activeQuickColorIndex,
+                                            sizeIndex
+                                          )
+                                        }
+                                        disabled={
+                                          activeQuickColor.sizes.length === 1
+                                        }
+                                        className="h-9 rounded-lg border border-red-500/30 text-xs font-black text-red-300 transition hover:bg-red-500/15 disabled:cursor-not-allowed disabled:opacity-40"
+                                      >
+                                        x
+                                      </button>
+                                    </div>
+                                  );
+                                }
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </section>
+
+                  <section className="rounded-2xl border border-zinc-800 bg-zinc-950 p-3">
+                    <h3 className="text-sm font-black uppercase text-zinc-300">
+                      Fotos y publicacion
+                    </h3>
+                    <p className="mt-2 text-sm leading-6 text-zinc-500">
+                      Este producto queda oculto y sin imagenes. Usalo para
+                      cargar costos, precios y stock rapido; despues completas
+                      fotos, detalles y publicacion en Admin tienda.
+                    </p>
+                  </section>
+                </div>
+              </div>
+            </div>
+
+            <footer className="flex shrink-0 items-center justify-end gap-2 border-t border-zinc-800 px-4 py-3">
+              <button
+                type="button"
+                onClick={() => setQuickProductDraft(null)}
+                disabled={isSavingQuickProduct}
+                className="h-10 rounded-xl bg-zinc-800 px-5 text-sm font-bold text-zinc-300 transition hover:bg-zinc-700 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                Cancelar
+              </button>
+              <button
+                type="submit"
+                disabled={isSavingQuickProduct}
+                className="h-10 rounded-xl bg-emerald-400 px-5 text-sm font-black text-black transition hover:bg-emerald-300 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {isSavingQuickProduct ? "Creando..." : "Crear oculto"}
+              </button>
+            </footer>
           </form>
         </div>
       )}

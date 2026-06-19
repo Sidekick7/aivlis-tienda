@@ -10,6 +10,7 @@ import {
   ClipboardList,
   Clock,
   CreditCard,
+  Images,
   LogOut,
   PackageCheck,
   PackageOpen,
@@ -73,6 +74,13 @@ const modules = [
     status: "Activo",
     icon: ClipboardList,
     section: "sales" as const,
+  },
+  {
+    title: "Catalogo",
+    description: "Vista mobile para fotos, precios y existencias.",
+    status: "Activo",
+    icon: Images,
+    href: "/gestion/catalogo",
   },
   {
     title: "Envios",

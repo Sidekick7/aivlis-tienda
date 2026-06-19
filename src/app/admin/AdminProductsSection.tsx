@@ -117,10 +117,6 @@ export default function AdminProductsSection({
       )
     : products;
   const filteredProducts = searchedProducts.filter((product) => {
-    const totalStock = getProductTotalStock(product);
-    const hasLowStock = product.variants.some((variant) =>
-      variant.sizes.some((size) => size.stock > 0 && size.stock <= 3)
-    );
     const matchesCategory =
       productCategoryFilter === "all" ||
       product.category === productCategoryFilter;
@@ -128,10 +124,6 @@ export default function AdminProductsSection({
     if (!matchesCategory) return false;
     if (productFilter === "active") return product.active;
     if (productFilter === "inactive") return !product.active;
-    if (productFilter === "featured") return product.featured;
-    if (productFilter === "in_stock") return totalStock > 0;
-    if (productFilter === "low_stock") return hasLowStock;
-    if (productFilter === "out_of_stock") return totalStock <= 0;
 
     return true;
   });
@@ -148,6 +140,10 @@ export default function AdminProductsSection({
     }
     if (productSort === "price_asc") return first.price - second.price;
     if (productSort === "price_desc") return second.price - first.price;
+
+    if (first.featured !== second.featured) {
+      return Number(second.featured) - Number(first.featured);
+    }
 
     return second.id - first.id;
   });
@@ -170,62 +166,59 @@ export default function AdminProductsSection({
   );
 
   return (
-    <div className="mt-6 rounded-3xl border border-zinc-800 bg-zinc-950 p-5">
-      <div className="mb-5 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+    <div className="mt-4 rounded-3xl border border-zinc-800 bg-zinc-950 p-4">
+      <div className="mb-3 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
         <div>
-          <h2 className="text-3xl font-bold text-white">
+          <h2 className="text-2xl font-bold text-white">
             Productos
           </h2>
 
-          <p className="mt-2 text-base font-medium text-zinc-400">
+          <p className="mt-1 text-sm font-medium text-zinc-400">
             {visibleProducts.length} de {products.length} productos
           </p>
         </div>
 
-        <div className="flex w-full flex-col gap-3 sm:flex-row lg:w-auto lg:items-center">
-          <div className="relative w-full lg:w-80">
+        <div className="flex w-full flex-col gap-2 sm:flex-row lg:w-auto lg:items-center">
+          <div className="relative w-full lg:w-72">
             <Search
-              size={18}
-              className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500"
+              size={16}
+              className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500"
             />
 
             <input
               type="search"
-              placeholder="Buscar por nombre, slug, categoria o SKU"
+              placeholder="Buscar producto o SKU"
               value={productSearch}
               onChange={(event) => {
                 setProductSearch(event.target.value);
                 setProductPage(1);
               }}
-              className="h-12 w-full rounded-xl border border-zinc-700 bg-zinc-900 pl-11 pr-4 text-base text-white outline-none transition placeholder:text-zinc-500 focus:border-zinc-500"
+              className="h-10 w-full rounded-xl border border-zinc-700 bg-zinc-900 pl-9 pr-3 text-sm text-white outline-none transition placeholder:text-zinc-500 focus:border-zinc-500"
             />
           </div>
 
           <button
             type="button"
             onClick={onCreateProduct}
-            className="flex h-12 items-center justify-center gap-2 rounded-xl bg-white px-5 font-semibold text-black transition hover:opacity-90 cursor-pointer"
+            className="flex h-10 items-center justify-center gap-2 rounded-xl bg-white px-4 text-sm font-bold text-black transition hover:opacity-90 cursor-pointer"
           >
-            <Plus size={18} />
+            <Plus size={16} />
             Nuevo producto
           </button>
         </div>
       </div>
 
-      <div className="mb-5 rounded-2xl border border-zinc-800 bg-zinc-900 p-4">
-        <div className="grid gap-3 lg:grid-cols-[minmax(180px,260px)_minmax(180px,240px)_1fr] lg:items-end">
-          <label className="grid gap-1.5">
-            <span className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
-              Categoria
-            </span>
-
+      <div className="mb-3 rounded-2xl border border-zinc-800 bg-zinc-900 p-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <label>
+            <span className="sr-only">Categoria</span>
             <select
               value={productCategoryFilter}
               onChange={(event) => {
                 setProductCategoryFilter(event.target.value);
                 setProductPage(1);
               }}
-              className="h-11 cursor-pointer rounded-xl border border-zinc-700 bg-zinc-950 px-3 text-sm text-white outline-none transition focus:border-zinc-500"
+              className="h-9 cursor-pointer rounded-xl border border-zinc-700 bg-zinc-950 px-3 text-sm font-semibold text-white outline-none transition focus:border-zinc-500"
             >
               <option value="all">Todas las categorias</option>
               {categories.map((categoryOption) => (
@@ -239,18 +232,15 @@ export default function AdminProductsSection({
             </select>
           </label>
 
-          <label className="grid gap-1.5">
-            <span className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
-              Ordenar por
-            </span>
-
+          <label>
+            <span className="sr-only">Ordenar por</span>
             <select
               value={productSort}
               onChange={(event) => {
                 setProductSort(event.target.value as ProductSort);
                 setProductPage(1);
               }}
-              className="h-11 cursor-pointer rounded-xl border border-zinc-700 bg-zinc-950 px-3 text-sm text-white outline-none transition focus:border-zinc-500"
+              className="h-9 cursor-pointer rounded-xl border border-zinc-700 bg-zinc-950 px-3 text-sm font-semibold text-white outline-none transition focus:border-zinc-500"
             >
               <option value="recent">Mas recientes</option>
               <option value="oldest">Mas antiguos</option>
@@ -262,14 +252,11 @@ export default function AdminProductsSection({
             </select>
           </label>
 
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex flex-1 flex-wrap items-center gap-1.5">
             {([
               ["all", "Todos"],
               ["active", "Publicados"],
               ["inactive", "Ocultos"],
-              ["featured", "Destacados"],
-              ["low_stock", "Stock bajo"],
-              ["out_of_stock", "Sin stock"],
             ] as [ProductFilter, string][]).map(([value, label]) => (
               <button
                 key={value}
@@ -278,7 +265,7 @@ export default function AdminProductsSection({
                   setProductFilter(value);
                   setProductPage(1);
                 }}
-                className={`h-10 rounded-xl px-4 text-sm font-semibold transition cursor-pointer ${
+                className={`h-9 rounded-xl px-3 text-xs font-bold transition cursor-pointer ${
                   productFilter === value
                     ? "bg-white text-black"
                     : "bg-zinc-800 text-zinc-300 hover:bg-zinc-700 hover:text-white"
@@ -298,7 +285,7 @@ export default function AdminProductsSection({
                   setProductSort("recent");
                   setProductPage(1);
                 }}
-                className="h-10 rounded-xl border border-zinc-700 px-4 text-sm font-semibold text-zinc-300 transition hover:border-zinc-500 hover:text-white cursor-pointer"
+                className="h-9 rounded-xl border border-zinc-700 px-3 text-xs font-bold text-zinc-300 transition hover:border-zinc-500 hover:text-white cursor-pointer"
               >
                 Limpiar
               </button>
@@ -314,7 +301,7 @@ export default function AdminProductsSection({
       )}
 
       <div className="overflow-hidden rounded-2xl border border-zinc-800">
-        <div className="hidden grid-cols-[92px_56px_minmax(220px,1fr)_116px_104px_104px_64px_142px_108px] gap-2 bg-zinc-900 px-3 py-2 text-xs font-bold uppercase text-zinc-500 xl:grid">
+        <div className="hidden grid-cols-[76px_64px_minmax(220px,1fr)_116px_104px_104px_64px_142px_108px] gap-2 bg-zinc-900 px-3 py-2 text-xs font-bold uppercase text-zinc-500 xl:grid">
           <span>SKU</span>
           <span>Foto</span>
           <span>Producto</span>
@@ -364,19 +351,12 @@ export default function AdminProductsSection({
                   );
                 }
               }}
-              className="grid cursor-pointer gap-2 rounded-lg xl:grid-cols-[92px_56px_minmax(220px,1fr)_116px_104px_104px_64px_142px_108px] xl:items-center"
+              className="grid cursor-pointer gap-2 rounded-lg xl:grid-cols-[76px_64px_minmax(220px,1fr)_116px_104px_104px_64px_142px_108px] xl:items-center"
             >
               <div>
                 {skuParts && (
-                    <span className="inline-flex overflow-hidden rounded-lg border border-zinc-700 bg-black text-xs font-semibold">
-                      {skuParts.prefix && (
-                        <span className="border-r border-zinc-700 bg-zinc-800 px-2 py-1 text-zinc-400">
-                          {skuParts.prefix}
-                        </span>
-                      )}
-                      <span className="px-2.5 py-1 text-zinc-100">
-                        {skuParts.code}
-                      </span>
+                    <span className="inline-flex rounded-lg bg-black px-2.5 py-1 text-xs font-black text-zinc-100 ring-1 ring-zinc-800">
+                      {skuParts.code}
                     </span>
                 )}
               </div>
@@ -384,9 +364,9 @@ export default function AdminProductsSection({
               <Image
                 src={getProductImage(product)}
                 alt={product.name}
-                width={48}
-                height={48}
-                className="h-12 w-12 shrink-0 rounded-lg bg-zinc-950 object-cover"
+                width={56}
+                height={56}
+                className="h-14 w-14 shrink-0 rounded-lg bg-zinc-950 object-cover"
               />
 
               <div className="min-w-0">

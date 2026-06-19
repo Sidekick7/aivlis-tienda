@@ -38,6 +38,11 @@ import { useEffect, useRef, useState } from "react";
 import type { Product } from "@/types/product";
 
 const checkoutCustomerStorageKey = "checkout_customer";
+const transferSurchargeRate = 0.05;
+
+type CheckoutPaymentMethod =
+  | "cash"
+  | "transfer";
 
 type SavedCheckoutCustomer = {
   name: string;
@@ -82,6 +87,8 @@ export default function CheckoutPage() {
   const [rememberCustomer, setRememberCustomer] = useState(false);
   const [fulfillmentOption, setFulfillmentOption] =
     useState<FulfillmentOption | "">("");
+  const [paymentMethod, setPaymentMethod] =
+    useState<CheckoutPaymentMethod | "">("");
   const isSubmittingRef = useRef(false);
 
   useEffect(() => {
@@ -124,7 +131,18 @@ export default function CheckoutPage() {
 
   const total = getCartTotal(cart);
   const fulfillmentFee = getFulfillmentFee(fulfillmentOption);
-  const finalTotal = total + fulfillmentFee;
+  const orderBaseTotal = total + fulfillmentFee;
+  const paymentSurcharge =
+    paymentMethod === "transfer"
+      ? Math.round(orderBaseTotal * transferSurchargeRate)
+      : 0;
+  const finalTotal = orderBaseTotal + paymentSurcharge;
+  const selectedPaymentLabel =
+    paymentMethod === "transfer"
+      ? "Transferencia"
+      : paymentMethod === "cash"
+        ? "Efectivo"
+        : "";
   const selectedFulfillment = fulfillmentOption
     ? fulfillmentOptions[fulfillmentOption]
     : null;
@@ -139,6 +157,8 @@ export default function CheckoutPage() {
   const hasNoProducts = isCartReady && cart.length === 0;
   const hasNoFulfillment =
     isCartReady && cart.length > 0 && !fulfillmentOption;
+  const hasNoPayment =
+    isCartReady && cart.length > 0 && !paymentMethod;
   const isBelowMinimum =
     isCartReady &&
     cart.length > 0 &&
@@ -225,6 +245,7 @@ export default function CheckoutPage() {
       hasEmptyFields ||
       hasNoProducts ||
       hasNoFulfillment ||
+      hasNoPayment ||
       isBelowMinimum
     ) {
       setShowError(true);
@@ -284,13 +305,23 @@ export default function CheckoutPage() {
     const enrichedTotal = getCartTotal(enrichedCart);
     const enrichedFulfillmentFee =
       getFulfillmentFee(fulfillmentOption);
-    const enrichedFinalTotal =
+    const enrichedOrderBaseTotal =
       enrichedTotal + enrichedFulfillmentFee;
+    const enrichedPaymentSurcharge =
+      paymentMethod === "transfer"
+        ? Math.round(
+            enrichedOrderBaseTotal * transferSurchargeRate
+          )
+        : 0;
+    const enrichedFinalTotal =
+      enrichedOrderBaseTotal + enrichedPaymentSurcharge;
 
     if (enrichedTotal < wholesaleMinimum) {
       setOrderError(
         `El minimo de compra es ${formatPrice(wholesaleMinimum)}.`
       );
+      isSubmittingRef.current = false;
+      setIsSubmitting(false);
       return;
     }
 
@@ -312,6 +343,13 @@ export default function CheckoutPage() {
         : "Despacho a transporte, correo, expreso";
     const ticketNotes = [
       selectedFulfillment ? `Entrega: ${fulfillmentLabel}` : "",
+      selectedPaymentLabel
+        ? `Pago: ${selectedPaymentLabel}${
+            enrichedPaymentSurcharge > 0
+              ? ` (+5% ${formatPrice(enrichedPaymentSurcharge)})`
+              : ""
+          }`
+        : "",
       notes.trim(),
     ]
       .filter(Boolean)
@@ -335,6 +373,12 @@ export default function CheckoutPage() {
                 ? "Yerbal 3160, Flores. Retiro una vez confirmado el pedido abonado y armado."
                 : "Costo de entrega a logistica y embalaje. Envio final a cargo del cliente segun peso y distancia.",
             fee: enrichedFulfillmentFee,
+          }
+        : undefined,
+      payment: selectedPaymentLabel
+        ? {
+            label: selectedPaymentLabel,
+            surcharge: enrichedPaymentSurcharge,
           }
         : undefined,
       total: enrichedFinalTotal,
@@ -688,9 +732,80 @@ export default function CheckoutPage() {
               </div>
             )}
 
-            <p className="rounded-2xl bg-white p-3 text-2xl font-bold">
-              Total: {formatPrice(finalTotal)}
-            </p>
+            <div className="mb-3 rounded-2xl bg-white p-3">
+              <div className="mb-3 flex items-center justify-between gap-4">
+                <div>
+                  <p className="text-sm font-bold text-zinc-900">
+                    Forma de pago
+                  </p>
+                  <p className="text-xs text-zinc-500">
+                    La transferencia agrega 5% al total del pedido.
+                  </p>
+                </div>
+              </div>
+
+              <div className="grid gap-2 sm:grid-cols-2">
+                <button
+                  type="button"
+                  onClick={() => setPaymentMethod("cash")}
+                  className={`h-12 rounded-2xl border px-4 text-sm font-bold transition ${
+                    paymentMethod === "cash"
+                      ? "border-black bg-black text-white"
+                      : "border-zinc-200 bg-white text-zinc-700 hover:border-zinc-400"
+                  }`}
+                >
+                  Efectivo
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setPaymentMethod("transfer")}
+                  className={`h-12 rounded-2xl border px-4 text-sm font-bold transition ${
+                    paymentMethod === "transfer"
+                      ? "border-black bg-black text-white"
+                      : "border-zinc-200 bg-white text-zinc-700 hover:border-zinc-400"
+                  }`}
+                >
+                  Transferencia +5%
+                </button>
+              </div>
+            </div>
+
+            <div className="rounded-2xl bg-white p-3">
+              <div className="space-y-2 text-sm text-zinc-600">
+                <div className="flex items-center justify-between gap-4">
+                  <span>Subtotal productos</span>
+                  <span className="font-semibold text-zinc-900">
+                    {formatPrice(total)}
+                  </span>
+                </div>
+
+                <div className="flex items-center justify-between gap-4">
+                  <span>Entrega / logistica</span>
+                  <span className="font-semibold text-zinc-900">
+                    {formatPrice(fulfillmentFee)}
+                  </span>
+                </div>
+
+                {paymentMethod === "transfer" && (
+                  <div className="flex items-center justify-between gap-4">
+                    <span>Recargo transferencia 5%</span>
+                    <span className="font-semibold text-zinc-900">
+                      {formatPrice(paymentSurcharge)}
+                    </span>
+                  </div>
+                )}
+              </div>
+
+              <div className="mt-3 flex items-center justify-between gap-4 border-t border-zinc-200 pt-3">
+                <span className="text-sm font-black uppercase tracking-wide text-zinc-500">
+                  Total
+                </span>
+                <span className="text-2xl font-black text-black">
+                  {formatPrice(finalTotal)}
+                </span>
+              </div>
+            </div>
 
             {showError && hasEmptyFields && (
               <p className="mt-4 rounded-xl border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-700">
@@ -707,6 +822,12 @@ export default function CheckoutPage() {
             {showError && hasNoFulfillment && (
               <p className="mt-4 rounded-xl border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-700">
                 Elegi una opcion de entrega para continuar.
+              </p>
+            )}
+
+            {showError && hasNoPayment && (
+              <p className="mt-4 rounded-xl border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-700">
+                Elegi una forma de pago para continuar.
               </p>
             )}
 
