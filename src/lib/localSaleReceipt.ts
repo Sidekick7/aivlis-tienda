@@ -323,7 +323,7 @@ export function printWebOrderReceipt({
     numberLabel: "Pedido",
     saleNumber: order.orderNumber,
     paymentLabel:
-      order.status === "pending_payment" ? "Pendiente" : "Coordinado por WhatsApp",
+      order.status === "pending_payment" ? "Pendiente" : "Transferencia",
     total: order.total,
     items: order.items,
     createdAt: order.createdAt,

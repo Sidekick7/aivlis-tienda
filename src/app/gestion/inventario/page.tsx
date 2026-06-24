@@ -73,7 +73,7 @@ const navItems = [
   },
   {
     title: "Envios",
-    href: "/gestion",
+    href: "/gestion/envios",
     icon: Truck,
   },
   {
@@ -427,7 +427,7 @@ export default function GestionInventarioPage() {
     }
 
     if (nextRetailPrice < nextPrice) {
-      setInventoryError("El precio minorista no puede ser menor al precio web.");
+      setInventoryError("El precio minorista no puede ser menor al precio mayorista.");
       return;
     }
 
@@ -667,7 +667,7 @@ export default function GestionInventarioPage() {
     }
 
     if (retailPrice < price) {
-      setInventoryError("El precio minorista no puede ser menor al precio web.");
+      setInventoryError("El precio minorista no puede ser menor al precio mayorista.");
       return;
     }
 
@@ -1167,13 +1167,13 @@ export default function GestionInventarioPage() {
           </div>
         </aside>
 
-        <section className="flex min-h-0 min-w-0 flex-col overflow-hidden px-3 py-3">
-          <header className="mb-3 flex shrink-0 flex-wrap items-center justify-between gap-3 rounded-2xl border border-zinc-800 bg-zinc-950 px-3 py-3">
+        <section className="flex min-h-0 min-w-0 flex-col overflow-hidden px-3 py-2">
+          <header className="mb-2 flex shrink-0 flex-wrap items-center justify-between gap-2 rounded-2xl border border-zinc-800 bg-zinc-950 px-3 py-2">
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.2em] text-zinc-500">
                 Gestion
               </p>
-              <h1 className="text-2xl font-black text-white">
+              <h1 className="text-xl font-black text-white">
                 Inventario
               </h1>
             </div>
@@ -1206,62 +1206,62 @@ export default function GestionInventarioPage() {
           </header>
 
           {inventoryError && (
-            <div className="mb-3 shrink-0 rounded-2xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm font-semibold text-red-200">
+            <div className="mb-2 shrink-0 rounded-xl border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm font-semibold text-red-200">
               {inventoryError}
             </div>
           )}
 
           {inventoryNotice && (
-            <div className="mb-3 shrink-0 rounded-2xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-sm font-semibold text-emerald-200">
+            <div className="mb-2 shrink-0 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-sm font-semibold text-emerald-200">
               {inventoryNotice}
             </div>
           )}
 
-          <section className="mb-3 grid shrink-0 gap-3 md:grid-cols-2 xl:grid-cols-5">
-            <article className="rounded-2xl border border-zinc-800 bg-zinc-950 p-4">
-              <p className="text-xs font-semibold uppercase text-zinc-500">
+          <section className="mb-2 grid shrink-0 gap-2 md:grid-cols-2 xl:grid-cols-5">
+            <article className="rounded-xl border border-zinc-800 bg-zinc-950 px-3 py-2">
+              <p className="text-[11px] font-semibold uppercase text-zinc-500">
                 Productos activos
               </p>
-              <p className="mt-2 text-2xl font-black text-white">
+              <p className="text-xl font-black text-white">
                 {stockSummary.activeProducts.length}
               </p>
             </article>
-            <article className="rounded-2xl border border-zinc-800 bg-zinc-950 p-4">
-              <p className="text-xs font-semibold uppercase text-zinc-500">
+            <article className="rounded-xl border border-zinc-800 bg-zinc-950 px-3 py-2">
+              <p className="text-[11px] font-semibold uppercase text-zinc-500">
                 Unidades
               </p>
-              <p className="mt-2 text-2xl font-black text-white">
+              <p className="text-xl font-black text-white">
                 {stockSummary.stockTotal}
               </p>
             </article>
-            <article className="rounded-2xl border border-yellow-500/20 bg-yellow-500/10 p-4">
-              <p className="text-xs font-semibold uppercase text-yellow-200/70">
+            <article className="rounded-xl border border-yellow-500/20 bg-yellow-500/10 px-3 py-2">
+              <p className="text-[11px] font-semibold uppercase text-yellow-200/70">
                 Bajo stock
               </p>
-              <p className="mt-2 text-2xl font-black text-yellow-100">
+              <p className="text-xl font-black text-yellow-100">
                 {stockSummary.lowProducts.length}
               </p>
             </article>
-            <article className="rounded-2xl border border-red-500/20 bg-red-500/10 p-4">
-              <p className="text-xs font-semibold uppercase text-red-200/70">
+            <article className="rounded-xl border border-red-500/20 bg-red-500/10 px-3 py-2">
+              <p className="text-[11px] font-semibold uppercase text-red-200/70">
                 Sin stock
               </p>
-              <p className="mt-2 text-2xl font-black text-red-100">
+              <p className="text-xl font-black text-red-100">
                 {stockSummary.outProducts.length}
               </p>
             </article>
-            <article className="rounded-2xl border border-zinc-800 bg-zinc-950 p-4">
-              <p className="text-xs font-semibold uppercase text-zinc-500">
+            <article className="rounded-xl border border-zinc-800 bg-zinc-950 px-3 py-2">
+              <p className="text-[11px] font-semibold uppercase text-zinc-500">
                 Valor inventario
               </p>
-              <p className="mt-2 text-2xl font-black text-white">
+              <p className="text-xl font-black text-white">
                 {formatPrice(stockSummary.totalValue)}
               </p>
             </article>
           </section>
 
-          <section className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border border-zinc-800 bg-zinc-950 p-3">
-            <div className="mb-3 flex shrink-0 flex-wrap items-center justify-between gap-2">
+          <section className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border border-zinc-800 bg-zinc-950 p-2">
+            <div className="mb-2 flex shrink-0 flex-wrap items-center justify-between gap-2">
               <div className="flex gap-2 overflow-x-auto">
                 {inventoryTabs.map((tab) => {
                   const count =
@@ -1283,7 +1283,7 @@ export default function GestionInventarioPage() {
                         setActiveTab(tab.value);
                         setExpandedProductId(null);
                       }}
-                      className={`h-9 shrink-0 rounded-xl px-3 text-xs font-bold transition ${
+                      className={`h-8 shrink-0 rounded-lg px-2.5 text-xs font-bold transition ${
                         activeTab === tab.value
                           ? "bg-white text-black"
                           : "bg-zinc-900 text-zinc-400 hover:bg-zinc-800 hover:text-white"
@@ -1303,7 +1303,7 @@ export default function GestionInventarioPage() {
                     setCategoryFilter(event.target.value);
                     setExpandedProductId(null);
                   }}
-                  className="h-9 rounded-xl bg-zinc-900 px-3 text-sm font-bold text-white outline-none ring-1 ring-zinc-800 transition focus:ring-white"
+                  className="h-8 rounded-lg bg-zinc-900 px-2.5 text-xs font-bold text-white outline-none ring-1 ring-zinc-800 transition focus:ring-white"
                 >
                   <option value="all">Todas las categorias</option>
                   {categories.map((category) => (
@@ -1318,7 +1318,7 @@ export default function GestionInventarioPage() {
                   onChange={(event) =>
                     setSortMode(event.target.value as InventorySort)
                   }
-                  className="h-9 rounded-xl bg-zinc-900 px-3 text-sm font-bold text-white outline-none ring-1 ring-zinc-800 transition focus:ring-white"
+                  className="h-8 rounded-lg bg-zinc-900 px-2.5 text-xs font-bold text-white outline-none ring-1 ring-zinc-800 transition focus:ring-white"
                 >
                   {sortOptions.map((option) => (
                     <option key={option.value} value={option.value}>
@@ -1337,16 +1337,16 @@ export default function GestionInventarioPage() {
                     value={searchQuery}
                     onChange={(event) => setSearchQuery(event.target.value)}
                     placeholder="Buscar SKU, producto, categoria o color"
-                    className="h-9 w-full rounded-xl bg-zinc-900 pl-9 pr-3 text-sm font-semibold text-white outline-none ring-1 ring-zinc-800 transition focus:ring-white"
+                    className="h-8 w-full rounded-lg bg-zinc-900 pl-9 pr-3 text-xs font-semibold text-white outline-none ring-1 ring-zinc-800 transition focus:ring-white"
                   />
                 </label>
               </div>
             </div>
 
-            <div className="min-h-0 flex-1 overflow-hidden rounded-2xl border border-zinc-800">
+            <div className="min-h-0 flex-1 overflow-hidden rounded-2xl border border-zinc-800 bg-[#070707] shadow-2xl shadow-black/20">
               {activeTab === "critical" ? (
                 <>
-                  <div className="grid grid-cols-[76px_minmax(0,1fr)_120px_100px_90px_90px] gap-3 bg-zinc-900 px-3 py-2 text-xs font-bold uppercase text-zinc-500">
+                  <div className="grid grid-cols-[76px_minmax(0,1fr)_120px_100px_90px_90px] gap-3 border-b border-zinc-800 bg-zinc-900/90 px-3 py-1.5 text-xs font-bold uppercase text-zinc-400">
                     <span>SKU</span>
                     <span>Producto</span>
                     <span>Categoria</span>
@@ -1355,16 +1355,18 @@ export default function GestionInventarioPage() {
                     <span>Stock</span>
                   </div>
 
-                  <div className="h-full overflow-y-auto divide-y divide-zinc-800 pb-12">
+                  <div className="h-full overflow-y-auto pb-12 [scrollbar-gutter:stable]">
                     {filteredCriticalEntries.length === 0 ? (
                       <p className="px-3 py-6 text-sm text-zinc-500">
                         No hay talles criticos para mostrar.
                       </p>
                     ) : (
-                      filteredCriticalEntries.map((entry) => (
+                      filteredCriticalEntries.map((entry, index) => (
                         <div
                           key={`${entry.product.id}-${entry.color}-${entry.size}`}
-                          className="grid grid-cols-[76px_minmax(0,1fr)_120px_100px_90px_90px] items-center gap-3 px-3 py-2 text-sm"
+                          className={`grid grid-cols-[76px_minmax(0,1fr)_120px_100px_90px_90px] items-center gap-3 border-b border-zinc-900/80 px-3 py-1.5 text-sm transition hover:bg-zinc-800/45 ${
+                            index % 2 === 0 ? "bg-zinc-950/45" : "bg-zinc-900/20"
+                          }`}
                         >
                           <span className="w-fit rounded-lg bg-zinc-800 px-2 py-1 text-xs font-bold text-zinc-300">
                             {getShortSku(entry.product.sku)}
@@ -1397,29 +1399,35 @@ export default function GestionInventarioPage() {
                 </>
               ) : (
                 <>
-                  <div className="grid grid-cols-[76px_minmax(0,1fr)_100px_64px_100px_108px_108px_104px_124px] gap-3 bg-zinc-900 px-3 py-2 text-xs font-bold uppercase text-zinc-500">
+                  <div className="grid grid-cols-[76px_minmax(0,1fr)_100px_72px_64px_100px_108px_108px_104px_124px] gap-3 border-b border-zinc-800 bg-zinc-900/90 px-3 py-1.5 text-xs font-bold uppercase text-zinc-400">
                     <span>SKU</span>
                     <span>Producto</span>
-                    <span>Categoria</span>
-                    <span>Stock</span>
-                    <span>Costo</span>
-                    <span>Web</span>
-                    <span>Minorista</span>
-                    <span>Estado</span>
-                    <span>Acciones</span>
+                    <span className="text-center">Categoria</span>
+                    <span className="text-center">Colores</span>
+                    <span className="text-center">Stock</span>
+                    <span className="text-center">Costo</span>
+                    <span className="text-center">Mayorista</span>
+                    <span className="text-center">Minorista</span>
+                    <span className="text-center">Estado</span>
+                    <span className="text-center">Acciones</span>
                   </div>
 
-                  <div className="h-full overflow-y-auto divide-y divide-zinc-800 pb-12">
+                  <div className="h-full overflow-y-auto pb-12 [scrollbar-gutter:stable]">
                     {sortedProducts.length === 0 ? (
                       <p className="px-3 py-6 text-sm text-zinc-500">
                         No hay productos para mostrar.
                       </p>
                     ) : (
-                      sortedProducts.map((product) => {
+                      sortedProducts.map((product, index) => {
                     const stock = getProductStock(product);
 
                     return (
-                      <article key={product.id} className="px-3 py-2">
+                      <article
+                        key={product.id}
+                        className={`border-b border-zinc-900/80 px-3 py-1 ${
+                          index % 2 === 0 ? "bg-zinc-950/45" : "bg-zinc-900/20"
+                        }`}
+                      >
                         <div
                           role="button"
                           tabIndex={0}
@@ -1436,7 +1444,7 @@ export default function GestionInventarioPage() {
                               );
                             }
                           }}
-                          className="grid cursor-pointer grid-cols-[76px_minmax(0,1fr)_100px_64px_100px_108px_108px_104px_124px] items-center gap-3 rounded-xl px-2 py-1 text-sm transition hover:bg-zinc-900"
+                          className="grid h-9 cursor-pointer grid-cols-[76px_minmax(0,1fr)_100px_72px_64px_100px_108px_108px_104px_124px] items-center gap-3 rounded-lg text-sm transition hover:bg-zinc-800/45"
                         >
                           <span className="w-fit rounded-lg bg-zinc-800 px-2 py-1 text-xs font-bold text-zinc-300">
                             {getShortSku(product.sku)}
@@ -1445,23 +1453,23 @@ export default function GestionInventarioPage() {
                             <p className="truncate font-bold text-white">
                               {product.name}
                             </p>
-                            <p className="text-xs font-semibold text-zinc-500">
-                              {product.variants.length} colores
-                            </p>
                           </div>
-                          <span className="truncate text-xs font-semibold text-zinc-400">
+                          <span className="flex h-full items-center justify-center truncate text-center text-xs font-semibold text-zinc-400">
                             {product.category || "-"}
                           </span>
-                          <span className="font-black text-white">
+                          <span className="mx-auto flex h-6 min-w-7 items-center justify-center rounded-lg bg-zinc-800 px-2 text-xs font-black text-zinc-200">
+                            {product.variants.length}
+                          </span>
+                          <span className="flex h-full items-center justify-center text-center font-black text-white">
                             {stock}
                           </span>
-                          <span className="font-black text-zinc-300">
+                          <span className="flex h-full items-center justify-center text-center font-black tabular-nums text-zinc-300">
                             {product.cost > 0 ? formatPrice(product.cost) : "-"}
                           </span>
-                          <span className="font-black text-white">
+                          <span className="flex h-full items-center justify-center text-center font-black tabular-nums text-white">
                             {formatPrice(product.price)}
                           </span>
-                          <span className="font-black text-zinc-200">
+                          <span className="flex h-full items-center justify-center text-center font-black tabular-nums text-zinc-200">
                             {formatPrice(product.retailPrice)}
                           </span>
                           <button
@@ -1471,7 +1479,7 @@ export default function GestionInventarioPage() {
                               void handleToggleActive(product);
                             }}
                             disabled={savingActiveProductId === product.id}
-                            className={`w-fit cursor-pointer rounded-full px-3 py-1 text-xs font-black transition disabled:cursor-not-allowed disabled:opacity-60 ${
+                            className={`mx-auto flex h-6 w-fit cursor-pointer items-center rounded-full px-2.5 text-[11px] font-black transition disabled:cursor-not-allowed disabled:opacity-60 ${
                               product.active
                                 ? "bg-emerald-500/15 text-emerald-200 hover:bg-emerald-500/25"
                                 : "bg-zinc-800 text-zinc-300 hover:bg-zinc-700"
@@ -1483,14 +1491,14 @@ export default function GestionInventarioPage() {
                                 ? "Publicado"
                                 : "Oculto"}
                           </button>
-                          <div className="flex items-center gap-2">
+                          <div className="flex h-full items-center justify-center gap-2">
                             <button
                               type="button"
                               onClick={(event) => {
                                 event.stopPropagation();
                                 openStockEditor(product);
                               }}
-                              className="h-8 rounded-xl bg-zinc-800 px-3 text-xs font-black text-zinc-200 transition hover:bg-zinc-700"
+                              className="h-7 rounded-lg bg-zinc-800 px-2.5 text-[11px] font-black text-zinc-200 transition hover:bg-zinc-700"
                             >
                               Stock
                             </button>
@@ -1500,7 +1508,7 @@ export default function GestionInventarioPage() {
                                 event.stopPropagation();
                                 openPriceEditor(product);
                               }}
-                              className="h-8 rounded-xl bg-zinc-800 px-3 text-xs font-black text-zinc-200 transition hover:bg-zinc-700"
+                              className="h-7 rounded-lg bg-zinc-800 px-2.5 text-[11px] font-black text-zinc-200 transition hover:bg-zinc-700"
                             >
                               Precio
                             </button>
@@ -1508,8 +1516,8 @@ export default function GestionInventarioPage() {
                         </div>
 
                         {expandedProductId === product.id && (
-                          <div className="mt-2 border-t border-zinc-800 px-2 pb-1 pt-1.5">
-                            <div className="grid gap-1.5">
+                          <div className="mt-1 border-t border-zinc-800 px-2 pb-0.5 pt-1">
+                            <div className="grid gap-1">
                             {product.variants.map((variant) => {
                               const hasVariantStock = variant.sizes.some(
                                 (size) => size.stock > 0
@@ -1518,7 +1526,7 @@ export default function GestionInventarioPage() {
                               return (
                                 <div
                                   key={`${product.id}-${variant.color}`}
-                                  className={`grid gap-1.5 rounded-lg px-2 py-1.5 md:grid-cols-[86px_minmax(0,1fr)] md:items-center ${
+                                  className={`grid gap-1 rounded-lg px-2 py-1 md:grid-cols-[86px_minmax(0,1fr)] md:items-center ${
                                     hasVariantStock
                                       ? "bg-zinc-950"
                                       : "bg-zinc-950/45 opacity-60"
@@ -1799,7 +1807,7 @@ export default function GestionInventarioPage() {
 
               <label className="grid gap-2">
                 <span className="text-xs font-bold uppercase text-zinc-500">
-                  Precio web / mayorista
+                  Precio mayorista
                 </span>
                 <input
                   type="text"
@@ -2018,12 +2026,12 @@ export default function GestionInventarioPage() {
 
                       <label className="grid min-w-0 gap-1.5">
                         <span className="text-xs font-semibold uppercase text-zinc-500">
-                          Precio web
+                          Precio mayorista
                         </span>
                         <input
                           type="text"
                           inputMode="numeric"
-                          placeholder="Web"
+                          placeholder="Mayorista"
                           value={quickProductDraft.price}
                           onChange={(event) =>
                             setQuickProductDraft((currentDraft) =>

@@ -104,12 +104,12 @@ export default function EditProductModal({
         className="flex max-h-[92vh] w-full max-w-6xl flex-col overflow-hidden rounded-3xl border border-zinc-800 bg-zinc-900 shadow-2xl shadow-black/40"
         onClick={(event) => event.stopPropagation()}
       >
-        <header className="flex shrink-0 items-center justify-between gap-4 border-b border-zinc-800 px-4 py-3">
+        <header className="flex shrink-0 items-center justify-between gap-4 border-b border-zinc-800 bg-zinc-950/70 px-4 py-2.5">
           <div className="min-w-0">
             <p className="text-xs font-semibold uppercase tracking-[0.25em] text-zinc-500">
               Editar producto
             </p>
-            <h2 className="mt-1 truncate text-2xl font-black text-white">
+            <h2 className="mt-0.5 truncate text-xl font-black text-white">
               {product.name || "Producto"}
             </h2>
           </div>
@@ -124,16 +124,16 @@ export default function EditProductModal({
           </button>
         </header>
 
-        <div className="min-h-0 flex-1 overflow-y-auto p-4">
+        <div className="min-h-0 flex-1 overflow-y-auto p-3">
           {productFormError && (
             <p className="mb-4 rounded-xl border border-red-500/30 bg-red-500/10 p-3 text-sm font-semibold text-red-300">
               {productFormError}
             </p>
           )}
 
-          <div className="grid gap-4 xl:grid-cols-[minmax(0,0.95fr)_minmax(0,1.25fr)]">
-            <div className="grid content-start gap-4">
-              <section className="grid gap-3 rounded-2xl border border-zinc-800 bg-zinc-950 p-3">
+          <div className="grid gap-3 xl:grid-cols-[minmax(0,0.95fr)_minmax(0,1.25fr)]">
+            <div className="grid content-start gap-3">
+              <section className="grid gap-2.5 rounded-2xl border border-zinc-800 bg-zinc-950 p-3">
                 <h3 className="text-sm font-black uppercase text-zinc-300">
                   Datos
                 </h3>
@@ -150,11 +150,11 @@ export default function EditProductModal({
                         name: event.target.value,
                       })
                     }
-                    className="h-10 min-w-0 rounded-xl bg-zinc-800 px-3 text-sm outline-none ring-1 ring-transparent transition focus:ring-white"
+                    className="h-9 min-w-0 rounded-xl bg-zinc-800 px-3 text-sm outline-none ring-1 ring-transparent transition focus:ring-white"
                   />
                 </label>
 
-                <div className="grid min-w-0 gap-3 sm:grid-cols-[minmax(0,1fr)_150px]">
+                <div className="grid min-w-0 gap-2 sm:grid-cols-[minmax(0,1fr)_140px]">
                   <label className="grid min-w-0 gap-1.5">
                     <span className="text-xs font-semibold uppercase text-zinc-500">
                       Slug
@@ -167,7 +167,7 @@ export default function EditProductModal({
                           slug: event.target.value,
                         })
                       }
-                      className="h-10 min-w-0 rounded-xl bg-zinc-800 px-3 text-sm outline-none ring-1 ring-transparent transition focus:ring-white"
+                      className="h-9 min-w-0 rounded-xl bg-zinc-800 px-3 text-sm outline-none ring-1 ring-transparent transition focus:ring-white"
                     />
                   </label>
 
@@ -175,7 +175,7 @@ export default function EditProductModal({
                     <span className="text-xs font-semibold uppercase text-zinc-500">
                       SKU / Codigo
                     </span>
-                    <div className="flex h-10 overflow-hidden rounded-xl bg-zinc-800">
+                    <div className="flex h-9 overflow-hidden rounded-xl bg-zinc-800">
                       <span className="flex items-center bg-zinc-950 px-2.5 text-xs font-bold text-zinc-400">
                         {skuPrefix}
                       </span>
@@ -207,7 +207,7 @@ export default function EditProductModal({
                         category: event.target.value,
                       })
                     }
-                    className="h-10 min-w-0 rounded-xl bg-zinc-800 px-3 text-sm outline-none ring-1 ring-transparent transition focus:ring-white"
+                    className="h-9 min-w-0 rounded-xl bg-zinc-800 px-3 text-sm outline-none ring-1 ring-transparent transition focus:ring-white"
                   >
                     {categories.map((categoryOption) => (
                       <option
@@ -221,12 +221,12 @@ export default function EditProductModal({
                 </label>
               </section>
 
-              <section className="grid gap-3 rounded-2xl border border-zinc-800 bg-zinc-950 p-3">
+              <section className="grid gap-2.5 rounded-2xl border border-zinc-800 bg-zinc-950 p-3">
                 <h3 className="text-sm font-black uppercase text-zinc-300">
                   Precios y venta
                 </h3>
 
-                <div className="grid gap-3 sm:grid-cols-3">
+                <div className="grid gap-2 sm:grid-cols-3">
                   <label className="grid min-w-0 gap-1.5">
                     <span className="text-xs font-semibold uppercase text-zinc-500">
                       Costo
@@ -239,13 +239,13 @@ export default function EditProductModal({
                           cost: event.target.value,
                         })
                       }
-                      className="h-10 min-w-0 rounded-xl bg-zinc-800 px-3 text-sm font-bold outline-none ring-1 ring-transparent transition focus:ring-white"
+                      className="h-9 min-w-0 rounded-xl bg-zinc-800 px-3 text-sm font-bold outline-none ring-1 ring-transparent transition focus:ring-white"
                     />
                   </label>
 
                   <label className="grid min-w-0 gap-1.5">
                     <span className="text-xs font-semibold uppercase text-zinc-500">
-                      Precio web
+                      Precio mayorista
                     </span>
                     <input
                       type="number"
@@ -255,7 +255,7 @@ export default function EditProductModal({
                           price: event.target.value,
                         })
                       }
-                      className="h-10 min-w-0 rounded-xl bg-zinc-800 px-3 text-sm font-bold outline-none ring-1 ring-transparent transition focus:ring-white"
+                      className="h-9 min-w-0 rounded-xl bg-zinc-800 px-3 text-sm font-bold outline-none ring-1 ring-transparent transition focus:ring-white"
                     />
                   </label>
 
@@ -271,7 +271,7 @@ export default function EditProductModal({
                           retailPrice: event.target.value,
                         })
                       }
-                      className="h-10 min-w-0 rounded-xl bg-zinc-800 px-3 text-sm font-bold outline-none ring-1 ring-transparent transition focus:ring-white"
+                      className="h-9 min-w-0 rounded-xl bg-zinc-800 px-3 text-sm font-bold outline-none ring-1 ring-transparent transition focus:ring-white"
                     />
                   </label>
                 </div>
@@ -280,7 +280,7 @@ export default function EditProductModal({
                   <button
                     type="button"
                     onClick={() => updateProduct({ saleMode: "unit" })}
-                    className={`h-10 rounded-xl text-sm font-bold transition ${
+                    className={`h-9 rounded-xl text-sm font-bold transition ${
                       product.saleMode === "unit"
                         ? "bg-white text-black"
                         : "bg-zinc-800 text-zinc-300 hover:bg-zinc-700"
@@ -291,7 +291,7 @@ export default function EditProductModal({
                   <button
                     type="button"
                     onClick={() => updateProduct({ saleMode: "curve" })}
-                    className={`h-10 rounded-xl text-sm font-bold transition ${
+                    className={`h-9 rounded-xl text-sm font-bold transition ${
                       product.saleMode === "curve"
                         ? "bg-white text-black"
                         : "bg-zinc-800 text-zinc-300 hover:bg-zinc-700"
@@ -310,12 +310,12 @@ export default function EditProductModal({
                   value={detailsText}
                   onChange={(event) => setDetailsText(event.target.value)}
                   placeholder="Uno por linea"
-                  className="min-h-32 resize-none rounded-xl bg-zinc-800 p-3 text-sm outline-none ring-1 ring-transparent transition focus:ring-white"
+                  className="min-h-24 resize-none rounded-xl bg-zinc-800 p-3 text-sm outline-none ring-1 ring-transparent transition focus:ring-white"
                 />
               </section>
             </div>
 
-            <div className="grid content-start gap-4">
+            <div className="grid content-start gap-3">
               <section className="grid gap-2 rounded-2xl border border-zinc-800 bg-zinc-950 p-3">
                 <div className="flex items-center justify-between gap-3">
                   <h3 className="text-sm font-black uppercase text-zinc-300">
@@ -336,7 +336,7 @@ export default function EditProductModal({
                     return (
                       <div
                         key={index}
-                        className={`grid gap-2 rounded-xl border p-2 transition sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center ${
+                        className={`grid gap-2 rounded-xl border p-1.5 transition sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center ${
                           editingVariantIndex === index
                             ? "border-white bg-zinc-900"
                             : "border-zinc-800 bg-zinc-900/60"
@@ -357,14 +357,18 @@ export default function EditProductModal({
                             <span className="block truncate text-sm font-bold text-white">
                               {variant.color || `Color ${index + 1}`}
                             </span>
-                            <span className="mt-1 flex flex-wrap items-center gap-2 text-xs text-zinc-500">
+                            <span className="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-zinc-500">
                               {index === 0 && (
-                                <span className="rounded-full bg-emerald-500/10 px-2 py-0.5 font-semibold text-emerald-200">
+                                <span className="rounded-full bg-emerald-500/10 px-1.5 py-0.5 font-semibold text-emerald-200">
                                   Principal
                                 </span>
                               )}
-                              <span>{variant.images.length} img.</span>
-                              <span>{totalStock} stock</span>
+                              <span className="rounded-full bg-zinc-950 px-1.5 py-0.5">
+                                {variant.images.length} img.
+                              </span>
+                              <span className="rounded-full bg-zinc-950 px-1.5 py-0.5">
+                                {totalStock} stock
+                              </span>
                             </span>
                           </span>
                         </button>
@@ -385,9 +389,10 @@ export default function EditProductModal({
                               setEditingVariantIndex(index - 1);
                             }}
                             disabled={index === 0}
-                            className="h-8 cursor-pointer rounded-lg border border-zinc-700 px-2 text-xs font-bold text-zinc-300 transition hover:border-white hover:text-white disabled:cursor-not-allowed disabled:opacity-30"
+                            title="Subir color"
+                            className="h-7 w-7 cursor-pointer rounded-lg border border-zinc-700 text-xs font-black text-zinc-300 transition hover:border-white hover:text-white disabled:cursor-not-allowed disabled:opacity-30"
                           >
-                            Arriba
+                            ^
                           </button>
                           <button
                             type="button"
@@ -404,9 +409,10 @@ export default function EditProductModal({
                               setEditingVariantIndex(index + 1);
                             }}
                             disabled={index === product.variants.length - 1}
-                            className="h-8 cursor-pointer rounded-lg border border-zinc-700 px-2 text-xs font-bold text-zinc-300 transition hover:border-white hover:text-white disabled:cursor-not-allowed disabled:opacity-30"
+                            title="Bajar color"
+                            className="h-7 w-7 cursor-pointer rounded-lg border border-zinc-700 text-xs font-black text-zinc-300 transition hover:border-white hover:text-white disabled:cursor-not-allowed disabled:opacity-30"
                           >
-                            Abajo
+                            v
                           </button>
                         </div>
                       </div>
@@ -441,7 +447,7 @@ export default function EditProductModal({
                 </button>
               </section>
 
-              <section className="grid gap-3 rounded-2xl border border-zinc-800 bg-zinc-950 p-3">
+              <section className="grid gap-2.5 rounded-2xl border border-zinc-800 bg-zinc-950 p-3">
                 <div className="flex flex-wrap items-end gap-3">
                   <label className="grid min-w-52 flex-1 gap-1.5">
                     <span className="text-xs font-semibold uppercase text-zinc-500">
@@ -455,7 +461,7 @@ export default function EditProductModal({
                           color: event.target.value,
                         })
                       }
-                      className="h-10 rounded-xl bg-zinc-800 px-3 text-sm outline-none ring-1 ring-transparent transition focus:ring-white"
+                      className="h-9 rounded-xl bg-zinc-800 px-3 text-sm outline-none ring-1 ring-transparent transition focus:ring-white"
                     />
                   </label>
 
@@ -471,7 +477,7 @@ export default function EditProductModal({
                           hex: event.target.value,
                         })
                       }
-                      className="h-10 w-16 cursor-pointer overflow-hidden rounded-xl bg-transparent"
+                      className="h-9 w-16 cursor-pointer overflow-hidden rounded-xl bg-transparent"
                     />
                   </label>
                 </div>
@@ -499,7 +505,12 @@ export default function EditProductModal({
                     </button>
                   </div>
 
-                  <div className="grid gap-2">
+                  <div className="grid gap-1.5">
+                    <div className="grid grid-cols-[minmax(0,1fr)_96px_36px] gap-2 px-1 text-[10px] font-black uppercase text-zinc-500">
+                      <span>Talle</span>
+                      <span className="text-center">Stock</span>
+                      <span />
+                    </div>
                     {editingVariant.sizes.map((sizeItem, index) => (
                       <div
                         key={index}
@@ -513,7 +524,7 @@ export default function EditProductModal({
                               size: event.target.value,
                             })
                           }
-                          className="h-9 rounded-lg bg-zinc-800 px-3 text-sm outline-none ring-1 ring-transparent transition focus:ring-white"
+                          className="h-8 rounded-lg bg-zinc-800 px-3 text-sm outline-none ring-1 ring-transparent transition focus:ring-white"
                         />
                         <input
                           type="number"
@@ -523,7 +534,7 @@ export default function EditProductModal({
                               stock: Number(event.target.value),
                             })
                           }
-                          className="h-9 rounded-lg bg-zinc-800 px-3 text-sm font-bold outline-none ring-1 ring-transparent transition focus:ring-white"
+                          className="h-8 rounded-lg bg-zinc-800 px-3 text-center text-sm font-bold outline-none ring-1 ring-transparent transition focus:ring-white"
                         />
                         <button
                           type="button"
@@ -537,7 +548,7 @@ export default function EditProductModal({
 
                             updateVariants(updated);
                           }}
-                          className="h-9 rounded-lg bg-red-500/15 text-sm font-black text-red-200 transition hover:bg-red-500/25"
+                          className="h-8 rounded-lg bg-red-500/15 text-sm font-black text-red-200 transition hover:bg-red-500/25"
                         >
                           x
                         </button>
@@ -547,11 +558,16 @@ export default function EditProductModal({
                 </div>
               </section>
 
-              <section className="grid gap-3 rounded-2xl border border-zinc-800 bg-zinc-950 p-3">
+              <section className="grid gap-2.5 rounded-2xl border border-zinc-800 bg-zinc-950 p-3">
                 <div className="flex flex-wrap items-center justify-between gap-2">
-                  <h3 className="text-sm font-black uppercase text-zinc-300">
-                    Imagenes
-                  </h3>
+                  <div>
+                    <h3 className="text-sm font-black uppercase text-zinc-300">
+                      Imagenes
+                    </h3>
+                    <p className="mt-0.5 text-xs font-semibold text-zinc-500">
+                      {editingVariant.images.length} imagenes cargadas
+                    </p>
+                  </div>
                   <label className="inline-flex h-9 cursor-pointer items-center justify-center rounded-xl bg-white px-4 text-sm font-bold text-black transition hover:bg-zinc-200">
                     Agregar
                     <input
@@ -571,14 +587,14 @@ export default function EditProductModal({
                   </label>
                 </div>
 
-                <div className="flex flex-wrap gap-2">
+                <div className="grid grid-cols-5 gap-2">
                   {editingVariant.images.map((image, imageIndex) => {
                     const imageUrl = getImageUrl(image);
 
                     return (
                       <div
                         key={`${imageUrl}-${imageIndex}`}
-                        className="relative"
+                        className="relative aspect-square"
                       >
                         <Image
                           src={imageUrl}
@@ -586,8 +602,18 @@ export default function EditProductModal({
                           width={76}
                           height={76}
                           unoptimized={typeof image !== "string"}
-                          className="h-[76px] w-[76px] rounded-xl border border-zinc-700 object-cover"
+                          className={`h-full w-full rounded-xl border object-cover ${
+                            imageIndex === 0
+                              ? "border-emerald-300"
+                              : "border-zinc-700"
+                          }`}
                         />
+
+                        {imageIndex === 0 && (
+                          <span className="absolute bottom-1 left-1 rounded-full bg-emerald-400 px-1.5 py-0.5 text-[9px] font-black uppercase text-black">
+                            Principal
+                          </span>
+                        )}
 
                         <button
                           type="button"
@@ -598,12 +624,12 @@ export default function EditProductModal({
                               ),
                             });
                           }}
-                          className="absolute -right-2 -top-2 h-6 w-6 rounded-full bg-red-500 text-xs font-black text-white transition hover:bg-red-400"
+                          className="absolute -right-1.5 -top-1.5 h-6 w-6 rounded-full bg-red-500 text-xs font-black text-white shadow-lg shadow-black/40 transition hover:bg-red-400"
                         >
                           x
                         </button>
 
-                        <div className="absolute bottom-1 left-1 flex gap-1">
+                        <div className="absolute right-1 top-1 flex gap-1">
                           <button
                             type="button"
                             onClick={() => {
@@ -617,7 +643,8 @@ export default function EditProductModal({
 
                               updateEditingVariant({ images });
                             }}
-                            className="h-6 w-6 rounded-full bg-black/70 text-xs font-black text-white"
+                            title="Mover a la izquierda"
+                            className="h-6 w-6 rounded-full bg-black/70 text-xs font-black text-white transition hover:bg-black"
                           >
                             {"<"}
                           </button>
@@ -637,7 +664,8 @@ export default function EditProductModal({
 
                               updateEditingVariant({ images });
                             }}
-                            className="h-6 w-6 rounded-full bg-black/70 text-xs font-black text-white"
+                            title="Mover a la derecha"
+                            className="h-6 w-6 rounded-full bg-black/70 text-xs font-black text-white transition hover:bg-black"
                           >
                             {">"}
                           </button>

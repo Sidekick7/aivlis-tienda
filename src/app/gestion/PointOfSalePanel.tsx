@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   CheckCircle,
@@ -14,6 +15,7 @@ import {
   createLocalSale,
   createLocalSaleNumber,
 } from "@/lib/localSales";
+import { getProductImage } from "@/lib/productDisplay";
 import { formatPrice, getRetailPrice } from "@/lib/pricing";
 import { getVariantSizeStock } from "@/lib/stock";
 import type {
@@ -35,6 +37,7 @@ type PosTicketItem = LocalSaleItemInput & {
 };
 
 type PosPriceList = "base" | "retail";
+type PosOperationType = "sale" | "reserve";
 
 type PosAdjustmentType =
   | "none"
@@ -75,15 +78,22 @@ const paymentMethods: Array<{
 }> = [
   { label: "Efectivo", value: "cash" },
   { label: "Transferencia", value: "transfer" },
-  { label: "Mixto", value: "mixed" },
 ];
 
 const priceLists: Array<{
   label: string;
   value: PosPriceList;
 }> = [
-  { label: "Web", value: "base" },
+  { label: "Mayorista", value: "base" },
   { label: "Minorista", value: "retail" },
+];
+
+const operationTypes: Array<{
+  label: string;
+  value: PosOperationType;
+}> = [
+  { label: "Contado", value: "sale" },
+  { label: "Reserva", value: "reserve" },
 ];
 
 const transferSurchargeRate = 0.05;
@@ -93,14 +103,12 @@ const adjustmentOptions: Array<{
   value: PosAdjustmentType;
 }> = [
   { label: "Sin ajuste", value: "none" },
-  { label: "Descuento %", value: "discount-percent" },
-  { label: "Descuento $", value: "discount-amount" },
-  { label: "Recargo %", value: "surcharge-percent" },
-  { label: "Recargo $", value: "surcharge-amount" },
+  { label: "Descuento", value: "discount-amount" },
+  { label: "Recargo", value: "surcharge-amount" },
 ];
 
 const ticketGridColumns =
-  "grid-cols-[70px_minmax(120px,1fr)_82px_56px_104px_88px_92px_98px_36px]";
+  "grid-cols-[34px_70px_minmax(120px,1fr)_82px_56px_104px_88px_92px_98px_36px]";
 const posTicketStorageKey = "aivlis-pos-ticket";
 
 function getShortSku(sku?: string) {
@@ -404,7 +412,7 @@ function isPriceList(value: unknown): value is PosPriceList {
 function isPaymentMethod(
   value: unknown
 ): value is LocalSalePaymentMethod {
-  return value === "cash" || value === "transfer" || value === "mixed";
+  return value === "cash" || value === "transfer";
 }
 
 function isAdjustmentType(
@@ -513,7 +521,7 @@ function getStoredPosTicket(): NormalizedPosTicketStorage {
 function getPriceListLabel(priceList: PosPriceList) {
   return (
     priceLists.find((list) => list.value === priceList)?.label ??
-    "Web"
+    "Mayorista"
   );
 }
 
@@ -607,6 +615,8 @@ export default function PointOfSalePanel({
   const [priceList, setPriceList] = useState<PosPriceList>(
     initialTicketDraft.priceList
   );
+  const [operationType, setOperationType] =
+    useState<PosOperationType>("sale");
   const [paymentMethod, setPaymentMethod] =
     useState<LocalSalePaymentMethod>(
       initialTicketDraft.paymentMethod
@@ -626,6 +636,13 @@ export default function PointOfSalePanel({
   const [draftAdjustmentType, setDraftAdjustmentType] =
     useState<PosAdjustmentType>("none");
   const [draftAdjustmentValue, setDraftAdjustmentValue] = useState("");
+  const [selectedTicketItemKeys, setSelectedTicketItemKeys] = useState<
+    string[]
+  >([]);
+  const [isBulkAdjustmentOpen, setIsBulkAdjustmentOpen] = useState(false);
+  const [bulkAdjustmentType, setBulkAdjustmentType] =
+    useState<PosAdjustmentType>("discount-amount");
+  const [bulkAdjustmentValue, setBulkAdjustmentValue] = useState("");
   const [isProductListOpen, setIsProductListOpen] = useState(false);
   const [isVariantPickerOpen, setIsVariantPickerOpen] = useState(false);
   const [isSaleConfirmOpen, setIsSaleConfirmOpen] = useState(false);
@@ -790,6 +807,13 @@ export default function PointOfSalePanel({
     (sum, item) => sum + item.quantity,
     0
   );
+  const selectedTicketKeys = selectedTicketItemKeys.filter((key) =>
+    pricedTicketItems.some((item) => item.key === key)
+  );
+  const selectedTicketCount = selectedTicketKeys.length;
+  const isEveryTicketItemSelected =
+    pricedTicketItems.length > 0 &&
+    selectedTicketCount === pricedTicketItems.length;
   const paymentDetails = useMemo<PaymentDetails>(() => {
     const cashValue =
       paymentMethod === "cash" || paymentMethod === "mixed"
@@ -812,9 +836,34 @@ export default function PointOfSalePanel({
   const paymentLabel =
     paymentMethods.find((method) => method.value === paymentMethod)
       ?.label ?? "Sin elegir";
+  const editingAdjustmentSourceItem =
+    ticketItems.find((item) => item.key === editingAdjustmentKey) || null;
   const editingAdjustmentItem =
     pricedTicketItems.find((item) => item.key === editingAdjustmentKey) ||
     null;
+  const editingAdjustmentBaseUnitPrice = editingAdjustmentSourceItem
+    ? productsById.has(editingAdjustmentSourceItem.productId)
+      ? getProductUnitPrice(
+          productsById.get(editingAdjustmentSourceItem.productId)!,
+          priceList
+        )
+      : editingAdjustmentSourceItem.unitPrice
+    : 0;
+  const editingAdjustmentDraftValue =
+    draftAdjustmentType === "none" ? 0 : parseMoneyInput(draftAdjustmentValue);
+  const editingAdjustmentPreviewUnitPrice = editingAdjustmentSourceItem
+    ? getAdjustedUnitPrice(
+        {
+          ...editingAdjustmentSourceItem,
+          adjustmentType:
+            editingAdjustmentDraftValue > 0 ? draftAdjustmentType : "none",
+          adjustmentValue: editingAdjustmentDraftValue,
+        },
+        editingAdjustmentBaseUnitPrice
+      )
+    : 0;
+  const editingAdjustmentPreviewDelta =
+    editingAdjustmentPreviewUnitPrice - editingAdjustmentBaseUnitPrice;
   const getTicketItemStockLimit = (item: PosTicketItem) =>
     getVariantSizeStock({
       variants: productsById.get(item.productId)?.variants,
@@ -838,6 +887,13 @@ export default function PointOfSalePanel({
         return;
       }
 
+      if (isBulkAdjustmentOpen) {
+        setIsBulkAdjustmentOpen(false);
+        setBulkAdjustmentType("discount-amount");
+        setBulkAdjustmentValue("");
+        return;
+      }
+
       if (isVariantPickerOpen) {
         setIsVariantPickerOpen(false);
         return;
@@ -855,6 +911,7 @@ export default function PointOfSalePanel({
     };
   }, [
     editingAdjustmentKey,
+    isBulkAdjustmentOpen,
     isProductListOpen,
     isSaleConfirmOpen,
     isVariantPickerOpen,
@@ -875,6 +932,11 @@ export default function PointOfSalePanel({
     setExpandedStockProductId(null);
     setError("");
     setNotice("");
+  };
+
+  const returnToProductList = () => {
+    setIsVariantPickerOpen(false);
+    setIsProductListOpen(true);
   };
 
   const repriceItems = (items: PosTicketItem[]) =>
@@ -1035,6 +1097,9 @@ export default function PointOfSalePanel({
     setTicketItems((currentItems) =>
       repriceItems(currentItems.filter((item) => item.key !== key))
     );
+    setSelectedTicketItemKeys((currentKeys) =>
+      currentKeys.filter((currentKey) => currentKey !== key)
+    );
   };
 
   const openAdjustmentEditor = (item: PosTicketItem) => {
@@ -1049,6 +1114,87 @@ export default function PointOfSalePanel({
     setEditingAdjustmentKey(null);
     setDraftAdjustmentType("none");
     setDraftAdjustmentValue("");
+  };
+
+  const toggleTicketItemSelection = (key: string) => {
+    setSelectedTicketItemKeys((currentKeys) =>
+      currentKeys.includes(key)
+        ? currentKeys.filter((currentKey) => currentKey !== key)
+        : [...currentKeys, key]
+    );
+  };
+
+  const toggleAllTicketItemsSelection = () => {
+    setSelectedTicketItemKeys(
+      isEveryTicketItemSelected
+        ? []
+        : pricedTicketItems.map((item) => item.key)
+    );
+  };
+
+  const openBulkAdjustmentEditor = () => {
+    if (selectedTicketCount === 0) {
+      setError("Selecciona al menos un articulo del ticket.");
+      return;
+    }
+
+    setError("");
+    setBulkAdjustmentType("discount-amount");
+    setBulkAdjustmentValue("");
+    setIsBulkAdjustmentOpen(true);
+  };
+
+  const closeBulkAdjustmentEditor = () => {
+    setIsBulkAdjustmentOpen(false);
+    setBulkAdjustmentType("discount-amount");
+    setBulkAdjustmentValue("");
+  };
+
+  const applyBulkAdjustment = () => {
+    const adjustmentValue = parseMoneyInput(bulkAdjustmentValue);
+
+    setTicketItems((currentItems) =>
+      applyLocalSalePricing(
+        currentItems.map((item) =>
+          selectedTicketKeys.includes(item.key)
+            ? {
+                ...item,
+                adjustmentType:
+                  adjustmentValue > 0 ? bulkAdjustmentType : "none",
+                adjustmentValue,
+              }
+            : item
+        ),
+        productsById,
+        priceList
+      )
+    );
+
+    closeBulkAdjustmentEditor();
+  };
+
+  const clearSelectedAdjustments = () => {
+    if (selectedTicketCount === 0) {
+      setError("Selecciona al menos un articulo del ticket.");
+      return;
+    }
+
+    setTicketItems((currentItems) =>
+      applyLocalSalePricing(
+        currentItems.map((item) =>
+          selectedTicketKeys.includes(item.key)
+            ? {
+                ...item,
+                adjustmentType: "none",
+                adjustmentValue: 0,
+              }
+            : item
+        ),
+        productsById,
+        priceList
+      )
+    );
+    setError("");
   };
 
   const saveAdjustment = () => {
@@ -1105,11 +1251,16 @@ export default function PointOfSalePanel({
       return;
     }
 
-    if (paymentMethod === "cash" && cashAmount.trim().length === 0) {
+    if (
+      operationType === "sale" &&
+      paymentMethod === "cash" &&
+      cashAmount.trim().length === 0
+    ) {
       setCashAmount(getMoneyInputValue(totalToCharge));
     }
 
     if (
+      operationType === "sale" &&
       paymentMethod === "transfer" &&
       transferAmount.trim().length === 0
     ) {
@@ -1121,7 +1272,9 @@ export default function PointOfSalePanel({
 
   const clearTicket = () => {
     setTicketItems([]);
+    setSelectedTicketItemKeys([]);
     setPriceList("base");
+    setOperationType("sale");
     setCashAmount("");
     setTransferAmount("");
     setError("");
@@ -1136,7 +1289,7 @@ export default function PointOfSalePanel({
       return;
     }
 
-    if (paymentDetails.paidTotal < totalToCharge) {
+    if (operationType === "sale" && paymentDetails.paidTotal < totalToCharge) {
       setError(`Falta cobrar ${formatPrice(paymentDetails.remaining)}.`);
       return;
     }
@@ -1157,6 +1310,7 @@ export default function PointOfSalePanel({
       const saleNotes = [
         `Pago local: ${paymentLabel}`,
         `Lista: ${getPriceListLabel(priceList)}`,
+        operationType === "reserve" ? "Operacion: Reserva" : "Operacion: Contado",
         transferSurcharge > 0
           ? `Recargo transferencia 5% ${formatPrice(transferSurcharge)}`
           : "",
@@ -1179,6 +1333,7 @@ export default function PointOfSalePanel({
       const sale = await createLocalSale({
         saleNumber,
         paymentMethod,
+        status: operationType === "reserve" ? "reserved" : "completed",
         total: totalToCharge,
         internalNotes: saleNotes,
         items: pricedTicketItems,
@@ -1191,13 +1346,19 @@ export default function PointOfSalePanel({
         total: receiptTotal,
         items: receiptItems,
       });
-      setNotice(`Venta #${getShortSaleNumber(sale.saleNumber)} registrada.`);
+      setNotice(
+        operationType === "reserve"
+          ? `Reserva #${getShortSaleNumber(sale.saleNumber)} registrada.`
+          : `Venta #${getShortSaleNumber(sale.saleNumber)} registrada.`
+      );
       setIsSaleConfirmOpen(false);
       setTicketItems([]);
+      setSelectedTicketItemKeys([]);
       setSelectedProductId(null);
       setSearchQuery("");
       setSizeQuantities({});
       setPriceList("base");
+      setOperationType("sale");
       setCashAmount("");
       setTransferAmount("");
       await onSaleCreated();
@@ -1215,8 +1376,8 @@ export default function PointOfSalePanel({
 
   return (
     <section className="relative flex h-full min-h-0 flex-col gap-2 overflow-hidden rounded-2xl border border-zinc-800 bg-zinc-950 p-2">
-      <div className="grid shrink-0 gap-2 xl:grid-cols-[minmax(360px,520px)_minmax(0,1fr)]">
-        <div className="relative">
+      <div className="flex shrink-0 flex-wrap items-center gap-2">
+        <div className="relative w-full min-w-[280px] max-w-[420px] shrink-0">
           <Search
             size={16}
             className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500"
@@ -1276,6 +1437,51 @@ export default function PointOfSalePanel({
             Lista de productos
           </button>
 
+          <label className="flex h-10 items-center gap-2 rounded-xl border border-zinc-800 bg-zinc-900 px-2">
+            <span className="text-xs font-semibold uppercase text-zinc-500">
+              Lista
+            </span>
+            <select
+              id="pos-price-list"
+              className="h-8 cursor-pointer rounded-lg border border-zinc-700 bg-zinc-950 px-2 text-xs font-bold text-white outline-none transition focus:border-zinc-400"
+              value={priceList}
+              onChange={(event) =>
+                setPriceList(event.target.value as PosPriceList)
+              }
+            >
+              {priceLists.map((list) => (
+                <option
+                  key={list.value}
+                  value={list.value}
+                >
+                  {list.label}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label className="flex h-10 items-center gap-2 rounded-xl border border-zinc-800 bg-zinc-900 px-2">
+            <span className="text-xs font-semibold uppercase text-zinc-500">
+              Tipo
+            </span>
+            <select
+              className="h-8 cursor-pointer rounded-lg border border-zinc-700 bg-zinc-950 px-2 text-xs font-bold text-white outline-none transition focus:border-zinc-400"
+              value={operationType}
+              onChange={(event) =>
+                setOperationType(event.target.value as PosOperationType)
+              }
+            >
+              {operationTypes.map((operation) => (
+                <option
+                  key={operation.value}
+                  value={operation.value}
+                >
+                  {operation.label}
+                </option>
+              ))}
+            </select>
+          </label>
+
           {notice && (
             <span className="inline-flex h-10 min-w-0 items-center gap-2 rounded-xl bg-emerald-400/15 px-3 text-sm font-semibold text-emerald-200">
               <CheckCircle size={16} />
@@ -1289,6 +1495,15 @@ export default function PointOfSalePanel({
             </span>
           )}
         </div>
+
+        <button
+          type="button"
+          onClick={clearTicket}
+          disabled={ticketItems.length === 0}
+          className="ml-auto mr-1 h-10 rounded-xl bg-red-500/15 px-3 text-xs font-semibold text-red-200 transition hover:bg-red-500/25 disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          Limpiar
+        </button>
       </div>
 
       {/*
@@ -1405,75 +1620,96 @@ export default function PointOfSalePanel({
 
       <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-hidden pb-[76px]">
         <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border border-zinc-800 bg-zinc-900">
-          <div className="flex items-center justify-between border-b border-zinc-800 px-2 py-1.5">
-            <div className="flex h-8 items-center gap-2">
-              <label
-                htmlFor="pos-price-list"
-                className="text-xs font-semibold uppercase text-zinc-500"
-              >
-                Lista
-              </label>
-              <select
-                id="pos-price-list"
-                className="h-8 rounded-lg border border-zinc-700 bg-zinc-950 px-2 text-xs font-bold text-white outline-none transition focus:border-zinc-400"
-                value={priceList}
-                onChange={(event) =>
-                  setPriceList(event.target.value as PosPriceList)
-                }
-              >
-                {priceLists.map((list) => (
-                  <option
-                    key={list.value}
-                    value={list.value}
-                  >
-                    {list.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <button
-              type="button"
-              onClick={clearTicket}
-              disabled={ticketItems.length === 0}
-              className="h-8 rounded-xl bg-red-500/15 px-3 text-xs font-semibold text-red-200 transition hover:bg-red-500/25 disabled:cursor-not-allowed disabled:opacity-40"
-            >
-              Limpiar
-            </button>
-          </div>
-
           <div className="min-h-0 flex-1 overflow-hidden p-2">
             <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-xl border border-zinc-800 bg-zinc-950">
+              <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-b border-zinc-800 px-3 py-1.5">
+                <div className="flex items-center gap-2">
+                  <label className="flex h-8 cursor-pointer items-center gap-2 rounded-lg bg-zinc-900 px-2 text-xs font-bold text-zinc-300 transition hover:bg-zinc-800">
+                    <input
+                      type="checkbox"
+                      checked={isEveryTicketItemSelected}
+                      onChange={toggleAllTicketItemsSelection}
+                      disabled={pricedTicketItems.length === 0}
+                      className="h-4 w-4 cursor-pointer accent-emerald-400 disabled:cursor-not-allowed"
+                    />
+                    Todos
+                  </label>
+                  <span className="text-xs font-semibold text-zinc-500">
+                    {selectedTicketCount} seleccionados
+                  </span>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={clearSelectedAdjustments}
+                    disabled={selectedTicketCount === 0}
+                    className="h-8 cursor-pointer rounded-lg bg-zinc-900 px-3 text-xs font-bold text-zinc-300 transition hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    Sin ajuste
+                  </button>
+                  <button
+                    type="button"
+                    onClick={openBulkAdjustmentEditor}
+                    disabled={selectedTicketCount === 0}
+                    className="h-8 cursor-pointer rounded-lg bg-amber-300 px-3 text-xs font-black text-black transition hover:bg-amber-200 disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    Ajustar
+                  </button>
+                </div>
+              </div>
+
               <div
                 className={`grid ${ticketGridColumns} shrink-0 gap-2 border-b border-zinc-800 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-zinc-500`}
               >
+                <span />
                 <span>SKU</span>
                 <span>Producto</span>
-                <span>Color</span>
-                <span>Talle</span>
+                <span className="text-center">Color</span>
+                <span className="text-center">Talle</span>
                 <span className="text-center">Cant.</span>
-                <span className="text-right">Unit.</span>
+                <span className="text-center">Unit.</span>
                 <span className="text-center">Ajuste</span>
-                <span className="text-right">Subtotal</span>
+                <span className="text-center">Subtotal</span>
                 <span />
               </div>
 
-              <div className="min-h-0 flex-1 divide-y divide-zinc-800 overflow-y-auto overflow-x-hidden [scrollbar-gutter:stable]">
+              <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden [scrollbar-gutter:stable]">
                 {pricedTicketItems.length === 0 ? (
                   <div className="flex h-full items-center justify-center px-4 text-center text-sm font-semibold text-zinc-500">
                     Busca un producto y agregalo al ticket.
                   </div>
                 ) : (
-                  pricedTicketItems.map((item) => {
+                  pricedTicketItems.map((item, index) => {
                     const stockLimit = getTicketItemStockLimit(item);
                     const isAtStockLimit =
                       stockLimit > 0 && item.quantity >= stockLimit;
+                    const product = productsById.get(item.productId);
+                    const baseUnitPrice = product
+                      ? getProductUnitPrice(product, priceList)
+                      : item.unitPrice;
+                    const hasPriceAdjustment =
+                      item.adjustmentType !== "none" &&
+                      Number(item.adjustmentValue || 0) > 0 &&
+                      item.unitPrice !== baseUnitPrice;
 
                     return (
                       <div
                         key={item.key}
-                        className={`grid ${ticketGridColumns} items-center gap-2 px-3 py-2.5 transition hover:bg-zinc-900/70`}
+                        className={`grid ${ticketGridColumns} items-center gap-2 border-b border-zinc-900/80 px-3 py-2.5 transition hover:bg-zinc-900/70 ${
+                          index % 2 === 0 ? "bg-zinc-950/35" : "bg-zinc-900/15"
+                        }`}
                       >
+                        <div className="flex items-center justify-center">
+                          <input
+                            type="checkbox"
+                            checked={selectedTicketKeys.includes(item.key)}
+                            onChange={() => toggleTicketItemSelection(item.key)}
+                            className="h-4 w-4 cursor-pointer accent-emerald-400"
+                            aria-label={`Seleccionar ${item.productName}`}
+                          />
+                        </div>
+
                         <span className="rounded-lg bg-zinc-800 px-2 py-1 text-xs font-bold text-zinc-200">
                           {getShortSku(item.productSku)}
                         </span>
@@ -1489,11 +1725,11 @@ export default function PointOfSalePanel({
                           )}
                         </div>
 
-                        <span className="w-fit rounded-full bg-zinc-800 px-2 py-1 text-xs font-semibold text-zinc-200">
+                        <span className="mx-auto w-fit rounded-full bg-zinc-800 px-2 py-1 text-xs font-semibold text-zinc-200">
                           {item.variantColor}
                         </span>
 
-                        <span className="w-fit rounded-full bg-white px-2 py-1 text-xs font-bold text-black">
+                        <span className="mx-auto w-fit rounded-full bg-white px-2 py-1 text-xs font-bold text-black">
                           {item.size}
                         </span>
 
@@ -1533,9 +1769,22 @@ export default function PointOfSalePanel({
                           </button>
                         </div>
 
-                        <p className="text-right text-sm font-semibold text-zinc-300">
-                          {formatPrice(item.unitPrice)}
-                        </p>
+                        <div className="text-center tabular-nums">
+                          {hasPriceAdjustment && (
+                            <p className="text-[11px] font-bold text-zinc-500 line-through">
+                              {formatPrice(baseUnitPrice)}
+                            </p>
+                          )}
+                          <p
+                            className={`text-sm font-black ${
+                              hasPriceAdjustment
+                                ? "text-emerald-100"
+                                : "text-zinc-300"
+                            }`}
+                          >
+                            {formatPrice(item.unitPrice)}
+                          </p>
+                        </div>
 
                         <button
                           type="button"
@@ -1549,17 +1798,19 @@ export default function PointOfSalePanel({
                           {getAdjustmentLabel(item)}
                         </button>
 
-                        <p className="text-right text-sm font-bold text-white">
+                        <p className="text-center text-sm font-bold tabular-nums text-white">
                           {formatPrice(item.subtotal)}
                         </p>
 
-                        <button
-                          type="button"
-                          onClick={() => removeTicketItem(item.key)}
-                          className="flex h-9 w-9 items-center justify-center rounded-lg bg-red-500/15 text-red-200 transition hover:bg-red-500/25"
-                        >
-                          <Trash2 size={15} />
-                        </button>
+                        <div className="flex h-full items-center justify-center">
+                          <button
+                            type="button"
+                            onClick={() => removeTicketItem(item.key)}
+                            className="flex h-9 w-9 items-center justify-center rounded-lg bg-red-500/15 text-red-200 transition hover:bg-red-500/25"
+                          >
+                            <Trash2 size={15} />
+                          </button>
+                        </div>
                       </div>
                     );
                   })
@@ -1570,7 +1821,7 @@ export default function PointOfSalePanel({
         </div>
 
         <aside className="absolute bottom-2 left-2 right-2 z-20 rounded-2xl border border-zinc-800 bg-zinc-900 p-1.5 shadow-2xl shadow-black/40">
-          <div className="grid grid-cols-[74px_100px_minmax(0,1fr)_260px_18px_145px_148px_72px] items-center gap-2">
+          <div className="mx-auto grid max-w-5xl grid-cols-[74px_100px_minmax(36px,1fr)_250px_240px_148px] items-center gap-2">
             <button
               type="button"
               onClick={() =>
@@ -1601,32 +1852,31 @@ export default function PointOfSalePanel({
 
             <div />
 
-            <div className="flex h-14 flex-col items-center justify-center rounded-xl bg-emerald-400 px-5 text-center text-black">
-              <p className="text-[11px] font-black uppercase tracking-wide">
-                Total a cobrar
+            <div
+              className={`flex h-14 items-center justify-center gap-3 rounded-xl px-4 text-center text-black ${
+                operationType === "reserve"
+                  ? "bg-amber-300"
+                  : "bg-emerald-400"
+              }`}
+            >
+              <p className="text-sm font-black uppercase tracking-wide">
+                Total
               </p>
-              <p className="truncate text-2xl font-black leading-none">
-                {formatPrice(totalToCharge)}
-              </p>
-              {transferSurcharge > 0 && (
-                <p className="truncate text-[9px] font-black uppercase">
-                  +5% transferencia
+              <div className="min-w-0">
+                {transferSurcharge > 0 && (
+                  <p className="text-xs font-black leading-none text-black/55 line-through">
+                    {formatPrice(total)}
+                  </p>
+                )}
+                <p className="truncate text-3xl font-black leading-none">
+                  {formatPrice(totalToCharge)}
                 </p>
-              )}
+              </div>
             </div>
 
-            <div />
-
-            <div className="h-14 rounded-xl border border-zinc-800 bg-zinc-950 px-2 py-1">
-              <label
-                htmlFor="pos-payment-method"
-                className="text-[11px] font-semibold uppercase text-zinc-500"
-              >
-                Metodo
-              </label>
+            <div className="flex h-14 items-center rounded-xl border border-zinc-800 bg-zinc-950 px-2">
               <select
-                id="pos-payment-method"
-                className="mt-0.5 h-8 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-2 text-sm font-bold text-white outline-none transition focus:border-zinc-400"
+                className="h-11 w-full cursor-pointer rounded-lg border border-zinc-700 bg-zinc-900 px-3 text-base font-black text-white outline-none transition focus:border-zinc-400"
                 value={paymentMethod}
                 onChange={(event) =>
                   handlePaymentMethodChange(
@@ -1639,7 +1889,9 @@ export default function PointOfSalePanel({
                     key={method.value}
                     value={method.value}
                   >
-                    {method.label}
+                    {method.value === "transfer"
+                      ? `${method.label} (+5%)`
+                      : method.label}
                   </option>
                 ))}
               </select>
@@ -1649,18 +1901,13 @@ export default function PointOfSalePanel({
               type="button"
               onClick={openSaleConfirm}
               disabled={isSavingSale || ticketItems.length === 0}
-              className="h-14 rounded-xl bg-emerald-400 text-base font-black text-black transition hover:bg-emerald-300 disabled:cursor-not-allowed disabled:opacity-50"
+              className={`h-14 rounded-xl text-base font-black text-black transition disabled:cursor-not-allowed disabled:opacity-50 ${
+                operationType === "reserve"
+                  ? "bg-amber-300 hover:bg-amber-200"
+                  : "bg-emerald-400 hover:bg-emerald-300"
+              }`}
             >
-              Confirmar
-            </button>
-
-            <button
-              type="button"
-              onClick={clearTicket}
-              disabled={ticketItems.length === 0}
-              className="h-14 rounded-xl bg-zinc-800 text-xs font-semibold text-zinc-300 transition hover:bg-zinc-700 disabled:cursor-not-allowed disabled:opacity-40"
-            >
-              Nueva
+              {operationType === "reserve" ? "Reservar" : "Confirmar"}
             </button>
 
           </div>
@@ -1673,9 +1920,16 @@ export default function PointOfSalePanel({
             <div className="flex items-start justify-between gap-3">
               <div>
                 <p className="text-xs font-semibold uppercase text-zinc-500">
-                  Confirmar venta
+                  {operationType === "reserve"
+                    ? "Confirmar reserva"
+                    : "Confirmar venta"}
                 </p>
-                <h2 className="mt-1 text-2xl font-black text-white">
+                {transferSurcharge > 0 && (
+                  <p className="mt-1 text-sm font-bold text-zinc-500 line-through">
+                    {formatPrice(total)}
+                  </p>
+                )}
+                <h2 className="text-2xl font-black text-white">
                   {formatPrice(totalToCharge)}
                 </h2>
               </div>
@@ -1742,6 +1996,13 @@ export default function PointOfSalePanel({
                 </p>
               )}
 
+              {operationType === "reserve" && (
+                <p className="rounded-xl border border-amber-400/20 bg-amber-400/10 px-3 py-2 text-xs font-bold text-amber-100">
+                  La reserva bloquea stock. El pago se puede completar despues
+                  desde Ventas.
+                </p>
+              )}
+
               {(paymentMethod === "cash" || paymentMethod === "mixed") && (
                 <label className="grid gap-1.5">
                   <span className="text-xs font-semibold uppercase text-zinc-500">
@@ -1792,7 +2053,8 @@ export default function PointOfSalePanel({
                 </label>
               )}
 
-              {(paymentDetails.remaining > 0 || paymentDetails.change > 0) && (
+              {operationType === "sale" &&
+                (paymentDetails.remaining > 0 || paymentDetails.change > 0) && (
                 <div className="grid grid-cols-2 gap-2">
                   <div className="rounded-xl bg-zinc-900 p-2.5">
                     <p className="text-xs font-semibold uppercase text-zinc-500">
@@ -1834,7 +2096,102 @@ export default function PointOfSalePanel({
                 disabled={isSavingSale}
                 className="h-11 rounded-xl bg-emerald-400 text-sm font-black text-black transition hover:bg-emerald-300 disabled:cursor-not-allowed disabled:opacity-50"
               >
-                {isSavingSale ? "Registrando..." : "Registrar venta"}
+                {isSavingSale
+                  ? "Registrando..."
+                  : operationType === "reserve"
+                    ? "Registrar reserva"
+                    : "Registrar venta"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {isBulkAdjustmentOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
+          <div className="w-full max-w-md rounded-2xl border border-zinc-800 bg-zinc-950 p-4 shadow-2xl shadow-black/50">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="text-xs font-semibold uppercase text-zinc-500">
+                  Ajuste masivo
+                </p>
+                <h2 className="mt-1 text-xl font-black text-white">
+                  {selectedTicketCount} articulos seleccionados
+                </h2>
+              </div>
+
+              <button
+                type="button"
+                onClick={closeBulkAdjustmentEditor}
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-zinc-900 text-zinc-300 transition hover:bg-zinc-800"
+              >
+                <X size={17} />
+              </button>
+            </div>
+
+            <p className="mt-3 rounded-xl border border-amber-400/20 bg-amber-400/10 px-3 py-2 text-xs font-semibold text-amber-100">
+              El monto se aplica por unidad a cada articulo seleccionado. No
+              modifica el precio del producto.
+            </p>
+
+            <div className="mt-4 grid gap-3">
+              <label className="grid gap-1.5">
+                <span className="text-xs font-semibold uppercase text-zinc-500">
+                  Tipo
+                </span>
+                <select
+                  value={bulkAdjustmentType}
+                  onChange={(event) =>
+                    setBulkAdjustmentType(
+                      event.target.value as PosAdjustmentType
+                    )
+                  }
+                  className="h-11 rounded-xl border border-zinc-700 bg-zinc-900 px-3 text-sm font-bold text-white outline-none transition focus:border-zinc-400"
+                >
+                  {adjustmentOptions
+                    .filter((option) => option.value !== "none")
+                    .map((option) => (
+                      <option
+                        key={option.value}
+                        value={option.value}
+                      >
+                        {option.label}
+                      </option>
+                    ))}
+                </select>
+              </label>
+
+              <label className="grid gap-1.5">
+                <span className="text-xs font-semibold uppercase text-zinc-500">
+                  Monto en pesos
+                </span>
+                <input
+                  type="number"
+                  min="0"
+                  value={bulkAdjustmentValue}
+                  onChange={(event) =>
+                    setBulkAdjustmentValue(event.target.value)
+                  }
+                  placeholder="Ej: 1000"
+                  className="h-11 rounded-xl border border-zinc-700 bg-zinc-900 px-3 text-lg font-bold text-white outline-none transition placeholder:text-zinc-600 focus:border-zinc-400"
+                />
+              </label>
+            </div>
+
+            <div className="mt-4 grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={closeBulkAdjustmentEditor}
+                className="h-11 rounded-xl bg-zinc-900 text-sm font-bold text-zinc-300 transition hover:bg-zinc-800"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={applyBulkAdjustment}
+                className="h-11 rounded-xl bg-white text-sm font-black text-black transition hover:bg-zinc-200"
+              >
+                Aplicar
               </button>
             </div>
           </div>
@@ -1843,18 +2200,18 @@ export default function PointOfSalePanel({
 
       {editingAdjustmentItem && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
-          <div className="w-full max-w-sm rounded-2xl border border-zinc-800 bg-zinc-950 p-4 shadow-2xl shadow-black/50">
+          <div className="w-full max-w-md rounded-2xl border border-zinc-800 bg-zinc-950 p-4 shadow-2xl shadow-black/50">
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
                 <p className="text-xs font-semibold uppercase text-zinc-500">
-                  Ajuste de precio
+                  Ajuste puntual
                 </p>
                 <h2 className="mt-1 truncate text-lg font-bold text-white">
                   {editingAdjustmentItem.productName}
                 </h2>
                 <p className="mt-1 text-xs font-semibold text-zinc-500">
-                  {editingAdjustmentItem.variantColor} ·{" "}
-                  Talle {editingAdjustmentItem.size}
+                  {editingAdjustmentItem.variantColor} - Talle{" "}
+                  {editingAdjustmentItem.size}
                 </p>
               </div>
 
@@ -1866,6 +2223,11 @@ export default function PointOfSalePanel({
                 <X size={17} />
               </button>
             </div>
+
+            <p className="mt-3 rounded-xl border border-amber-400/20 bg-amber-400/10 px-3 py-2 text-xs font-semibold text-amber-100">
+              Este cambio aplica solo a esta venta. No modifica el precio del
+              producto.
+            </p>
 
             <div className="mt-4 grid gap-3">
               <label className="grid gap-1.5">
@@ -1894,7 +2256,7 @@ export default function PointOfSalePanel({
 
               <label className="grid gap-1.5">
                 <span className="text-xs font-semibold uppercase text-zinc-500">
-                  Valor
+                  Monto en pesos
                 </span>
                 <input
                   type="number"
@@ -1904,23 +2266,38 @@ export default function PointOfSalePanel({
                     setDraftAdjustmentValue(event.target.value)
                   }
                   disabled={draftAdjustmentType === "none"}
-                  placeholder={
-                    draftAdjustmentType.includes("percent")
-                      ? "Ej: 10"
-                      : "Ej: 1000"
-                  }
+                  placeholder="Ej: 1000"
                   className="h-11 rounded-xl border border-zinc-700 bg-zinc-900 px-3 text-lg font-bold text-white outline-none transition placeholder:text-zinc-600 focus:border-zinc-400 disabled:cursor-not-allowed disabled:opacity-40"
                 />
               </label>
 
-              <div className="rounded-xl bg-zinc-900 p-3 text-sm">
+              <div className="grid gap-2 rounded-xl bg-zinc-900 p-3 text-sm">
                 <div className="flex justify-between text-zinc-400">
-                  <span>Precio actual</span>
-                  <span>{formatPrice(editingAdjustmentItem.unitPrice)}</span>
+                  <span>Precio base</span>
+                  <span className="font-bold tabular-nums">
+                    {formatPrice(editingAdjustmentBaseUnitPrice)}
+                  </span>
                 </div>
-                <div className="mt-1 flex justify-between font-bold text-white">
-                  <span>Subtotal</span>
-                  <span>{formatPrice(editingAdjustmentItem.subtotal)}</span>
+                <div className="flex justify-between text-zinc-400">
+                  <span>Ajuste</span>
+                  <span
+                    className={`font-bold tabular-nums ${
+                      editingAdjustmentPreviewDelta < 0
+                        ? "text-red-200"
+                        : editingAdjustmentPreviewDelta > 0
+                          ? "text-amber-200"
+                          : "text-zinc-300"
+                    }`}
+                  >
+                    {editingAdjustmentPreviewDelta > 0 ? "+" : ""}
+                    {formatPrice(editingAdjustmentPreviewDelta)}
+                  </span>
+                </div>
+                <div className="flex justify-between rounded-lg bg-zinc-950 px-2 py-2 font-black text-white">
+                  <span>Final unitario</span>
+                  <span className="tabular-nums">
+                    {formatPrice(editingAdjustmentPreviewUnitPrice)}
+                  </span>
                 </div>
               </div>
             </div>
@@ -1949,27 +2326,46 @@ export default function PointOfSalePanel({
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
           <div className="w-full max-w-2xl overflow-hidden rounded-2xl border border-zinc-800 bg-zinc-950 shadow-2xl shadow-black/50">
             <div className="flex items-start justify-between gap-3 border-b border-zinc-800 p-4">
-              <div className="min-w-0">
-                <p className="text-xs font-semibold uppercase text-zinc-500">
-                  Seleccionar producto
-                </p>
-                <h2 className="mt-1 truncate text-xl font-bold text-white">
-                  {selectedProduct.name}
-                </h2>
-                <p className="mt-1 text-xs font-semibold text-zinc-500">
-                  SKU {getShortSku(selectedProduct.sku)} ·{" "}
-                  Web {formatPrice(selectedProduct.price)} · Local{" "}
-                  {formatPrice(getRetailPrice(selectedProduct))}
-                </p>
+              <div className="flex min-w-0 items-center gap-3">
+                <div className="h-16 w-16 shrink-0 overflow-hidden rounded-xl border border-zinc-800 bg-zinc-900">
+                  <Image
+                    src={getProductImage(selectedProduct)}
+                    alt=""
+                    width={64}
+                    height={64}
+                    className="h-full w-full object-cover"
+                  />
+                </div>
+
+                <div className="min-w-0">
+                  <h2 className="truncate text-xl font-bold text-white">
+                    {selectedProduct.name}
+                  </h2>
+                  <p className="mt-1 text-xs font-semibold text-zinc-500">
+                    SKU {getShortSku(selectedProduct.sku)} - Mayorista{" "}
+                    {formatPrice(selectedProduct.price)} - Local{" "}
+                    {formatPrice(getRetailPrice(selectedProduct))}
+                  </p>
+                </div>
               </div>
 
-              <button
-                type="button"
-                onClick={() => setIsVariantPickerOpen(false)}
-                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-zinc-900 text-zinc-300 transition hover:bg-zinc-800"
-              >
-                <X size={18} />
-              </button>
+              <div className="flex shrink-0 items-center gap-2">
+                <button
+                  type="button"
+                  onClick={returnToProductList}
+                  className="h-10 cursor-pointer rounded-xl border border-zinc-700 bg-zinc-900 px-3 text-xs font-black text-zinc-100 transition hover:border-white hover:bg-zinc-800 hover:text-white"
+                >
+                  Volver a lista
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setIsVariantPickerOpen(false)}
+                  className="flex h-10 w-10 cursor-pointer items-center justify-center rounded-xl border border-zinc-700 bg-zinc-900 text-zinc-200 transition hover:border-red-300 hover:bg-red-500/15 hover:text-red-100"
+                >
+                  <X size={18} />
+                </button>
+              </div>
             </div>
 
             <div className="grid gap-4 p-4">
@@ -2169,18 +2565,20 @@ export default function PointOfSalePanel({
                   <div className="grid grid-cols-[80px_minmax(0,1fr)_104px_104px_76px_92px] gap-2 px-3 text-xs font-semibold uppercase tracking-wide text-zinc-500">
                     <span>SKU</span>
                     <span>Nombre</span>
-                    <span className="text-right">Web</span>
-                    <span className="text-right">Local</span>
-                    <span className="text-right">Stock</span>
+                    <span className="text-center">Mayorista</span>
+                    <span className="text-center">Local</span>
+                    <span className="text-center">Stock</span>
                     <span />
                   </div>
 
-                  {productListItems.map((product) => (
+                  {productListItems.map((product, index) => (
                     <div
                       key={product.id}
-                      className="rounded-xl border border-zinc-800 bg-zinc-900 transition hover:border-zinc-500"
+                      className={`rounded-xl border border-zinc-800 transition hover:border-zinc-500 ${
+                        index % 2 === 0 ? "bg-zinc-950/80" : "bg-zinc-900"
+                      }`}
                     >
-                      <div className="grid grid-cols-[80px_minmax(0,1fr)_104px_104px_76px_92px] items-center gap-2 p-3">
+                      <div className="grid grid-cols-[80px_minmax(0,1fr)_104px_104px_76px_92px] items-center gap-2 px-3 py-2">
                         <button
                           type="button"
                           onClick={() => selectProduct(product)}
@@ -2199,15 +2597,15 @@ export default function PointOfSalePanel({
                           </span>
                         </button>
 
-                        <span className="text-right text-sm font-bold text-zinc-100">
+                        <span className="flex h-full items-center justify-center text-center text-sm font-bold tabular-nums text-zinc-100">
                           {formatPrice(product.price)}
                         </span>
 
-                        <span className="text-right text-sm font-bold text-emerald-100">
+                        <span className="flex h-full items-center justify-center text-center text-sm font-bold tabular-nums text-emerald-100">
                           {formatPrice(getRetailPrice(product))}
                         </span>
 
-                        <span className="text-right text-sm font-semibold text-zinc-400">
+                        <span className="flex h-full items-center justify-center text-center text-sm font-semibold tabular-nums text-zinc-400">
                           {product.stock ?? 0}
                         </span>
 
@@ -2300,3 +2698,4 @@ export default function PointOfSalePanel({
     </section>
   );
 }
+

@@ -10,6 +10,7 @@ import {
   CreditCard,
   Images,
   LogOut,
+  Printer,
   Search,
   Settings,
   ShoppingBag,
@@ -39,7 +40,7 @@ const navItems = [
   },
   {
     title: "Envios",
-    href: "/gestion",
+    href: "/gestion/envios",
     icon: Truck,
   },
   {
@@ -110,7 +111,7 @@ export default function GestionCatalogoPage() {
   const [isLoadingProducts, setIsLoadingProducts] = useState(false);
   const [catalogError, setCatalogError] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
-  const [activeFilter, setActiveFilter] = useState<CatalogFilter>("all");
+  const [activeFilter, setActiveFilter] = useState<CatalogFilter>("active");
   const [detailProduct, setDetailProduct] = useState<Product | null>(null);
   const [selectedDetailImageIndex, setSelectedDetailImageIndex] = useState(0);
   const [selectedDetailVariantIndex, setSelectedDetailVariantIndex] =
@@ -445,14 +446,24 @@ export default function GestionCatalogoPage() {
                 </h1>
               </div>
 
-              <button
-                type="button"
-                onClick={() => void refreshProducts()}
-                disabled={isLoadingProducts}
-                className="h-10 rounded-xl bg-white px-4 text-sm font-black text-black transition hover:bg-zinc-200 disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                {isLoadingProducts ? "Cargando..." : "Actualizar"}
-              </button>
+              <div className="flex items-center gap-2">
+                <Link
+                  href="/catalogo-imprimible"
+                  target="_blank"
+                  className="inline-flex h-10 items-center gap-2 rounded-xl bg-zinc-900 px-4 text-sm font-black text-white ring-1 ring-zinc-800 transition hover:bg-zinc-800"
+                >
+                  <Printer size={16} />
+                  Pagina imprimible
+                </Link>
+                <button
+                  type="button"
+                  onClick={() => void refreshProducts()}
+                  disabled={isLoadingProducts}
+                  className="h-10 rounded-xl bg-white px-4 text-sm font-black text-black transition hover:bg-zinc-200 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {isLoadingProducts ? "Cargando..." : "Actualizar"}
+                </button>
+              </div>
             </div>
 
             <div className="grid gap-2 lg:mt-3 lg:grid-cols-[minmax(0,1fr)_auto]">
@@ -470,14 +481,14 @@ export default function GestionCatalogoPage() {
                   className="h-11 w-full rounded-xl bg-zinc-900 pl-10 pr-3 text-sm font-semibold text-white outline-none ring-1 ring-zinc-800 transition focus:ring-white"
                 />
               </label>
-              <button
-                type="button"
-                onClick={() => void refreshProducts()}
-                disabled={isLoadingProducts}
-                className="h-11 rounded-xl bg-white px-3 text-xs font-black text-black transition hover:bg-zinc-200 disabled:cursor-not-allowed disabled:opacity-60 lg:hidden"
+              <Link
+                href="/catalogo-imprimible"
+                target="_blank"
+                className="inline-flex h-11 items-center justify-center rounded-xl bg-white px-3 text-xs font-black text-black transition hover:bg-zinc-200 lg:hidden"
+                aria-label="Abrir pagina imprimible"
               >
-                {isLoadingProducts ? "..." : "Actualizar"}
-              </button>
+                <Printer size={16} />
+              </Link>
               </div>
 
               <div className="flex gap-2 overflow-x-auto pb-1 lg:pb-0">
@@ -581,19 +592,11 @@ export default function GestionCatalogoPage() {
                         </div>
                       </div>
 
-                      <div className="flex items-center justify-between gap-3">
-                        <div className="min-w-0">
-                          <p className="text-xs text-zinc-500">Web</p>
-                          <p className="truncate text-sm font-black text-white">
-                            {formatPrice(product.price)}
-                          </p>
-                        </div>
-                        <div className="min-w-0 text-right">
-                          <p className="text-xs text-zinc-500">Local</p>
-                          <p className="truncate text-sm font-black text-white">
-                            {formatPrice(product.retailPrice)}
-                          </p>
-                        </div>
+                      <div className="min-w-0">
+                        <p className="text-xs text-zinc-500">Mayorista</p>
+                        <p className="truncate text-lg font-black text-white">
+                          {formatPrice(product.price)}
+                        </p>
                       </div>
 
                       <div className="flex flex-wrap gap-1">
@@ -694,23 +697,13 @@ export default function GestionCatalogoPage() {
 
                 <div className="grid content-start gap-3">
                   <section className="rounded-2xl border border-zinc-800 bg-zinc-900/50 p-3">
-                    <div className="grid grid-cols-2 gap-3">
-                      <div>
-                        <p className="text-xs font-bold uppercase text-zinc-500">
-                          Precio web
-                        </p>
-                        <p className="mt-1 text-xl font-black text-white">
-                          {formatPrice(detailProduct.price)}
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-xs font-bold uppercase text-zinc-500">
-                          Precio local
-                        </p>
-                        <p className="mt-1 text-xl font-black text-white">
-                          {formatPrice(detailProduct.retailPrice)}
-                        </p>
-                      </div>
+                    <div>
+                      <p className="text-xs font-bold uppercase text-zinc-500">
+                        Precio mayorista
+                      </p>
+                      <p className="mt-1 text-2xl font-black text-white">
+                        {formatPrice(detailProduct.price)}
+                      </p>
                     </div>
                   </section>
 

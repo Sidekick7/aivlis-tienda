@@ -87,7 +87,7 @@ const navItems = [
   },
   {
     title: "Envios",
-    href: "/gestion",
+    href: "/gestion/envios",
     icon: Truck,
   },
   {
@@ -147,6 +147,7 @@ const orderStatusLabels: Record<OrderStatus, string> = {
 
 const localStatusLabels: Record<LocalSale["status"], string> = {
   completed: "Confirmada",
+  reserved: "Reservada",
   cancelled: "Anulada",
 };
 
@@ -183,12 +184,22 @@ function getSaleStatusClassName(sale: UnifiedSale) {
     return "border-yellow-500/30 bg-yellow-500/15 text-yellow-200";
   }
 
+  if (sale.source === "local" && sale.status === "reserved") {
+    return "border-amber-500/30 bg-amber-500/15 text-amber-200";
+  }
+
   return "border-emerald-500/30 bg-emerald-500/15 text-emerald-200";
 }
 
 function getPaymentLabel(sale: UnifiedSale) {
   if (sale.source === "web") {
-    return sale.payment || "A coordinar";
+    const payment = sale.payment.trim();
+
+    if (!payment || payment.toLowerCase() === "a coordinar") {
+      return "Transferencia";
+    }
+
+    return payment;
   }
 
   return paymentLabels[sale.payment];
@@ -208,7 +219,7 @@ function getWebPaymentLabel(order: AdminOrder) {
     return "Efectivo";
   }
 
-  return "A coordinar";
+  return "Transferencia";
 }
 
 function formatSaleTableDate(value: string) {
@@ -640,7 +651,7 @@ export default function GestionVentasPage() {
       source: "local",
       id: sale.id,
       number: sale.saleNumber,
-      customer: "Mostrador",
+      customer: "Consumidor final",
       total: sale.total,
       status: sale.status,
       payment: sale.paymentMethod,
@@ -667,8 +678,8 @@ export default function GestionVentasPage() {
       activeFilter === "all" ||
       sale.source === activeFilter ||
       (activeFilter === "pending" &&
-        sale.source === "web" &&
-        sale.status === "pending_payment") ||
+        ((sale.source === "web" && sale.status === "pending_payment") ||
+          (sale.source === "local" && sale.status === "reserved"))) ||
       (activeFilter === "cancelled" &&
         isSaleCancelled(sale));
 
@@ -695,7 +706,8 @@ export default function GestionVentasPage() {
     local: dateFilteredSales.filter((sale) => sale.source === "local").length,
     pending: dateFilteredSales.filter(
       (sale) =>
-        sale.source === "web" && sale.status === "pending_payment"
+        (sale.source === "web" && sale.status === "pending_payment") ||
+        (sale.source === "local" && sale.status === "reserved")
     ).length,
     cancelled: dateFilteredSales.filter(isSaleCancelled).length,
   };
@@ -777,13 +789,17 @@ export default function GestionVentasPage() {
   const modalSale = saleActionModal?.sale ?? null;
   const modalTitle =
     saleActionModal?.action === "cancel-local"
-      ? "No se puede eliminar una venta confirmada"
+      ? modalSale?.source === "local" && modalSale.status === "reserved"
+        ? "Anular reserva"
+        : "No se puede eliminar una venta confirmada"
       : saleActionModal?.action === "delete-local"
         ? "Eliminar venta anulada"
         : "Eliminar venta web";
   const modalBody =
     saleActionModal?.action === "cancel-local"
-      ? "Primero hay que anular la venta para devolver el stock. Despues vas a poder eliminarla del historial si hace falta."
+      ? modalSale?.source === "local" && modalSale.status === "reserved"
+        ? "Al anular la reserva se devuelve el stock bloqueado. Despues vas a poder eliminarla del historial si hace falta."
+        : "Primero hay que anular la venta para devolver el stock. Despues vas a poder eliminarla del historial si hace falta."
       : saleActionModal?.action === "delete-local"
         ? "Esto solo borra el registro del historial. No modifica stock porque la venta ya esta anulada."
         : "Si esta venta web tiene stock reservado, al eliminarla se devuelve segun su estado actual.";
@@ -858,103 +874,105 @@ export default function GestionVentasPage() {
         </aside>
 
         <section className="flex min-h-0 min-w-0 flex-col gap-2 overflow-hidden px-2 py-2">
-          <header className="shrink-0 rounded-2xl border border-zinc-800 bg-zinc-950 p-3">
-            <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
-              <div>
-                <p className="text-xs font-semibold uppercase text-zinc-500">
-                  Gestion
-                </p>
-                <h1 className="mt-1 text-2xl font-black">
-                  Ventas
-                </h1>
+          <header className="shrink-0 rounded-2xl border border-zinc-800 bg-zinc-950 p-2.5">
+            <div className="flex flex-col gap-2">
+              <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+                <div className="relative min-w-0 md:w-[420px]">
+                  <Search
+                    size={16}
+                    className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500"
+                  />
+                  <input
+                    type="search"
+                    value={searchQuery}
+                    onChange={(event) => setSearchQuery(event.target.value)}
+                    placeholder="Buscar por numero, cliente, web o local"
+                    className="h-10 w-full rounded-xl border border-zinc-800 bg-zinc-950 pl-10 pr-3 text-sm font-semibold text-white outline-none transition placeholder:text-zinc-500 focus:border-zinc-500"
+                  />
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => void refreshSales()}
+                  className="h-10 rounded-xl bg-zinc-900 px-4 text-sm font-semibold text-zinc-300 transition hover:bg-zinc-800"
+                >
+                  Actualizar
+                </button>
               </div>
 
-              <div className="flex flex-wrap gap-2">
-                {sourceFilters.map((filter) => {
-                  const isActive = activeFilter === filter.value;
+              <div className="grid gap-2 xl:grid-cols-[minmax(0,1fr)_auto]">
+                <div className="flex flex-wrap items-center gap-2 rounded-xl border border-zinc-800 bg-zinc-900/60 p-1.5">
+                  <span className="px-2 text-[10px] font-bold uppercase tracking-[0.16em] text-zinc-500">
+                    Venta
+                  </span>
+                  {sourceFilters.map((filter) => {
+                    const isActive = activeFilter === filter.value;
 
-                  return (
-                    <button
-                      key={filter.value}
-                      type="button"
-                      onClick={() => setActiveFilter(filter.value)}
-                      className={`h-9 rounded-xl px-3 text-xs font-bold transition ${
-                        isActive
-                          ? "bg-white text-black"
-                          : "bg-zinc-900 text-zinc-400 hover:bg-zinc-800 hover:text-white"
-                      }`}
-                    >
-                      {filter.label}
-                      <span className="ml-2 opacity-70">
-                        {filterCounts[filter.value]}
-                      </span>
-                    </button>
-                  );
-                })}
+                    return (
+                      <button
+                        key={filter.value}
+                        type="button"
+                        onClick={() => setActiveFilter(filter.value)}
+                        className={`h-8 rounded-lg px-3 text-xs font-bold transition ${
+                          isActive
+                            ? "bg-white text-black"
+                            : "bg-zinc-950 text-zinc-400 hover:bg-zinc-800 hover:text-white"
+                        }`}
+                      >
+                        {filter.label}
+                        {(filter.value === "pending" ||
+                          filter.value === "cancelled") && (
+                          <span className="ml-2 opacity-70">
+                            {filterCounts[filter.value]}
+                          </span>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2 rounded-xl border border-zinc-800 bg-zinc-900/60 p-1.5">
+                  <span className="px-2 text-[10px] font-bold uppercase tracking-[0.16em] text-zinc-500">
+                    Fecha
+                  </span>
+                  {dateFilters.map((filter) => {
+                    const isActive = activeDateFilter === filter.value;
+
+                    return (
+                      <button
+                        key={filter.value}
+                        type="button"
+                        onClick={() => setActiveDateFilter(filter.value)}
+                        className={`h-8 rounded-lg px-3 text-xs font-bold transition ${
+                          isActive
+                            ? "bg-emerald-400 text-black"
+                            : "bg-zinc-950 text-zinc-400 hover:bg-zinc-800 hover:text-white"
+                        }`}
+                      >
+                        {filter.label}
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
-            </div>
-
-            <div className="mt-3 flex flex-wrap gap-2">
-              {dateFilters.map((filter) => {
-                const isActive = activeDateFilter === filter.value;
-
-                return (
-                  <button
-                    key={filter.value}
-                    type="button"
-                    onClick={() => setActiveDateFilter(filter.value)}
-                    className={`h-8 rounded-xl px-3 text-xs font-bold transition ${
-                      isActive
-                        ? "bg-emerald-400 text-black"
-                        : "bg-zinc-900 text-zinc-400 hover:bg-zinc-800 hover:text-white"
-                    }`}
-                  >
-                    {filter.label}
-                  </button>
-                );
-              })}
-            </div>
-
-            <div className="mt-3 flex flex-col gap-2 md:flex-row">
-              <div className="relative min-w-0 flex-1">
-                <Search
-                  size={16}
-                  className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500"
-                />
-                <input
-                  type="search"
-                  value={searchQuery}
-                  onChange={(event) => setSearchQuery(event.target.value)}
-                  placeholder="Buscar por numero, cliente, web o local"
-                  className="h-10 w-full rounded-xl border border-zinc-800 bg-zinc-950 pl-10 pr-3 text-sm text-white outline-none transition focus:border-zinc-500"
-                />
-              </div>
-
-              <button
-                type="button"
-                onClick={() => void refreshSales()}
-                className="h-10 rounded-xl bg-zinc-900 px-4 text-sm font-semibold text-zinc-300 transition hover:bg-zinc-800"
-              >
-                Actualizar
-              </button>
             </div>
           </header>
 
-          <section className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border border-zinc-800 bg-zinc-950">
-            <div className="grid shrink-0 grid-cols-[82px_96px_minmax(150px,1fr)_118px_106px_104px_126px_76px_88px_42px] gap-2 border-b border-zinc-800 px-3 py-2 text-xs font-bold uppercase text-zinc-500">
-              <span>Origen</span>
+          <section className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border border-zinc-800 bg-[#070707] shadow-2xl shadow-black/20">
+            <div className="grid shrink-0 grid-cols-[82px_96px_minmax(150px,1fr)_118px_106px_104px_126px_76px_88px_42px] gap-2 border-b border-zinc-800 bg-zinc-900/90 px-3 py-2 text-xs font-bold uppercase text-zinc-400">
+              <span className="text-center">Origen</span>
               <span>Nro</span>
               <span>Cliente</span>
-              <span>Fecha</span>
-              <span>Total</span>
-              <span>Pago</span>
-              <span>Estado</span>
-              <span>Prendas</span>
-              <span>Detalle</span>
+              <span className="text-center">Fecha</span>
+              <span className="text-center">Total</span>
+              <span className="text-center">Pago</span>
+              <span className="text-center">Estado</span>
+              <span className="text-center">Prendas</span>
+              <span className="text-center">Detalle</span>
               <span></span>
             </div>
 
-            <div className="min-h-0 flex-1 overflow-y-auto">
+            <div className="min-h-0 flex-1 overflow-y-auto [scrollbar-gutter:stable]">
               {isLoadingSales && (
                 <p className="p-4 text-sm text-zinc-400">
                   Cargando ventas...
@@ -983,13 +1001,15 @@ export default function GestionVentasPage() {
 
               {!isLoadingSales &&
                 !salesError &&
-                visibleSales.map((sale) => (
+                visibleSales.map((sale, index) => (
                   <div
                     key={`${sale.source}-${sale.id}`}
-                    className="grid grid-cols-[82px_96px_minmax(150px,1fr)_118px_106px_104px_126px_76px_88px_42px] items-center gap-2 border-b border-zinc-900 px-3 py-2 text-sm"
+                    className={`grid grid-cols-[82px_96px_minmax(150px,1fr)_118px_106px_104px_126px_76px_88px_42px] items-center gap-2 border-b border-zinc-900/80 px-3 py-2 text-sm transition hover:bg-zinc-800/45 ${
+                      index % 2 === 0 ? "bg-zinc-950/45" : "bg-zinc-900/20"
+                    }`}
                   >
                     <span
-                      className={`w-fit rounded-full px-2 py-1 text-[11px] font-black ${
+                      className={`mx-auto flex h-6 w-fit items-center rounded-full px-2 text-[11px] font-black ${
                         sale.source === "web"
                           ? "bg-sky-500/15 text-sky-200"
                           : "bg-emerald-500/15 text-emerald-200"
@@ -1003,52 +1023,54 @@ export default function GestionVentasPage() {
                     <span className="truncate text-zinc-200">
                       {sale.customer}
                     </span>
-                    <span className="text-xs text-zinc-400">
+                    <span className="flex h-full items-center justify-center text-center text-xs text-zinc-400">
                       {formatSaleTableDate(sale.createdAt)}
                     </span>
-                    <span className="font-black text-white">
+                    <span className="flex h-full items-center justify-center text-center font-black tabular-nums text-white">
                       {formatPrice(sale.total)}
                     </span>
-                    <span className="text-xs font-semibold text-zinc-400">
+                    <span className="flex h-full items-center justify-center text-center text-xs font-semibold text-zinc-400">
                       {getPaymentLabel(sale)}
                     </span>
-                    <select
-                      aria-label={`Estado de venta ${getSaleNumber(sale)}`}
-                      value={sale.status}
-                      disabled={busySaleKey === `${sale.source}-${sale.id}`}
-                      onChange={(event) =>
-                        void handleSaleStatusChange(
-                          sale,
-                          event.target.value as OrderStatus | LocalSale["status"]
-                        )
-                      }
-                      className={`h-9 rounded-lg border px-2 text-[11px] font-bold outline-none transition disabled:cursor-not-allowed disabled:opacity-60 ${getSaleStatusClassName(sale)}`}
-                    >
-                      {sale.source === "web"
-                        ? (["pending_payment", "confirmed", "cancelled"] as OrderStatus[]).map(
-                            (status) => (
-                              <option
-                                key={status}
-                                value={status}
-                                className="bg-zinc-950 text-white"
-                              >
-                                {orderStatusLabels[status]}
-                              </option>
-                            )
+                    <div className="flex h-full items-center justify-center">
+                      <select
+                        aria-label={`Estado de venta ${getSaleNumber(sale)}`}
+                        value={sale.status}
+                        disabled={busySaleKey === `${sale.source}-${sale.id}`}
+                        onChange={(event) =>
+                          void handleSaleStatusChange(
+                            sale,
+                            event.target.value as OrderStatus | LocalSale["status"]
                           )
-                        : (["completed", "cancelled"] as LocalSale["status"][]).map(
-                            (status) => (
-                              <option
-                                key={status}
-                                value={status}
-                                className="bg-zinc-950 text-white"
-                              >
-                                {localStatusLabels[status]}
-                              </option>
+                        }
+                        className={`h-9 cursor-pointer rounded-lg border px-2 text-[11px] font-bold outline-none transition disabled:cursor-not-allowed disabled:opacity-60 ${getSaleStatusClassName(sale)}`}
+                      >
+                        {sale.source === "web"
+                          ? (["pending_payment", "confirmed", "cancelled"] as OrderStatus[]).map(
+                              (status) => (
+                                <option
+                                  key={status}
+                                  value={status}
+                                  className="bg-zinc-950 text-white"
+                                >
+                                  {orderStatusLabels[status]}
+                                </option>
+                              )
                             )
-                          )}
-                    </select>
-                    <span className="text-zinc-300">
+                          : (["reserved", "completed", "cancelled"] as LocalSale["status"][]).map(
+                              (status) => (
+                                <option
+                                  key={status}
+                                  value={status}
+                                  className="bg-zinc-950 text-white"
+                                >
+                                  {localStatusLabels[status]}
+                                </option>
+                              )
+                            )}
+                      </select>
+                    </div>
+                    <span className="flex h-full items-center justify-center text-center text-zinc-300">
                       {sale.itemsCount}
                     </span>
                     <button
@@ -1057,19 +1079,21 @@ export default function GestionVentasPage() {
                         setDetailSale(sale);
                         setWebInfoModal(null);
                       }}
-                      className="h-9 rounded-lg bg-zinc-800 px-3 text-xs font-bold text-zinc-200 transition hover:bg-zinc-700"
+                      className="mx-auto h-9 cursor-pointer rounded-lg bg-zinc-800 px-3 text-xs font-bold text-zinc-200 transition hover:bg-zinc-700"
                     >
                       Detalle
                     </button>
-                    <button
-                      type="button"
-                      onClick={() => requestDeleteSale(sale)}
-                      disabled={busySaleKey === `${sale.source}-${sale.id}`}
-                      className="flex h-9 w-9 items-center justify-center rounded-lg bg-red-500/15 text-red-200 transition hover:bg-red-500/25 disabled:cursor-not-allowed disabled:opacity-60"
-                      title="Eliminar venta"
-                    >
-                      <Trash2 size={15} />
-                    </button>
+                    <div className="flex h-full items-center justify-center">
+                      <button
+                        type="button"
+                        onClick={() => requestDeleteSale(sale)}
+                        disabled={busySaleKey === `${sale.source}-${sale.id}`}
+                        className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg bg-red-500/15 text-red-200 transition hover:bg-red-500/25 disabled:cursor-not-allowed disabled:opacity-60"
+                        title="Eliminar venta"
+                      >
+                        <Trash2 size={15} />
+                      </button>
+                    </div>
                   </div>
                 ))}
             </div>
@@ -1098,7 +1122,7 @@ export default function GestionVentasPage() {
                 type="button"
                 onClick={() => setSaleActionModal(null)}
                 disabled={busySaleKey === `${modalSale.source}-${modalSale.id}`}
-                className="h-11 rounded-xl bg-zinc-900 text-sm font-bold text-zinc-300 transition hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-60"
+                className="h-11 cursor-pointer rounded-xl bg-zinc-900 text-sm font-bold text-zinc-300 transition hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 Cancelar
               </button>
@@ -1106,7 +1130,7 @@ export default function GestionVentasPage() {
                 type="button"
                 onClick={() => void handleModalAction()}
                 disabled={busySaleKey === `${modalSale.source}-${modalSale.id}`}
-                className={`h-11 rounded-xl text-sm font-black transition disabled:cursor-not-allowed disabled:opacity-60 ${
+                className={`h-11 cursor-pointer rounded-xl text-sm font-black transition disabled:cursor-not-allowed disabled:opacity-60 ${
                   saleActionModal.action === "cancel-local"
                     ? "bg-yellow-400 text-black hover:bg-yellow-300"
                     : "bg-red-500 text-white hover:bg-red-400"
@@ -1144,7 +1168,7 @@ export default function GestionVentasPage() {
                   <button
                     type="button"
                     onClick={() => handlePrintWebOrder(detailOrder)}
-                    className="inline-flex h-9 items-center gap-2 rounded-xl bg-white px-3 text-xs font-black text-black transition hover:bg-zinc-200"
+                    className="inline-flex h-9 cursor-pointer items-center gap-2 rounded-xl bg-white px-3 text-xs font-black text-black transition hover:bg-zinc-200"
                   >
                     <Printer size={15} />
                     Imprimir
@@ -1155,7 +1179,7 @@ export default function GestionVentasPage() {
                   <button
                     type="button"
                     onClick={() => handleReprintLocalSale(detailLocalSale)}
-                    className="inline-flex h-9 items-center gap-2 rounded-xl bg-white px-3 text-xs font-black text-black transition hover:bg-zinc-200"
+                    className="inline-flex h-9 cursor-pointer items-center gap-2 rounded-xl bg-white px-3 text-xs font-black text-black transition hover:bg-zinc-200"
                   >
                     <Printer size={15} />
                     Reimprimir
@@ -1168,7 +1192,7 @@ export default function GestionVentasPage() {
                     setDetailSale(null);
                     setWebInfoModal(null);
                   }}
-                  className="flex h-9 w-9 items-center justify-center rounded-xl bg-zinc-900 text-sm font-black text-zinc-300 transition hover:bg-zinc-800"
+                  className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-xl bg-zinc-900 text-sm font-black text-zinc-300 transition hover:bg-zinc-800"
                   aria-label="Cerrar detalle"
                 >
                   x
@@ -1192,14 +1216,14 @@ export default function GestionVentasPage() {
                     <button
                       type="button"
                       onClick={() => setWebInfoModal("customer")}
-                      className="inline-flex h-8 items-center gap-2 rounded-xl bg-zinc-800 px-3 text-xs font-bold text-zinc-200 transition hover:bg-zinc-700"
+                      className="inline-flex h-8 cursor-pointer items-center gap-2 rounded-xl bg-zinc-800 px-3 text-xs font-bold text-zinc-200 transition hover:bg-zinc-700"
                     >
                       Datos del cliente
                     </button>
                     <button
                       type="button"
                       onClick={() => setWebInfoModal("message")}
-                      className="inline-flex h-8 items-center gap-2 rounded-xl bg-white px-3 text-xs font-black text-black transition hover:bg-zinc-200"
+                      className="inline-flex h-8 cursor-pointer items-center gap-2 rounded-xl bg-white px-3 text-xs font-black text-black transition hover:bg-zinc-200"
                     >
                       Mensaje de compra
                     </button>

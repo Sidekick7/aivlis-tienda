@@ -167,92 +167,55 @@ export default function AdminProductsSection({
 
   return (
     <div className="mt-4 rounded-3xl border border-zinc-800 bg-zinc-950 p-4">
-      <div className="mb-3 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-        <div>
-          <h2 className="text-2xl font-bold text-white">
-            Productos
-          </h2>
-
-          <p className="mt-1 text-sm font-medium text-zinc-400">
-            {visibleProducts.length} de {products.length} productos
-          </p>
-        </div>
-
-        <div className="flex w-full flex-col gap-2 sm:flex-row lg:w-auto lg:items-center">
-          <div className="relative w-full lg:w-72">
-            <Search
-              size={16}
-              className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500"
-            />
-
-            <input
-              type="search"
-              placeholder="Buscar producto o SKU"
-              value={productSearch}
-              onChange={(event) => {
-                setProductSearch(event.target.value);
-                setProductPage(1);
-              }}
-              className="h-10 w-full rounded-xl border border-zinc-700 bg-zinc-900 pl-9 pr-3 text-sm text-white outline-none transition placeholder:text-zinc-500 focus:border-zinc-500"
-            />
-          </div>
-
-          <button
-            type="button"
-            onClick={onCreateProduct}
-            className="flex h-10 items-center justify-center gap-2 rounded-xl bg-white px-4 text-sm font-bold text-black transition hover:opacity-90 cursor-pointer"
-          >
-            <Plus size={16} />
-            Nuevo producto
-          </button>
-        </div>
-      </div>
-
       <div className="mb-3 rounded-2xl border border-zinc-800 bg-zinc-900 p-2">
-        <div className="flex flex-wrap items-center gap-2">
-          <label>
-            <span className="sr-only">Categoria</span>
-            <select
-              value={productCategoryFilter}
-              onChange={(event) => {
-                setProductCategoryFilter(event.target.value);
-                setProductPage(1);
-              }}
-              className="h-9 cursor-pointer rounded-xl border border-zinc-700 bg-zinc-950 px-3 text-sm font-semibold text-white outline-none transition focus:border-zinc-500"
-            >
-              <option value="all">Todas las categorias</option>
-              {categories.map((categoryOption) => (
-                <option
-                  key={categoryOption.value}
-                  value={categoryOption.value}
-                >
-                  {categoryOption.label}
-                </option>
-              ))}
-            </select>
-          </label>
+        <div className="flex flex-col gap-2 xl:flex-row xl:items-center xl:justify-between">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="h-9 rounded-xl bg-zinc-950 px-3 py-2 text-xs font-black uppercase text-zinc-300 ring-1 ring-zinc-800">
+              {visibleProducts.length} de {products.length}
+            </span>
 
-          <label>
-            <span className="sr-only">Ordenar por</span>
-            <select
-              value={productSort}
-              onChange={(event) => {
-                setProductSort(event.target.value as ProductSort);
-                setProductPage(1);
-              }}
-              className="h-9 cursor-pointer rounded-xl border border-zinc-700 bg-zinc-950 px-3 text-sm font-semibold text-white outline-none transition focus:border-zinc-500"
-            >
-              <option value="recent">Mas recientes</option>
-              <option value="oldest">Mas antiguos</option>
-              <option value="name_asc">Nombre A-Z</option>
-              <option value="stock_asc">Menor stock</option>
-              <option value="stock_desc">Mayor stock</option>
-              <option value="price_asc">Menor precio</option>
-              <option value="price_desc">Mayor precio</option>
-            </select>
-          </label>
+            <label>
+              <span className="sr-only">Categoria</span>
+              <select
+                value={productCategoryFilter}
+                onChange={(event) => {
+                  setProductCategoryFilter(event.target.value);
+                  setProductPage(1);
+                }}
+                className="h-9 cursor-pointer rounded-xl border border-zinc-700 bg-zinc-950 px-3 text-sm font-semibold text-white outline-none transition focus:border-zinc-500"
+              >
+                <option value="all">Todas las categorias</option>
+                {categories.map((categoryOption) => (
+                  <option
+                    key={categoryOption.value}
+                    value={categoryOption.value}
+                  >
+                    {categoryOption.label}
+                  </option>
+                ))}
+              </select>
+            </label>
 
-          <div className="flex flex-1 flex-wrap items-center gap-1.5">
+            <label>
+              <span className="sr-only">Ordenar por</span>
+              <select
+                value={productSort}
+                onChange={(event) => {
+                  setProductSort(event.target.value as ProductSort);
+                  setProductPage(1);
+                }}
+                className="h-9 cursor-pointer rounded-xl border border-zinc-700 bg-zinc-950 px-3 text-sm font-semibold text-white outline-none transition focus:border-zinc-500"
+              >
+                <option value="recent">Mas recientes</option>
+                <option value="oldest">Mas antiguos</option>
+                <option value="name_asc">Nombre A-Z</option>
+                <option value="stock_asc">Menor stock</option>
+                <option value="stock_desc">Mayor stock</option>
+                <option value="price_asc">Menor precio</option>
+                <option value="price_desc">Mayor precio</option>
+              </select>
+            </label>
+
             {([
               ["all", "Todos"],
               ["active", "Publicados"],
@@ -291,6 +254,35 @@ export default function AdminProductsSection({
               </button>
             )}
           </div>
+
+          <div className="flex w-full flex-col gap-2 sm:flex-row xl:w-auto xl:items-center">
+            <div className="relative w-full xl:w-80">
+              <Search
+                size={16}
+                className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500"
+              />
+
+              <input
+                type="search"
+                placeholder="Buscar producto o SKU"
+                value={productSearch}
+                onChange={(event) => {
+                  setProductSearch(event.target.value);
+                  setProductPage(1);
+                }}
+                className="h-10 w-full rounded-xl border border-zinc-700 bg-zinc-900 pl-9 pr-3 text-sm text-white outline-none transition placeholder:text-zinc-500 focus:border-zinc-500"
+              />
+            </div>
+
+          <button
+            type="button"
+            onClick={onCreateProduct}
+            className="flex h-10 items-center justify-center gap-2 rounded-xl bg-white px-4 text-sm font-bold text-black transition hover:opacity-90 cursor-pointer"
+          >
+            <Plus size={16} />
+            Nuevo producto
+          </button>
+          </div>
         </div>
       </div>
 
@@ -300,21 +292,21 @@ export default function AdminProductsSection({
         </div>
       )}
 
-      <div className="overflow-hidden rounded-2xl border border-zinc-800">
-        <div className="hidden grid-cols-[76px_64px_minmax(220px,1fr)_116px_104px_104px_64px_142px_108px] gap-2 bg-zinc-900 px-3 py-2 text-xs font-bold uppercase text-zinc-500 xl:grid">
+      <div className="overflow-hidden rounded-2xl border border-zinc-800 bg-[#070707] shadow-2xl shadow-black/20">
+        <div className="hidden grid-cols-[76px_64px_minmax(220px,1fr)_116px_104px_104px_64px_142px_108px] gap-2 border-b border-zinc-800 bg-zinc-900/90 px-3 py-2 text-xs font-bold uppercase text-zinc-400 xl:grid">
           <span>SKU</span>
-          <span>Foto</span>
+          <span className="text-center">Foto</span>
           <span>Producto</span>
-          <span>Categoria</span>
-          <span>Web</span>
-          <span>Minorista</span>
-          <span>Stock</span>
-          <span>Estado</span>
-          <span className="text-right">Acciones</span>
+          <span className="text-center">Categoria</span>
+          <span className="text-center">Mayorista</span>
+          <span className="text-center">Minorista</span>
+          <span className="text-center">Stock</span>
+          <span className="text-center">Estado</span>
+          <span className="text-center">Acciones</span>
         </div>
 
-        <div className="divide-y divide-zinc-800">
-        {paginatedProducts.map((product) => {
+        <div>
+        {paginatedProducts.map((product, index) => {
           const isSavingProduct =
             savingProductAction?.id === product.id;
           const totalStock = getProductTotalStock(product);
@@ -333,7 +325,9 @@ export default function AdminProductsSection({
           return (
             <div
               key={product.id}
-              className="bg-zinc-950 px-3 py-2 transition hover:bg-zinc-900/70"
+              className={`border-b border-zinc-900/80 px-3 py-2 transition hover:bg-zinc-900/70 ${
+                index % 2 === 0 ? "bg-zinc-950/45" : "bg-zinc-900/20"
+              }`}
             >
             <div
               role="button"
@@ -353,7 +347,7 @@ export default function AdminProductsSection({
               }}
               className="grid cursor-pointer gap-2 rounded-lg xl:grid-cols-[76px_64px_minmax(220px,1fr)_116px_104px_104px_64px_142px_108px] xl:items-center"
             >
-              <div>
+              <div className="flex h-full items-center">
                 {skuParts && (
                     <span className="inline-flex rounded-lg bg-black px-2.5 py-1 text-xs font-black text-zinc-100 ring-1 ring-zinc-800">
                       {skuParts.code}
@@ -366,7 +360,7 @@ export default function AdminProductsSection({
                 alt={product.name}
                 width={56}
                 height={56}
-                className="h-14 w-14 shrink-0 rounded-lg bg-zinc-950 object-cover"
+                className="mx-auto h-14 w-14 shrink-0 rounded-lg bg-zinc-950 object-cover"
               />
 
               <div className="min-w-0">
@@ -382,20 +376,20 @@ export default function AdminProductsSection({
               <span className="truncate text-sm font-semibold text-zinc-300 xl:hidden">
                 Categoria: {getCategoryLabel(product.category)}
               </span>
-              <span className="hidden truncate text-xs font-semibold text-zinc-300 xl:block">
+              <span className="hidden h-full items-center justify-center truncate text-center text-xs font-semibold text-zinc-300 xl:flex">
                 {getCategoryLabel(product.category)}
               </span>
 
-              <span className="text-sm font-black text-white tabular-nums">
+              <span className="flex h-full items-center justify-center text-center text-sm font-black text-white tabular-nums">
                 {currencyFormatter.format(product.price)}
               </span>
 
-              <span className="text-sm font-black text-zinc-200 tabular-nums">
+              <span className="flex h-full items-center justify-center text-center text-sm font-black text-zinc-200 tabular-nums">
                 {currencyFormatter.format(getRetailPrice(product))}
               </span>
 
               <span
-                className={`w-fit rounded-lg px-2 py-0.5 text-sm font-black ${
+                className={`mx-auto flex h-7 min-w-8 items-center justify-center rounded-lg px-2 text-sm font-black ${
                   totalStock <= 0
                     ? "bg-red-500/10 text-red-200"
                     : stockStatus === "Stock bajo"
@@ -406,7 +400,7 @@ export default function AdminProductsSection({
                 {totalStock}
               </span>
 
-              <div className="flex flex-col items-start gap-1">
+              <div className="flex flex-col items-center gap-1">
                 <button
                   type="button"
                   onClick={(event) => {
@@ -414,7 +408,7 @@ export default function AdminProductsSection({
                     onToggleActive(product);
                   }}
                   disabled={isSavingProduct}
-                  className={`rounded-full px-2.5 py-1 text-xs font-semibold transition cursor-pointer disabled:cursor-not-allowed disabled:opacity-60 ${
+                  className={`flex h-6 items-center rounded-full px-2.5 text-xs font-semibold transition cursor-pointer disabled:cursor-not-allowed disabled:opacity-60 ${
                     product.active
                       ? "bg-emerald-500/15 text-emerald-200"
                       : "bg-zinc-800 text-zinc-300"
@@ -435,7 +429,7 @@ export default function AdminProductsSection({
                     onToggleFeatured(product);
                   }}
                   disabled={isSavingProduct}
-                  className={`rounded-full px-2.5 py-1 text-xs font-semibold transition cursor-pointer disabled:cursor-not-allowed disabled:opacity-60 ${
+                  className={`flex h-6 items-center rounded-full px-2.5 text-xs font-semibold transition cursor-pointer disabled:cursor-not-allowed disabled:opacity-60 ${
                     product.featured
                       ? "bg-amber-400/15 text-amber-200"
                       : "border border-zinc-700 text-zinc-400 hover:text-white"
@@ -450,7 +444,7 @@ export default function AdminProductsSection({
                 </button>
               </div>
 
-            <div className="flex flex-wrap items-center gap-1.5 xl:justify-end">
+            <div className="flex flex-wrap items-center justify-center gap-1.5">
               <button
                 type="button"
                 onClick={(event) => {

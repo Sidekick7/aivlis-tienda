@@ -78,9 +78,9 @@ const modules = [
   {
     title: "Envios",
     description: "Preparacion, despacho y control de entregas pendientes.",
-    status: "Preparado",
+    status: "Activo",
     icon: Truck,
-    section: "shipping" as const,
+    href: "/gestion/envios",
   },
   {
     title: "Inventario",
@@ -127,7 +127,7 @@ const workQueues = [
     metric: "-",
     label: "por preparar",
     icon: PackageCheck,
-    section: "shipping" as const,
+    href: "/gestion/envios",
   },
   {
     title: "Caja",
@@ -630,8 +630,8 @@ export default function GestionPage() {
                       Historial local
                     </p>
                     <p className="mt-2 max-w-md text-sm leading-6 text-zinc-400">
-                      Aca vamos a listar las ventas hechas desde punto de venta,
-                      con detalle, anulacion y reimpresion del comprobante.
+                      Las ventas presenciales se revisan desde la pantalla de
+                      Ventas, junto con pedidos web y anulaciones.
                     </p>
                   </div>
                 </div>
@@ -659,10 +659,10 @@ export default function GestionPage() {
                 <div className="flex items-center justify-between border-b border-zinc-800 px-4 py-3">
                   <div>
                     <p className="text-xs font-semibold uppercase text-zinc-500">
-                      Cola de trabajo
+                      Atajos operativos
                     </p>
                     <h2 className="mt-1 text-xl font-bold">
-                      Lo que hay que resolver
+                      Entradas principales
                     </h2>
                   </div>
 
@@ -688,22 +688,31 @@ export default function GestionPage() {
                         </span>
 
                         <span className="text-left md:text-right">
-                          <span className="block text-2xl font-bold">
-                            {queue.metric}
-                          </span>
-                          <span className="text-xs font-semibold uppercase text-zinc-500">
-                            {queue.label}
+                          <span className="inline-flex h-8 items-center rounded-xl bg-zinc-900 px-3 text-xs font-black uppercase text-zinc-300">
+                            Abrir
                           </span>
                         </span>
                       </>
                     );
+
+                    if ("href" in queue && typeof queue.href === "string") {
+                      return (
+                        <Link
+                          key={queue.title}
+                          href={queue.href}
+                          className="grid w-full gap-3 px-4 py-4 text-left transition hover:bg-zinc-900/80 md:grid-cols-[44px_minmax(0,1fr)_120px] md:items-center"
+                        >
+                          {content}
+                        </Link>
+                      );
+                    }
 
                     if (queue.section === "sales") {
                       return (
                         <Link
                           key={queue.title}
                           href="/gestion/ventas"
-                          className="grid w-full gap-3 px-4 py-4 text-left transition hover:bg-zinc-900 md:grid-cols-[44px_minmax(0,1fr)_120px] md:items-center"
+                          className="grid w-full gap-3 px-4 py-4 text-left transition hover:bg-zinc-900/80 md:grid-cols-[44px_minmax(0,1fr)_120px] md:items-center"
                         >
                           {content}
                         </Link>
@@ -715,7 +724,7 @@ export default function GestionPage() {
                         key={queue.title}
                         type="button"
                         onClick={() => setActiveSection(queue.section)}
-                        className="grid w-full gap-3 px-4 py-4 text-left transition hover:bg-zinc-900 md:grid-cols-[44px_minmax(0,1fr)_120px] md:items-center"
+                        className="grid w-full gap-3 px-4 py-4 text-left transition hover:bg-zinc-900/80 md:grid-cols-[44px_minmax(0,1fr)_120px] md:items-center"
                       >
                         {content}
                       </button>
@@ -727,10 +736,10 @@ export default function GestionPage() {
               <div className="rounded-2xl border border-zinc-800 bg-zinc-950">
                 <div className="border-b border-zinc-800 px-4 py-3">
                   <p className="text-xs font-semibold uppercase text-zinc-500">
-                    Modulos preparados
+                    Paneles de gestion
                   </p>
                   <h2 className="mt-1 text-xl font-bold">
-                    Proximas pantallas
+                    Accesos disponibles
                   </h2>
                 </div>
 
@@ -738,10 +747,10 @@ export default function GestionPage() {
                   {modules.map((module) => {
                     const Icon = module.icon;
 
-                    const cardClassName = `flex min-h-24 items-start gap-3 rounded-xl border p-3 text-left transition ${
+                    const cardClassName = `flex min-h-24 items-start gap-3 rounded-xl border p-3 text-left shadow-lg shadow-black/10 transition ${
                       module.featured
                         ? "border-emerald-400/50 bg-emerald-400/10 hover:border-emerald-300"
-                        : "border-zinc-800 bg-zinc-900 hover:border-zinc-500"
+                        : "border-zinc-800 bg-zinc-900/70 hover:border-zinc-500 hover:bg-zinc-900"
                     }`;
 
                     const content = (
@@ -761,7 +770,7 @@ export default function GestionPage() {
                             <span className="font-bold">
                               {module.title}
                             </span>
-                            <span className="rounded-full bg-black px-2 py-0.5 text-[10px] font-semibold uppercase text-zinc-500">
+                            <span className="rounded-full bg-zinc-950 px-2 py-0.5 text-[10px] font-semibold uppercase text-zinc-500 ring-1 ring-zinc-800">
                               {module.status}
                             </span>
                           </span>
@@ -856,24 +865,24 @@ export default function GestionPage() {
 
               <div className="rounded-2xl border border-zinc-800 bg-zinc-950 p-4">
                 <p className="text-xs font-semibold uppercase text-zinc-500">
-                  Orden recomendado
+                  Criterio operativo
                 </p>
                 <h2 className="mt-1 text-xl font-bold">
-                  Migracion de funciones
+                  Como usar Gestion
                 </h2>
 
                 <div className="mt-4 grid gap-2 text-sm text-zinc-400">
                   <p className="rounded-xl bg-zinc-900 px-3 py-2">
-                    1. Punto de venta separado
+                    Punto de venta: vender en mostrador sin cargar el panel.
                   </p>
                   <p className="rounded-xl bg-zinc-900 px-3 py-2">
-                    2. Ventas: pedidos web e historial
+                    Ventas: controlar pedidos web, locales y anuladas.
                   </p>
                   <p className="rounded-xl bg-zinc-900 px-3 py-2">
-                    3. Envios e inventario
+                    Inventario: revisar stock, costos y precios operativos.
                   </p>
                   <p className="rounded-xl bg-zinc-900 px-3 py-2">
-                    4. Caja y estadisticas
+                    Estadisticas: mirar resultados cuando haya mas historial.
                   </p>
                 </div>
               </div>

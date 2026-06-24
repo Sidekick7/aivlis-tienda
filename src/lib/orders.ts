@@ -9,6 +9,7 @@ import { normalizeProduct } from "@/lib/products";
 import { findVariantSize } from "@/lib/stock";
 import type {
   AdminOrder,
+  OrderFulfillmentStatus,
   OrderStatus,
   CreatedOrderTicket,
   CreateOrderTicketInput,
@@ -83,6 +84,10 @@ function normalizeOrder(
     customerEmail: row.customer_email,
     notes: row.notes,
     internalNotes: row.internal_notes,
+    fulfillmentStatus: row.fulfillment_status ?? "to_prepare",
+    shippingCarrier: row.shipping_carrier,
+    trackingNumber: row.tracking_number,
+    shippedAt: row.shipped_at,
     total: Number(row.total),
     whatsappMessage: row.whatsapp_message,
     createdAt: row.created_at,
@@ -389,6 +394,36 @@ export async function updateOrderInternalNotes(
     .from("orders")
     .update({
       internal_notes: internalNotes.trim() || null,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", orderId);
+
+  if (error) {
+    throw error;
+  }
+}
+
+export async function updateOrderFulfillment(
+  orderId: string,
+  {
+    fulfillmentStatus,
+    shippingCarrier,
+    trackingNumber,
+    shippedAt,
+  }: {
+    fulfillmentStatus: OrderFulfillmentStatus;
+    shippingCarrier: string;
+    trackingNumber: string;
+    shippedAt: string;
+  }
+) {
+  const { error } = await supabase
+    .from("orders")
+    .update({
+      fulfillment_status: fulfillmentStatus,
+      shipping_carrier: shippingCarrier.trim() || null,
+      tracking_number: trackingNumber.trim() || null,
+      shipped_at: shippedAt || null,
       updated_at: new Date().toISOString(),
     })
     .eq("id", orderId);

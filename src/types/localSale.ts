@@ -20,12 +20,13 @@ export type LocalSaleItemInput = {
 export type CreateLocalSaleInput = {
   saleNumber: string;
   paymentMethod: LocalSalePaymentMethod;
+  status?: LocalSaleStatus;
   total: number;
   internalNotes?: string;
   items: LocalSaleItemInput[];
 };
 
-export type LocalSaleStatus = "completed" | "cancelled";
+export type LocalSaleStatus = "completed" | "reserved" | "cancelled";
 
 export type LocalSaleItem = LocalSaleItemInput & {
   id: string;

@@ -53,7 +53,7 @@ const navItems = [
   },
   {
     title: "Envios",
-    href: "/gestion",
+    href: "/gestion/envios",
     icon: Truck,
   },
   {

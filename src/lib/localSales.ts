@@ -166,6 +166,7 @@ async function attachUnitCostsToLocalSaleItems(
 export async function createLocalSale({
   saleNumber,
   paymentMethod,
+  status = "completed",
   total,
   internalNotes,
   items,
@@ -183,6 +184,7 @@ export async function createLocalSale({
     .insert({
       sale_number: saleNumber,
       payment_method: paymentMethod,
+      status,
       total,
       internal_notes: internalNotes?.trim() || null,
     })

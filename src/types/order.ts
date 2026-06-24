@@ -30,6 +30,12 @@ export type OrderStatus =
   | "confirmed"
   | "cancelled";
 
+export type OrderFulfillmentStatus =
+  | "to_prepare"
+  | "prepared"
+  | "shipped"
+  | "delivered";
+
 export type AdminOrderItem = {
   id: string;
   productId?: number | null;
@@ -59,6 +65,10 @@ export type AdminOrder = {
   customerEmail?: string | null;
   notes?: string | null;
   internalNotes?: string | null;
+  fulfillmentStatus: OrderFulfillmentStatus;
+  shippingCarrier?: string | null;
+  trackingNumber?: string | null;
+  shippedAt?: string | null;
   total: number;
   whatsappMessage: string;
   createdAt: string;
@@ -95,6 +105,10 @@ export type SupabaseOrderRow = {
   customer_email?: string | null;
   notes?: string | null;
   internal_notes?: string | null;
+  fulfillment_status?: OrderFulfillmentStatus | null;
+  shipping_carrier?: string | null;
+  tracking_number?: string | null;
+  shipped_at?: string | null;
   total: number | string;
   whatsapp_message: string;
   created_at: string;
