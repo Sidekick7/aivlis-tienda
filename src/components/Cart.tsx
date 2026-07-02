@@ -22,6 +22,7 @@ import {
 
 type Props = {
   cart: CartItem[];
+  isOpen: boolean;
   isCartReady: boolean;
   deleteItem: (
     id: number,
@@ -33,6 +34,7 @@ type Props = {
 
 export default function Cart({
   cart,
+  isOpen,
   isCartReady,
   deleteItem,
   onClose,
@@ -42,11 +44,15 @@ export default function Cart({
 
   return (
     <div
-      className="fixed inset-0 z-[70] bg-black/65"
+      className={`fixed inset-0 z-[70] bg-black/65 transition-opacity duration-300 ease-out ${
+        isOpen ? "opacity-100" : "opacity-0"
+      }`}
       onClick={onClose}
     >
       <aside
-        className="ml-auto flex h-full w-full max-w-[360px] flex-col bg-white text-black shadow-2xl"
+        className={`ml-auto flex h-full w-full max-w-[360px] flex-col bg-white text-black shadow-2xl transition-transform duration-300 ease-out ${
+          isOpen ? "translate-x-0" : "translate-x-full"
+        }`}
         onClick={(event) => event.stopPropagation()}
       >
         <header className="flex h-[72px] shrink-0 items-center justify-between border-b border-zinc-200 px-5">

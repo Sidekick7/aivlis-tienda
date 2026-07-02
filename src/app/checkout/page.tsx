@@ -130,16 +130,18 @@ export default function CheckoutPage() {
 
   const total = getCartTotal(cart);
   const fulfillmentFee = getFulfillmentFee(fulfillmentOption);
+  const effectivePaymentMethod =
+    fulfillmentOption === "shipping" ? "transfer" : paymentMethod;
   const orderBaseTotal = total + fulfillmentFee;
   const paymentSurcharge =
-    paymentMethod === "transfer"
+    effectivePaymentMethod === "transfer"
       ? Math.round(orderBaseTotal * transferSurchargeRate)
       : 0;
   const finalTotal = orderBaseTotal + paymentSurcharge;
   const selectedPaymentLabel =
-    paymentMethod === "transfer"
+    effectivePaymentMethod === "transfer"
       ? "Transferencia"
-      : paymentMethod === "cash"
+      : effectivePaymentMethod === "cash"
         ? "Efectivo"
         : "";
   const selectedFulfillment = fulfillmentOption
@@ -162,7 +164,7 @@ export default function CheckoutPage() {
   const hasNoFulfillment =
     isCartReady && cart.length > 0 && !fulfillmentOption;
   const hasNoPayment =
-    isCartReady && cart.length > 0 && !paymentMethod;
+    isCartReady && cart.length > 0 && !effectivePaymentMethod;
   const isBelowMinimum =
     isCartReady &&
     cart.length > 0 &&
@@ -311,8 +313,12 @@ export default function CheckoutPage() {
       getFulfillmentFee(fulfillmentOption);
     const enrichedOrderBaseTotal =
       enrichedTotal + enrichedFulfillmentFee;
+    const enrichedPaymentMethod =
+      fulfillmentOption === "shipping"
+        ? "transfer"
+        : paymentMethod;
     const enrichedPaymentSurcharge =
-      paymentMethod === "transfer"
+      enrichedPaymentMethod === "transfer"
         ? Math.round(
             enrichedOrderBaseTotal * transferSurchargeRate
           )
@@ -717,7 +723,7 @@ export default function CheckoutPage() {
                             "pickup"
                           );
                         }}
-                        className="h-4 w-4 accent-black"
+                        className="h-4 w-4 accent-blue-600"
                       />
                     </label>
 
@@ -729,12 +735,13 @@ export default function CheckoutPage() {
                         checked={fulfillmentOption === "shipping"}
                         onChange={() => {
                           setFulfillmentOption("shipping");
+                          setPaymentMethod("transfer");
                           localStorage.setItem(
                             fulfillmentStorageKey,
                             "shipping"
                           );
                         }}
-                        className="h-4 w-4 accent-black"
+                        className="h-4 w-4 accent-blue-600"
                       />
                     </label>
                   </div>
@@ -743,59 +750,57 @@ export default function CheckoutPage() {
               </div>
               </div>
 
-              <div className="rounded-2xl bg-white p-4 text-sm">
-                <p className="mb-3 font-semibold text-zinc-950">
-                  Método de pago
-                </p>
-
-                <div className="grid gap-2 text-zinc-950">
-                  <label className="flex cursor-pointer items-center justify-between gap-2">
-                    <span>Efectivo</span>
-                    <input
-                      type="radio"
-                      name="checkout-payment"
-                      checked={paymentMethod === "cash"}
-                      onChange={() => setPaymentMethod("cash")}
-                      className="h-4 w-4 accent-black"
-                    />
-                  </label>
-
-                  <label className="flex cursor-pointer items-center justify-between gap-2">
-                    <span>Transferencia +5%</span>
-                    <input
-                      type="radio"
-                      name="checkout-payment"
-                      checked={paymentMethod === "transfer"}
-                      onChange={() => setPaymentMethod("transfer")}
-                      className="h-4 w-4 accent-black"
-                    />
-                  </label>
-                </div>
-              </div>
-
               <div className="rounded-2xl bg-white">
               <div className="divide-y divide-zinc-200 text-sm">
-
-                {paymentMethod === "transfer" && (
+                {selectedFulfillment && fulfillmentFee > 0 && (
                   <div className="flex items-center justify-between gap-4 py-4">
                     <span className="font-semibold text-zinc-950">
-                      Transferencia 5%
+                      Embalaje y Cadetería
                     </span>
                     <span className="font-semibold text-zinc-950">
-                      {formatPrice(paymentSurcharge)}
+                      {formatPrice(fulfillmentFee)}
                     </span>
                   </div>
                 )}
 
-                <div className="flex items-center justify-between gap-4 py-4">
+                <div className="grid gap-3 py-4 sm:grid-cols-[132px_minmax(0,1fr)]">
                   <span className="font-semibold text-zinc-950">
-                    Embalaje y Cadetería
+                    Método de pago
                   </span>
-                  <span className="font-semibold text-zinc-950">
-                    {selectedFulfillment
-                      ? formatPrice(fulfillmentFee)
-                      : "Elegir"}
-                  </span>
+
+                  <div className="grid gap-2 text-right text-zinc-950">
+                    {fulfillmentOption !== "shipping" && (
+                      <label className="flex cursor-pointer items-center justify-end gap-2">
+                        <span>Efectivo</span>
+                        <input
+                          type="radio"
+                          name="checkout-payment"
+                          checked={effectivePaymentMethod === "cash"}
+                          onChange={() => setPaymentMethod("cash")}
+                          className="h-4 w-4 accent-blue-600"
+                        />
+                      </label>
+                    )}
+
+                    <label className="flex cursor-pointer items-center justify-end gap-2">
+                      <span>
+                        Transferencia +5%
+                        {effectivePaymentMethod === "transfer" &&
+                          paymentSurcharge > 0 && (
+                            <span className="ml-2 font-semibold">
+                              {formatPrice(paymentSurcharge)}
+                            </span>
+                          )}
+                      </span>
+                      <input
+                        type="radio"
+                        name="checkout-payment"
+                        checked={effectivePaymentMethod === "transfer"}
+                        onChange={() => setPaymentMethod("transfer")}
+                        className="h-4 w-4 accent-blue-600"
+                      />
+                    </label>
+                  </div>
                 </div>
 
                 <div className="flex items-center justify-between gap-4 py-4">
