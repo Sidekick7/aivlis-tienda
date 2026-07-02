@@ -11,13 +11,12 @@ import {
   validateCartStock,
 } from "@/lib/order";
 import {
-  getCartItemUnits,
+  getCurveSizesFromVariant,
   isCurveProduct,
 } from "@/lib/curve";
 import {
   formatPrice,
   getCartItemSubtotal,
-  getCartItemUnitPrice,
   getCartPricing,
   wholesaleMinimum,
 } from "@/lib/pricing";
@@ -146,11 +145,16 @@ export default function CheckoutPage() {
   const selectedFulfillment = fulfillmentOption
     ? fulfillmentOptions[fulfillmentOption]
     : null;
-  const requiresShippingData = fulfillmentOption === "shipping";
   const cartPricing = getCartPricing(cart);
-  const requiredFields = requiresShippingData
-    ? [name, dni, whatsapp, address, city, province, zip]
-    : [name, dni, whatsapp];
+  const requiredFields = [
+    name,
+    dni,
+    whatsapp,
+    address,
+    city,
+    province,
+    zip,
+  ];
   const hasEmptyFields = requiredFields.some(
     (field) => !field.trim()
   );
@@ -330,10 +334,10 @@ export default function CheckoutPage() {
       name,
       dni,
       whatsapp,
-      address: requiresShippingData ? address : "",
-      city: requiresShippingData ? city : "",
-      province: requiresShippingData ? province : "",
-      zip: requiresShippingData ? zip : "",
+      address,
+      city,
+      province,
+      zip,
       email,
       notes: notes.trim(),
     };
@@ -425,17 +429,13 @@ export default function CheckoutPage() {
 
   return (
     <main className="home-main-offset min-h-screen bg-zinc-100 px-6 pb-16 text-black md:px-10">
-      <div className="mx-auto mt-4 max-w-3xl md:mt-6">
+      <div className="mx-auto mt-4 max-w-7xl md:mt-6">
         <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <h1 className="text-4xl font-bold">
               Finalizar pedido
             </h1>
 
-            <p className="mt-2 max-w-2xl text-sm leading-6 text-zinc-600">
-              Completa tus datos para generar el ticket y enviarlo por
-              WhatsApp. El pago se coordina afuera de la tienda.
-            </p>
           </div>
 
           <Link
@@ -446,7 +446,8 @@ export default function CheckoutPage() {
           </Link>
         </div>
 
-        <div className="flex flex-col gap-4 rounded-3xl border border-zinc-200 bg-white p-5 shadow-sm sm:p-6">
+        <div className="grid gap-6 lg:grid-cols-[minmax(0,620px)_430px] lg:justify-center lg:items-start">
+        <div className="mx-auto flex w-full max-w-[620px] flex-col gap-4 rounded-3xl border border-zinc-200 bg-white p-5 shadow-sm sm:p-6">
           <div>
             <p className={fieldLabelClass}>
               Nombre y apellido
@@ -492,90 +493,78 @@ export default function CheckoutPage() {
             />
           </div>
 
-          {fulfillmentOption === "pickup" && (
-            <div className="rounded-2xl bg-zinc-100 p-3 text-sm leading-5 text-zinc-600">
-              Para retiro presencial solo necesitamos nombre, DNI/CUIT y
-              WhatsApp. El retiro se coordina cuando el pedido este abonado
-              y armado.
-            </div>
-          )}
+          <div className="rounded-2xl bg-zinc-100 p-3 text-sm font-semibold text-zinc-700">
+            Datos de entrega
+          </div>
 
-          {requiresShippingData && (
-            <>
-              <div className="rounded-2xl bg-zinc-100 p-3 text-sm font-semibold text-zinc-700">
-                Datos para despacho
-              </div>
+          <div>
+            <p className={fieldLabelClass}>
+              Direccion calle y altura
+            </p>
 
-              <div>
-                <p className={fieldLabelClass}>
-                  Direccion calle y altura
-                </p>
+            <input
+              type="text"
+              value={address}
+              onChange={(e) => setAddress(e.target.value)}
+              className={getRequiredFieldClass(
+                showError && !address.trim()
+              )}
+            />
+          </div>
 
-                <input
-                  type="text"
-                  value={address}
-                  onChange={(e) => setAddress(e.target.value)}
-                  className={getRequiredFieldClass(
-                    showError && !address.trim()
-                  )}
-                />
-              </div>
+          <div>
+            <p className={fieldLabelClass}>
+              Localidad / Ciudad
+            </p>
 
-              <div>
-                <p className={fieldLabelClass}>
-                  Localidad / Ciudad
-                </p>
+            <input
+              type="text"
+              value={city}
+              onChange={(e) => setCity(e.target.value)}
+              className={getRequiredFieldClass(
+                showError && !city.trim()
+              )}
+            />
+          </div>
 
-                <input
-                  type="text"
-                  value={city}
-                  onChange={(e) => setCity(e.target.value)}
-                  className={getRequiredFieldClass(
-                    showError && !city.trim()
-                  )}
-                />
-              </div>
+          <div>
+            <p className={fieldLabelClass}>
+              Provincia
+            </p>
 
-              <div>
-                <p className={fieldLabelClass}>
-                  Provincia
-                </p>
+            <select
+              value={province}
+              onChange={(e) => setProvince(e.target.value)}
+              className={getRequiredFieldClass(
+                showError && !province.trim()
+              )}
+            >
+              <option value="">
+                Seleccionar provincia
+              </option>
 
-                <select
-                  value={province}
-                  onChange={(e) => setProvince(e.target.value)}
-                  className={getRequiredFieldClass(
-                    showError && !province.trim()
-                  )}
-                >
-                  <option value="">
-                    Seleccionar provincia
-                  </option>
+              {provinces.map((provinceName) => (
+                <option key={provinceName}>
+                  {provinceName}
+                </option>
+              ))}
+            </select>
+          </div>
 
-                  {provinces.map((provinceName) => (
-                    <option key={provinceName}>
-                      {provinceName}
-                    </option>
-                  ))}
-                </select>
-              </div>
+          <div>
+            <p className={fieldLabelClass}>
+              Codigo Postal / ZIP
+            </p>
 
-              <div>
-                <p className={fieldLabelClass}>
-                  Codigo Postal / ZIP
-                </p>
-
-                <input
-                  type="text"
-                  value={zip}
-                  onChange={(e) => setZip(e.target.value)}
-                  className={getRequiredFieldClass(
-                    showError && !zip.trim()
-                  )}
-                />
-              </div>
-            </>
-          )}
+            <input
+              type="text"
+              value={zip}
+              onChange={(e) => setZip(e.target.value)}
+              className={getRequiredFieldClass(
+                showError && !zip.trim()
+              )}
+            />
+          </div>
 
           <div>
             <p className={fieldLabelClass}>
@@ -614,8 +603,21 @@ export default function CheckoutPage() {
             Recordar mis datos para próximos pedidos
           </label>
 
-          <div className="mt-2 rounded-3xl border border-zinc-200 bg-zinc-50 p-4">
+        </div>
+
+          <aside className="sticky top-28 mx-auto w-full max-w-[430px] rounded-3xl border border-zinc-200 bg-white p-5 shadow-sm">
+            <h2 className="mb-4 text-2xl font-bold">
+              Mi pedido
+            </h2>
+
             <div className="mb-4 flex flex-col gap-3">
+              {isCartReady && cart.length > 0 && (
+                <div className="grid grid-cols-[minmax(0,1fr)_96px] gap-4 border-b border-zinc-300 pb-2 text-xs font-bold uppercase tracking-wide text-zinc-500">
+                  <span>Producto</span>
+                  <span className="text-right">Subtotal</span>
+                </div>
+              )}
+
               {!isCartReady && (
                 <p className="text-zinc-500 text-sm">
                   Cargando carrito...
@@ -630,7 +632,12 @@ export default function CheckoutPage() {
 
               {isCartReady && cart.map((item) => {
                 const isCurveItem = isCurveProduct(item);
-                const itemUnits = getCartItemUnits(item);
+                const selectedVariant = item.variants?.find(
+                  (variant) => variant.color === item.selectedColor
+                );
+                const curveSizes = isCurveItem
+                  ? getCurveSizesFromVariant(selectedVariant)
+                  : [];
 
                 return (
                   <div
@@ -639,24 +646,29 @@ export default function CheckoutPage() {
                   >
                     <div>
                       <p className="font-medium text-black">
-                        {getCartItemLabel(item)}
+                        {isCurveItem
+                          ? `${item.name} (CURVA)`
+                          : getCartItemLabel(item)}
                       </p>
 
-                      <div className="mt-1 text-zinc-500">
-                        <span>
-                          {isCurveItem
-                            ? `${item.quantity} ${
-                                item.quantity === 1 ? "curva" : "curvas"
-                              } (${itemUnits} prendas) x `
-                            : `${item.quantity} x `}
-                          {formatPrice(
-                            getCartItemUnitPrice(
-                              item,
-                              cartPricing.isWholesale
-                            )
-                          )}
-                        </span>
-                      </div>
+                      {isCurveItem && item.selectedColor && (
+                        <p className="mt-1 text-xs font-semibold uppercase text-zinc-500">
+                          {item.selectedColor}
+                        </p>
+                      )}
+
+                      {isCurveItem && curveSizes.length > 0 && (
+                        <div className="mt-2 grid w-fit gap-1 text-xs font-semibold text-zinc-700">
+                          {curveSizes.map((size) => (
+                            <span
+                              key={size}
+                              className="whitespace-nowrap rounded-full border border-zinc-200 bg-white px-2.5 py-1"
+                            >
+                              Talle {size} x {item.quantity}
+                            </span>
+                          ))}
+                        </div>
+                      )}
                     </div>
 
                     <div className="text-right">
@@ -674,136 +686,127 @@ export default function CheckoutPage() {
               })}
             </div>
 
-            <p
-              className={`mb-3 rounded-2xl p-3 text-sm leading-5 ${
-                cartPricing.meetsWholesaleMinimum
-                  ? "bg-green-500/10 text-green-700"
-                  : "bg-yellow-500/10 text-yellow-800"
-              }`}
-            >
-              {cartPricing.meetsWholesaleMinimum
-                ? "Minimo de compra alcanzado."
-                : `Faltan ${formatPrice(cartPricing.remainingForWholesale)} para alcanzar el minimo de compra de ${formatPrice(wholesaleMinimum)}.`}
-
-
-            </p>
-
-            <p className="mb-3 rounded-2xl bg-white p-3 text-sm leading-5 text-zinc-600">
-              No pagas online. Este paso crea el pedido, reserva el
-              stock y abre WhatsApp para confirmar los datos.
-            </p>
-
-            {selectedFulfillment ? (
-              <div className="mb-3 rounded-2xl bg-white p-3 text-sm leading-5 text-zinc-600">
-                <div className="flex items-center justify-between gap-4">
-                  <span className="font-semibold text-zinc-900">
-                    {fulfillmentOption === "pickup"
-                      ? "Retiro presencial"
-                      : "Despacho a transporte, correo, expreso"}
+            <div className="space-y-3">
+              <div className="rounded-2xl bg-white">
+              <div className="divide-y divide-zinc-200 text-sm">
+                <div className="flex items-center justify-between gap-4 py-4">
+                  <span className="font-semibold text-zinc-950">
+                    Subtotal
                   </span>
-                  <span className="font-semibold text-zinc-900">
-                    {formatPrice(fulfillmentFee)}
-                  </span>
-                </div>
-
-                <p className="mt-2">
-                  {fulfillmentOption === "pickup"
-                    ? "Yerbal 3160, Flores. Se retira una vez confirmado el pedido abonado y armado."
-                    : "Costo de entrega a logistica y embalaje. El envio final queda a cargo del cliente segun peso y distancia."}
-                </p>
-
-                <Link
-                  href="/cart"
-                  className="mt-2 inline-flex h-9 items-center rounded-full bg-zinc-100 px-4 text-sm font-semibold text-zinc-700 transition hover:bg-zinc-200"
-                >
-                  Cambiar entrega
-                </Link>
-              </div>
-            ) : (
-              <div className="mb-3 rounded-2xl border border-amber-200 bg-amber-50 p-3 text-sm leading-5 text-amber-800">
-                Elegi una opcion de entrega desde el carrito antes de finalizar.
-
-                <Link
-                  href="/cart"
-                  className="mt-2 inline-flex h-9 items-center rounded-full bg-black px-4 text-sm font-semibold text-white transition hover:bg-zinc-800"
-                >
-                  Elegir entrega
-                </Link>
-              </div>
-            )}
-
-            <div className="mb-3 rounded-2xl bg-white p-3">
-              <div className="mb-3 flex items-center justify-between gap-4">
-                <div>
-                  <p className="text-sm font-bold text-zinc-900">
-                    Forma de pago
-                  </p>
-                  <p className="text-xs text-zinc-500">
-                    La transferencia agrega 5% al total del pedido.
-                  </p>
-                </div>
-              </div>
-
-              <div className="grid gap-2 sm:grid-cols-2">
-                <button
-                  type="button"
-                  onClick={() => setPaymentMethod("cash")}
-                  className={`h-12 rounded-2xl border px-4 text-sm font-bold transition ${
-                    paymentMethod === "cash"
-                      ? "border-black bg-black text-white"
-                      : "border-zinc-200 bg-white text-zinc-700 hover:border-zinc-400"
-                  }`}
-                >
-                  Efectivo
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setPaymentMethod("transfer")}
-                  className={`h-12 rounded-2xl border px-4 text-sm font-bold transition ${
-                    paymentMethod === "transfer"
-                      ? "border-black bg-black text-white"
-                      : "border-zinc-200 bg-white text-zinc-700 hover:border-zinc-400"
-                  }`}
-                >
-                  Transferencia +5%
-                </button>
-              </div>
-            </div>
-
-            <div className="rounded-2xl bg-white p-3">
-              <div className="space-y-2 text-sm text-zinc-600">
-                <div className="flex items-center justify-between gap-4">
-                  <span>Subtotal productos</span>
-                  <span className="font-semibold text-zinc-900">
+                  <span className="font-semibold text-zinc-950">
                     {formatPrice(total)}
                   </span>
                 </div>
 
-                <div className="flex items-center justify-between gap-4">
-                  <span>Entrega / logistica</span>
-                  <span className="font-semibold text-zinc-900">
-                    {formatPrice(fulfillmentFee)}
+                <div className="grid gap-3 py-4 sm:grid-cols-[96px_minmax(0,1fr)]">
+                  <span className="font-semibold text-zinc-950">
+                    Envío
                   </span>
+
+                  <div className="grid gap-2 text-right text-zinc-950">
+                    <label className="flex cursor-pointer items-center justify-end gap-2">
+                      <span>Retiro por Local</span>
+                      <input
+                        type="radio"
+                        name="checkout-fulfillment"
+                        checked={fulfillmentOption === "pickup"}
+                        onChange={() => {
+                          setFulfillmentOption("pickup");
+                          localStorage.setItem(
+                            fulfillmentStorageKey,
+                            "pickup"
+                          );
+                        }}
+                        className="h-4 w-4 accent-black"
+                      />
+                    </label>
+
+                    <label className="flex cursor-pointer items-center justify-end gap-2">
+                      <span>Aclarar empresa o transporte en notas</span>
+                      <input
+                        type="radio"
+                        name="checkout-fulfillment"
+                        checked={fulfillmentOption === "shipping"}
+                        onChange={() => {
+                          setFulfillmentOption("shipping");
+                          localStorage.setItem(
+                            fulfillmentStorageKey,
+                            "shipping"
+                          );
+                        }}
+                        className="h-4 w-4 accent-black"
+                      />
+                    </label>
+                  </div>
                 </div>
 
+              </div>
+              </div>
+
+              <div className="rounded-2xl bg-white p-4 text-sm">
+                <p className="mb-3 font-semibold text-zinc-950">
+                  Método de pago
+                </p>
+
+                <div className="grid gap-2 text-zinc-950">
+                  <label className="flex cursor-pointer items-center justify-between gap-2">
+                    <span>Efectivo</span>
+                    <input
+                      type="radio"
+                      name="checkout-payment"
+                      checked={paymentMethod === "cash"}
+                      onChange={() => setPaymentMethod("cash")}
+                      className="h-4 w-4 accent-black"
+                    />
+                  </label>
+
+                  <label className="flex cursor-pointer items-center justify-between gap-2">
+                    <span>Transferencia +5%</span>
+                    <input
+                      type="radio"
+                      name="checkout-payment"
+                      checked={paymentMethod === "transfer"}
+                      onChange={() => setPaymentMethod("transfer")}
+                      className="h-4 w-4 accent-black"
+                    />
+                  </label>
+                </div>
+              </div>
+
+              <div className="rounded-2xl bg-white">
+              <div className="divide-y divide-zinc-200 text-sm">
+
                 {paymentMethod === "transfer" && (
-                  <div className="flex items-center justify-between gap-4">
-                    <span>Recargo transferencia 5%</span>
-                    <span className="font-semibold text-zinc-900">
+                  <div className="flex items-center justify-between gap-4 py-4">
+                    <span className="font-semibold text-zinc-950">
+                      Transferencia 5%
+                    </span>
+                    <span className="font-semibold text-zinc-950">
                       {formatPrice(paymentSurcharge)}
                     </span>
                   </div>
                 )}
-              </div>
 
-              <div className="mt-3 flex items-center justify-between gap-4 border-t border-zinc-200 pt-3">
-                <span className="text-sm font-black uppercase tracking-wide text-zinc-500">
-                  Total
-                </span>
-                <span className="text-2xl font-black text-black">
-                  {formatPrice(finalTotal)}
-                </span>
+                <div className="flex items-center justify-between gap-4 py-4">
+                  <span className="font-semibold text-zinc-950">
+                    Embalaje y Cadetería
+                  </span>
+                  <span className="font-semibold text-zinc-950">
+                    {selectedFulfillment
+                      ? formatPrice(fulfillmentFee)
+                      : "Elegir"}
+                  </span>
+                </div>
+
+                <div className="flex items-center justify-between gap-4 py-4">
+                  <span className="font-semibold text-zinc-950">
+                    Total
+                  </span>
+                  <span className="text-xl font-semibold text-zinc-950">
+                    {formatPrice(finalTotal)}
+                  </span>
+                </div>
+              </div>
               </div>
             </div>
 
@@ -877,6 +880,7 @@ export default function CheckoutPage() {
               disabled={
                 hasNoProducts ||
                 hasNoFulfillment ||
+                hasNoPayment ||
                 isBelowMinimum ||
                 !isCartReady ||
                 isSubmitting ||
@@ -894,7 +898,7 @@ export default function CheckoutPage() {
                     ? "Validando stock..."
                   : "Enviar pedido por WhatsApp"}
             </button>
-          </div>
+          </aside>
         </div>
       </div>
     </main>

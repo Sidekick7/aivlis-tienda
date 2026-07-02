@@ -11,6 +11,13 @@ function toStringArray(value: unknown): string[] {
     : [];
 }
 
+function normalizeCatalogText(value: string) {
+  return value
+    .replaceAll("TIENDA", "CATALOGO")
+    .replaceAll("Tienda", "Catalogo")
+    .replaceAll("tienda", "catalogo");
+}
+
 export const fallbackHomeContent: HomeContent = {
   heroImages: editorialImages,
   trustItems: [
@@ -19,9 +26,9 @@ export const fallbackHomeContent: HomeContent = {
     "Stock por talle y color",
     "Pedido por WhatsApp",
   ],
-  storeTitle: "TIENDA",
+  storeTitle: "CATALOGO",
   storeDescription: "",
-  storeButtonLabel: "Ir a tienda",
+  storeButtonLabel: "Ir a catalogo",
   featuredEyebrow: "Seleccion",
   featuredTitle: "Destacados",
   categoryEyebrow: "Accesos rapidos",
@@ -35,14 +42,18 @@ function normalizeHomeContent(
   return {
     heroImages: toStringArray(row.hero_images),
     trustItems: toStringArray(row.trust_items),
-    storeTitle:
-      row.store_title ?? fallbackHomeContent.storeTitle,
+    storeTitle: normalizeCatalogText(
+      row.store_title ?? fallbackHomeContent.storeTitle
+    ),
     storeDescription:
-      row.store_description ??
-      fallbackHomeContent.storeDescription,
-    storeButtonLabel:
+      normalizeCatalogText(
+        row.store_description ??
+          fallbackHomeContent.storeDescription
+      ),
+    storeButtonLabel: normalizeCatalogText(
       row.store_button_label ??
-      fallbackHomeContent.storeButtonLabel,
+        fallbackHomeContent.storeButtonLabel
+    ),
     featuredEyebrow:
       row.featured_eyebrow ??
       fallbackHomeContent.featuredEyebrow,

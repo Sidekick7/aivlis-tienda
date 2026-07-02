@@ -158,20 +158,7 @@ export default function Home() {
         )}
       </section>
 
-      <section className="px-6 pb-1 pt-2 md:px-10">
-        <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-center gap-x-5 gap-y-2 border-y border-zinc-200 py-2">
-          {homeContent.trustItems.map((item) => (
-            <p
-              key={item}
-              className="text-center text-xs font-semibold uppercase tracking-wide text-zinc-500"
-            >
-              {item}
-            </p>
-          ))}
-        </div>
-      </section>
-
-      <section className="px-6 py-6 md:px-10">
+      <section className="px-6 py-4 md:px-10">
         <div className="mx-auto flex max-w-7xl flex-col items-center text-center">
           <Link
             href="/tienda"

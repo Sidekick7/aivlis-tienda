@@ -698,8 +698,8 @@ const toggleActiveProduct = async (product: Product) => {
     setAdminNotice({
       type: "success",
       message: product.active
-        ? "Producto ocultado de la tienda."
-        : "Producto publicado en la tienda.",
+        ? "Producto ocultado del catalogo."
+        : "Producto publicado en el catalogo.",
     });
   } catch (error) {
     setAdminNotice({
@@ -854,7 +854,7 @@ if (!session) {
         </h1>
 
         <p className="text-zinc-400 mt-3">
-          Entra con tu email y contraseña para administrar la tienda.
+          Entra con tu email y contraseña para administrar el catalogo.
         </p>
 
         <input
@@ -956,7 +956,7 @@ if (!session) {
                 </p>
 
                 <p className="mt-1 text-xs text-zinc-500">
-                  Vas a tener que volver a entrar para administrar la tienda.
+                  Vas a tener que volver a entrar para administrar el catalogo.
                 </p>
 
                 <div className="mt-4 flex gap-2">

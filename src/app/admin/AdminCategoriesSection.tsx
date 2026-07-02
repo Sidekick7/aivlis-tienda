@@ -103,7 +103,7 @@ export default function AdminCategoriesSection({
       <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div>
           <h2 className="text-3xl font-bold">
-            Categorias de tienda
+            Categorias de catalogo
           </h2>
 
           <p className="mt-2 text-zinc-400">

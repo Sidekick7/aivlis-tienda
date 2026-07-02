@@ -859,7 +859,7 @@ export default function GestionVentasPage() {
               className="flex h-11 items-center gap-3 rounded-xl bg-zinc-900 px-3 text-sm font-semibold text-zinc-300 transition hover:bg-zinc-800"
             >
               <Settings size={18} />
-              Admin tienda
+              Admin catalogo
             </Link>
 
             <button

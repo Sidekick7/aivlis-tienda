@@ -61,7 +61,7 @@ function ShopPageContent() {
         setProducts(loadedProducts);
         setCategories(loadedCategories);
       } catch {
-        setProductsError("No se pudo cargar la tienda.");
+        setProductsError("No se pudo cargar el catalogo.");
       } finally {
         setIsProductsLoading(false);
       }
@@ -102,7 +102,7 @@ function ShopPageContent() {
           <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div>
               <h1 className="text-3xl font-bold md:text-4xl">
-                Tienda
+                Catalogo
               </h1>
             </div>
 
@@ -205,7 +205,7 @@ function ShopPageContent() {
             {!isProductsLoading && productsError && (
               <div className="col-span-full rounded-lg border border-zinc-200 bg-white p-8 text-center">
                 <p className="text-lg font-semibold">
-                  No pudimos cargar la tienda.
+                  No pudimos cargar el catalogo.
                 </p>
 
                 <p className="mt-2 text-sm text-zinc-500">

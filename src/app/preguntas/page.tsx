@@ -94,7 +94,7 @@ export default function QuestionsPage() {
             </h2>
 
             <p className="mt-2 text-sm leading-6 text-zinc-600">
-              Podes escribirnos por WhatsApp o mirar la tienda para armar tu
+              Podes escribirnos por WhatsApp o mirar el catalogo para armar tu
               pedido.
             </p>
           </div>
@@ -111,7 +111,7 @@ export default function QuestionsPage() {
               href="/tienda"
               className="inline-flex h-11 items-center justify-center rounded-full bg-black px-5 text-sm font-semibold text-white transition hover:bg-zinc-800"
             >
-              Ver tienda
+              Ver catalogo
             </Link>
           </div>
         </div>

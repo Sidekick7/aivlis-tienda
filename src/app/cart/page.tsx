@@ -8,6 +8,7 @@ import {
 } from "@/lib/order";
 import {
   getCartItemUnits,
+  getCurveSizesFromVariant,
   getCurveStockLimit,
   isCurveProduct,
 } from "@/lib/curve";
@@ -22,17 +23,7 @@ import { getProductsByIds } from "@/lib/products";
 import { getVariantSizeStock } from "@/lib/stock";
 import { useEffect, useMemo, useState } from "react";
 import {
-  fulfillmentOptions,
-  fulfillmentStorageKey,
-  getFulfillmentFee,
-  isFulfillmentOption,
-  type FulfillmentOption,
-} from "@/lib/fulfillment";
-import {
-  ArrowLeft,
-  MapPin,
   Minus,
-  Package,
   Plus,
   ShoppingBag,
   Trash2,
@@ -52,18 +43,12 @@ const {
 } = useCart();
 
   const total = getCartTotal(cart);
-  const [fulfillmentOption, setFulfillmentOption] =
-    useState<FulfillmentOption | "">("");
-  const fulfillmentFee = getFulfillmentFee(fulfillmentOption);
-  const finalTotal = total + fulfillmentFee;
+  const transferSurcharge = Math.round(total * 0.05);
+  const finalTotal = total + transferSurcharge;
   const cartPricing = getCartPricing(cart);
   const wholesaleProgress = Math.min(
     (cartPricing.wholesaleSubtotal / wholesaleMinimum) * 100,
     100
-  );
-  const totalUnits = cart.reduce(
-    (quantity, item) => quantity + getCartItemUnits(item),
-    0
   );
   const [currentProducts, setCurrentProducts] = useState<Product[]>([]);
   const [isCheckingStock, setIsCheckingStock] = useState(false);
@@ -78,30 +63,10 @@ const {
       ),
     [currentProducts]
   );
-  const isFulfillmentMissing =
-    isCartReady && cart.length > 0 && !fulfillmentOption;
   const isCheckoutBlocked =
     isCheckingStock ||
     Boolean(stockError) ||
-    isFulfillmentMissing ||
     !cartPricing.meetsWholesaleMinimum;
-
-  useEffect(() => {
-    queueMicrotask(() => {
-      const savedFulfillment = localStorage.getItem(
-        fulfillmentStorageKey
-      );
-
-      if (isFulfillmentOption(savedFulfillment)) {
-        setFulfillmentOption(savedFulfillment);
-      }
-    });
-  }, []);
-
-  const handleFulfillmentChange = (option: FulfillmentOption) => {
-    setFulfillmentOption(option);
-    localStorage.setItem(fulfillmentStorageKey, option);
-  };
 
   useEffect(() => {
     let isCurrent = true;
@@ -158,33 +123,7 @@ const {
 
     <main className="home-main-offset min-h-screen bg-zinc-100 px-6 pb-20 text-black">
 
-      <div className="mx-auto mt-3 max-w-7xl md:mt-5">
-
-      <div className="mb-8 flex flex-col gap-4 rounded-3xl bg-white p-5 shadow-sm sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <div className="flex items-center gap-3">
-            <span className="flex h-11 w-11 items-center justify-center rounded-full bg-zinc-100">
-              <ShoppingBag size={20} />
-            </span>
-
-            <h1 className="text-4xl font-bold">
-              Carrito
-            </h1>
-          </div>
-
-          <p className="mt-2 text-sm text-zinc-600">
-            Revisa productos, cantidades y precio aplicado antes de finalizar.
-          </p>
-        </div>
-
-        <Link
-          href="/tienda"
-          className="inline-flex h-12 w-fit items-center gap-2 rounded-full bg-black px-6 text-sm font-semibold text-white shadow-lg shadow-black/15 transition hover:bg-zinc-800"
-        >
-          <ArrowLeft size={18} />
-          Seguir comprando
-        </Link>
-      </div>
+      <div className="mx-auto mt-6 max-w-7xl md:mt-8">
 
       <div className="grid grid-cols-1 lg:grid-cols-[1fr_380px] gap-10 items-start">
       <div className="flex flex-col gap-5">
@@ -229,15 +168,15 @@ const {
 
         )}
         
-        <div className="hidden grid-cols-[1.8fr_.5fr_.7fr_.7fr_.2fr] gap-6 px-4 text-xs font-semibold uppercase tracking-wide text-zinc-500 lg:grid">
+        <div className="hidden grid-cols-[minmax(320px,1fr)_120px_120px_120px_48px] items-center rounded-2xl border border-zinc-200 bg-white px-5 py-3 text-xs font-bold uppercase tracking-wide text-zinc-500 shadow-sm lg:grid">
 
-            <p>Producto</p>
+            <p className="text-left">Producto</p>
 
-            <p>Precio</p>
+            <p className="text-center">Precio</p>
 
-            <p>Cantidad</p>
+            <p className="text-center">Cantidad</p>
 
-            <p>Subtotal</p>
+            <p className="text-center">Subtotal</p>
 
             <div />
 
@@ -255,11 +194,15 @@ const {
             cartPricing.isWholesale
           );
           const currentProduct = currentProductsById.get(item.id);
+          const selectedVariant = (
+            currentProduct?.variants ?? item.variants
+          )?.find((variant) => variant.color === item.selectedColor);
+          const curveSizes = isCurveItem
+            ? getCurveSizesFromVariant(selectedVariant)
+            : [];
           const stockLimit = isCurveItem
             ? getCurveStockLimit({
-                variant: (currentProduct?.variants ?? item.variants)?.find(
-                  (variant) => variant.color === item.selectedColor
-                ),
+                variant: selectedVariant,
               })
             : getVariantSizeStock({
                 variants: currentProduct?.variants ?? item.variants,
@@ -276,10 +219,11 @@ const {
 
           <div
             key={`${item.id}-${item.selectedColor}-${item.size}`}
-            className="relative grid grid-cols-1 items-center gap-4 rounded-3xl border border-zinc-200 bg-white p-4 shadow-sm transition hover:shadow-md lg:grid-cols-[1.8fr_.5fr_.7fr_.7fr_.2fr] lg:gap-6"
+            className="relative grid grid-cols-1 items-center gap-4 rounded-3xl border border-zinc-200 bg-white p-4 shadow-sm transition hover:shadow-md lg:grid-cols-[minmax(320px,1fr)_120px_120px_120px_48px] lg:gap-0 lg:px-5"
           >
 
-            <div className="flex gap-4 items-center">
+            <div className="flex flex-col gap-3">
+              <div className="flex items-center gap-4">
 
                 <Image
                     src={
@@ -290,13 +234,19 @@ const {
                     alt={item.name}
                     width={112}
                     height={112}
-                    className="h-24 w-24 rounded-2xl bg-zinc-100 object-cover sm:h-28 sm:w-28"
+                    className="h-24 w-24 shrink-0 rounded-2xl bg-zinc-100 object-cover sm:h-28 sm:w-28 lg:h-24 lg:w-24"
                 />
 
-                <div>
+                <div className="min-w-0">
 
-                    <h2 className="text-lg font-semibold">
-                      {item.name}
+                    <h2 className="line-clamp-2 text-lg font-semibold leading-tight text-zinc-950">
+                      <Link
+                        href={`/product/${item.slug}`}
+                        className="cursor-pointer transition hover:text-zinc-600 hover:underline"
+                      >
+                        {item.name}
+                        {isCurveItem ? " (CURVA)" : ""}
+                      </Link>
                     </h2>
 
                     <div className="mt-2 flex flex-wrap gap-2 text-xs font-semibold text-zinc-600">
@@ -306,9 +256,9 @@ const {
                         </span>
                       )}
 
-                      {item.size && (
+                      {!isCurveItem && item.size && (
                         <span className="rounded-full bg-zinc-100 px-3 py-1">
-                          {isCurveItem ? item.size : `Talle ${item.size}`}
+                          Talle {item.size}
                         </span>
                       )}
 
@@ -320,26 +270,44 @@ const {
                     </div>
 
                 </div>
+              </div>
 
-
+              {isCurveItem && curveSizes.length > 0 && (
+                <div className="grid w-fit gap-1 rounded-2xl bg-zinc-50 px-3 py-2 text-xs font-semibold text-zinc-700">
+                  {curveSizes.map((size) => (
+                    <span
+                      key={size}
+                      className="whitespace-nowrap rounded-full border border-zinc-200 bg-white px-2.5 py-1"
+                    >
+                      Talle {size} x {item.quantity}
+                    </span>
+                  ))}
+                </div>
+              )}
             </div>
 
-            <div className="flex items-center justify-between gap-3 lg:block">
+            <div className="flex items-center justify-between gap-3 rounded-2xl bg-zinc-50 px-3 py-3 lg:justify-center lg:bg-transparent lg:px-0 lg:py-0">
               <span className="text-sm font-semibold uppercase text-zinc-500 lg:hidden">
                 Precio
               </span>
 
-              <div className="lg:min-h-[54px]">
-                <p className="text-lg font-semibold">
+              <div className="text-right lg:text-center">
+                <p className="text-lg font-bold text-zinc-950">
                   {formatPrice(unitPrice)}
+                </p>
+                <p className="mt-0.5 text-xs font-medium text-zinc-500">
+                  {isCurveItem ? "por prenda" : "unitario"}
                 </p>
               </div>
 
             </div>
 
-            <div>
+            <div className="flex items-center justify-between gap-3 lg:flex-col lg:justify-center">
+              <span className="text-sm font-semibold uppercase text-zinc-500 lg:hidden">
+                Cantidad
+              </span>
 
-              <div className="flex w-fit items-center gap-3 rounded-2xl border border-zinc-200 bg-zinc-50 px-2 py-2">
+              <div className="flex w-fit items-center gap-1 rounded-xl border border-zinc-300 bg-white p-1 shadow-sm">
 
                 <button
                     type="button"
@@ -350,12 +318,12 @@ const {
                         item.selectedColor
                       )
                     }
-                    className="flex h-9 w-9 items-center justify-center rounded-xl text-zinc-500 transition hover:bg-white hover:text-black cursor-pointer"
+                    className="flex h-8 w-8 items-center justify-center rounded-lg border border-zinc-900 bg-white text-zinc-950 transition hover:bg-zinc-100 cursor-pointer"
                 >
                     <Minus size={16} />
                 </button>
 
-                <span className="min-w-6 text-center font-semibold">
+                <span className="min-w-6 text-center text-base font-bold">
                 {item.quantity}
                 </span>
 
@@ -369,7 +337,7 @@ const {
                       )
                     }
                     disabled={!canIncrease}
-                    className="flex h-9 w-9 items-center justify-center rounded-xl text-zinc-500 transition hover:bg-white hover:text-black cursor-pointer disabled:cursor-not-allowed disabled:opacity-40"
+                    className="flex h-8 w-8 items-center justify-center rounded-lg border border-zinc-900 bg-white text-zinc-950 transition hover:bg-zinc-100 cursor-pointer disabled:cursor-not-allowed disabled:border-zinc-300 disabled:text-zinc-400"
                 >
                     <Plus size={16} />
                 </button>
@@ -377,7 +345,7 @@ const {
               </div>
 
               {!canIncrease && (
-                <p className="mt-2 text-xs text-zinc-500">
+                <p className="text-right text-xs text-zinc-500 lg:text-center">
                   {stockLimit > 0
                     ? isCurveItem
                       ? "Curvas maximas en carrito"
@@ -388,15 +356,20 @@ const {
 
             </div>
 
-            <div className="flex items-center justify-between gap-3 lg:block">
+            <div className="flex items-center justify-between gap-3 rounded-2xl bg-zinc-50 px-3 py-3 lg:justify-center lg:bg-transparent lg:px-0 lg:py-0">
               <span className="text-sm font-semibold uppercase text-zinc-500 lg:hidden">
                 Subtotal
               </span>
 
-              <div>
-                <p className="text-lg font-semibold">
+              <div className="text-right lg:text-center">
+                <p className="text-xl font-bold text-zinc-950">
                   {formatPrice(itemSubtotal)}
                 </p>
+                {isCurveItem && (
+                  <p className="mt-0.5 text-xs font-medium text-zinc-500">
+                    {itemUnits} prendas
+                  </p>
+                )}
               </div>
 
             </div>
@@ -412,7 +385,7 @@ const {
                   item.selectedColor
                 )
               }
-              className="flex h-11 w-11 items-center justify-center rounded-full bg-red-50 text-red-500 transition hover:bg-red-100 hover:text-red-700 cursor-pointer"
+              className="ml-auto flex h-11 w-11 items-center justify-center rounded-full bg-red-50 text-red-500 transition hover:bg-red-100 hover:text-red-700 cursor-pointer lg:mx-auto"
             >
               <Trash2 size={18} />
             </button>
@@ -427,181 +400,72 @@ const {
 
         <div className="sticky top-28 h-fit rounded-3xl border border-zinc-200 bg-white p-4 shadow-lg shadow-black/5 sm:p-5">
 
-            <div className="mb-4 flex items-center justify-between gap-4">
+            <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
               <h2 className="text-2xl font-bold">
                 Resumen
               </h2>
 
-            </div>
+              <div
+                className={`min-w-[210px] rounded-2xl px-4 py-2.5 text-sm font-semibold ${
+                  cartPricing.meetsWholesaleMinimum
+                    ? "bg-emerald-50 text-emerald-700"
+                    : "bg-amber-50 text-amber-800"
+                }`}
+              >
+                <div className="mb-1 flex items-center justify-between gap-3">
+                  <span>Min. {formatPrice(wholesaleMinimum)}</span>
+                  <span>
+                    {cartPricing.meetsWholesaleMinimum ? "OK" : "Falta"}
+                  </span>
+                </div>
 
-            <div className="mb-3 flex items-center justify-between text-sm text-zinc-600">
-            <span>Productos</span>
-            <span>
-              {cart.length} items / {totalUnits} unidades
-            </span>
-            </div>
-
-            <div className="mb-4 rounded-2xl bg-zinc-50 p-3">
-              <div className="flex items-center justify-between">
-                <span className="text-sm font-semibold text-zinc-700">
-                  Subtotal productos
+                <span className="block h-2 overflow-hidden rounded-full bg-white">
+                  <span
+                    className={`block h-full rounded-full ${
+                      cartPricing.meetsWholesaleMinimum
+                        ? "bg-emerald-500"
+                        : "bg-amber-500"
+                    }`}
+                    style={{
+                      width: `${wholesaleProgress}%`,
+                    }}
+                  />
                 </span>
-                <span className="text-xl font-bold text-zinc-950">
+              </div>
+
+            </div>
+
+            <div className="mb-5 divide-y divide-zinc-200">
+              <div className="flex items-center justify-between gap-4 py-4">
+                <span className="text-base font-semibold text-zinc-900">
+                  Subtotal
+                </span>
+
+                <span className="text-base font-medium text-zinc-950">
                   {formatPrice(cartPricing.wholesaleSubtotal)}
                 </span>
               </div>
-            </div>
 
-            <div className="mb-4 rounded-2xl border border-zinc-200 bg-zinc-50 p-3">
-              <p className="mb-2 text-sm font-semibold text-zinc-900">
-                Entrega
-              </p>
-
-              <div className="grid gap-2">
-                <button
-                  type="button"
-                  onClick={() => handleFulfillmentChange("pickup")}
-                  className={`flex items-center justify-between gap-3 rounded-2xl border p-3 text-left transition cursor-pointer ${
-                    fulfillmentOption === "pickup"
-                      ? "border-black bg-white"
-                      : "border-zinc-200 bg-white/70 hover:border-zinc-400"
-                  }`}
-                >
-                  <span className="flex items-center gap-3">
-                    <span className="flex h-9 w-9 items-center justify-center rounded-full bg-zinc-100">
-                      <MapPin size={18} />
-                    </span>
-
-                    <span>
-                      <span className="block text-sm font-semibold text-zinc-900">
-                        Retiro presencial
-                      </span>
-                      <span className="text-xs text-zinc-500">
-                        Yerbal 3160, Flores
-                      </span>
-                    </span>
-                  </span>
-
-                  <span className="text-sm font-semibold">
-                    $0
-                  </span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => handleFulfillmentChange("shipping")}
-                  className={`flex items-center justify-between gap-3 rounded-2xl border p-3 text-left transition cursor-pointer ${
-                    fulfillmentOption === "shipping"
-                      ? "border-black bg-white"
-                      : "border-zinc-200 bg-white/70 hover:border-zinc-400"
-                  }`}
-                >
-                  <span className="flex items-center gap-3">
-                    <span className="flex h-9 w-9 items-center justify-center rounded-full bg-zinc-100">
-                      <Package size={18} />
-                    </span>
-
-                    <span>
-                      <span className="block text-sm font-semibold text-zinc-900">
-                        Despacho a transporte, correo, expreso
-                      </span>
-                      <span className="text-xs text-zinc-500">
-                        Costo de entrega a logistica y embalaje
-                      </span>
-                    </span>
-                  </span>
-
-                  <span className="text-sm font-semibold">
-                    +{formatPrice(fulfillmentOptions.shipping.fee)}
-                  </span>
-                </button>
-              </div>
-
-              {fulfillmentOption === "pickup" && (
-                <p className="mt-2 rounded-xl bg-zinc-100 px-3 py-2 text-xs leading-5 text-zinc-600">
-                  Sin costo adicional. Retiro en Yerbal 3160, Flores, una
-                  vez confirmado el pedido abonado y armado.
-                </p>
-              )}
-
-              {fulfillmentOption === "shipping" && (
-                <p className="mt-2 rounded-xl bg-zinc-100 px-3 py-2 text-xs leading-5 text-zinc-600">
-                  Se suma {formatPrice(fulfillmentOptions.shipping.fee)} por
-                  entrega a logistica y embalaje. El envio final queda a
-                  cargo del cliente segun peso y distancia.
-                </p>
-              )}
-            </div>
-
-            <div className="border-t border-zinc-200 pt-4">
-
-            <div
-              className={`mb-3 rounded-2xl p-3 text-sm leading-6 ${
-                cartPricing.meetsWholesaleMinimum
-                  ? "bg-emerald-50 text-emerald-700"
-                  : "bg-amber-50 text-amber-800"
-              }`}
-            >
-              <span className="mb-2 block h-2 overflow-hidden rounded-full bg-white">
-                <span
-                  className={`block h-full rounded-full ${
-                    cartPricing.meetsWholesaleMinimum
-                      ? "bg-emerald-500"
-                      : "bg-amber-500"
-                  }`}
-                  style={{
-                    width: `${wholesaleProgress}%`,
-                  }}
-                />
-              </span>
-
-              {cartPricing.meetsWholesaleMinimum
-                ? `Minimo de compra alcanzado: ${formatPrice(wholesaleMinimum)}.`
-                : `Faltan ${formatPrice(cartPricing.remainingForWholesale)} para alcanzar el minimo de compra.`}
-
-              {!cartPricing.meetsWholesaleMinimum && (
-                <Link
-                  href="/tienda"
-                  className="mt-3 inline-flex h-10 items-center rounded-full bg-black px-4 text-sm font-semibold text-white transition hover:bg-zinc-800"
-                >
-                  Agregar mas productos
-                </Link>
-              )}
-            </div>
-
-            <p className="mb-3 rounded-2xl bg-zinc-100 p-3 text-sm leading-5 text-zinc-600">
-              No pagas online. Al finalizar, se genera el pedido para
-              enviarlo por WhatsApp y coordinar el pago.
-            </p>
-
-            {fulfillmentOption && (
-              <div className="mb-3 flex items-center justify-between text-sm text-zinc-600">
-                <span>
-                  Logistica y embalaje
+              <div className="flex items-center justify-between gap-4 py-4">
+                <span className="text-base font-semibold text-zinc-900">
+                  Transferencia 5%
                 </span>
-                <span>
-                  {formatPrice(fulfillmentFee)}
+
+                <span className="text-base font-medium text-zinc-950">
+                  {formatPrice(transferSurcharge)}
                 </span>
               </div>
-            )}
 
-            <div className="mb-4 flex items-end justify-between gap-4">
-
-                <span className="text-sm font-semibold uppercase tracking-wide text-zinc-500">
-                Total
+              <div className="flex items-center justify-between gap-4 py-4">
+                <span className="text-base font-semibold text-zinc-950">
+                  Total
                 </span>
 
-                <span className="text-3xl font-bold">
-                {formatPrice(finalTotal)}
+                <span className="text-xl font-semibold text-zinc-950">
+                  {formatPrice(finalTotal)}
                 </span>
-
+              </div>
             </div>
-
-            {isFulfillmentMissing && (
-              <p className="mb-3 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
-                Elegi una opcion de entrega para continuar.
-              </p>
-            )}
 
             {isCartReady &&
               cart.length > 0 &&
@@ -622,7 +486,7 @@ const {
             <Link
                 href="/checkout"
                 aria-disabled={isCheckoutBlocked}
-                className={`flex w-full items-center justify-center rounded-2xl py-4 font-semibold transition ${
+                className={`flex w-full items-center justify-center py-4 font-semibold transition ${
                   isCheckoutBlocked
                     ? "pointer-events-none bg-zinc-300 text-zinc-500"
                     : "bg-black text-white hover:bg-zinc-800"
@@ -632,8 +496,6 @@ const {
                   ? "Validando stock..."
                   : "Finalizar compra"}
             </Link>
-
-            </div>
 
         </div>
 

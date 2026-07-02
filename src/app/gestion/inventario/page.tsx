@@ -1153,7 +1153,7 @@ export default function GestionInventarioPage() {
               className="flex h-11 items-center gap-3 rounded-xl bg-zinc-900 px-3 text-sm font-semibold text-zinc-300 transition hover:bg-zinc-800"
             >
               <Settings size={18} />
-              Admin tienda
+              Admin catalogo
             </Link>
 
             <button
@@ -1887,7 +1887,7 @@ export default function GestionInventarioPage() {
                   {quickProductDraft.name || "Producto nuevo"}
                 </h2>
                 <span className="rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-1 text-xs font-bold text-emerald-100">
-                  Se crea oculto y sin fotos para completar en Admin tienda
+                  Se crea oculto y sin fotos para completar en Admin catalogo
                 </span>
               </div>
 
@@ -2296,7 +2296,7 @@ export default function GestionInventarioPage() {
                     <p className="mt-2 text-sm leading-6 text-zinc-500">
                       Este producto queda oculto y sin imagenes. Usalo para
                       cargar costos, precios y stock rapido; despues completas
-                      fotos, detalles y publicacion en Admin tienda.
+                      fotos, detalles y publicacion en Admin catalogo.
                     </p>
                   </section>
                 </div>

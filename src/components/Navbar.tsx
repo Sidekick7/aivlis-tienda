@@ -4,29 +4,33 @@ import { Menu, Search, ShoppingBag, X } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import Cart from "@/components/Cart";
 import { useCart } from "@/context/CartContext";
 import { useSearch } from "@/context/SearchContext";
 import { getCategories, getFallbackCategories } from "@/lib/categories";
+import { formatPrice, getCartPricing } from "@/lib/pricing";
 import type { StoreCategory } from "@/types/category";
 
 const infoNavLinks = [
   { label: "Contacto", href: "/contacto" },
   { label: "Local", href: "/local" },
   { label: "Preguntas", href: "/preguntas" },
-  { label: "Tienda", href: "/tienda" },
+  { label: "Catalogo", href: "/tienda" },
 ];
 
 export default function Navbar() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const [isMiniCartOpen, setIsMiniCartOpen] = useState(false);
   const [isCategoryBarVisible, setIsCategoryBarVisible] =
     useState(true);
   const [navCategories, setNavCategories] = useState<StoreCategory[]>(
     getFallbackCategories()
   );
   const { setIsSearchOpen } = useSearch();
-  const { cart, deleteItem, isCartReady } = useCart();
+  const { cart, setIsCartOpen } = useCart();
+  const cartItemCount = cart.reduce(
+    (acc, item) => acc + item.quantity,
+    0
+  );
+  const cartTotal = getCartPricing(cart).total;
 
   useEffect(() => {
     getCategories().then(setNavCategories);
@@ -50,8 +54,8 @@ export default function Navbar() {
   return (
     <>
       <nav className="fixed left-0 top-0 z-50 w-full border-b border-zinc-800 bg-black text-white">
-        <div className="flex min-h-8 items-center justify-center bg-white px-4 py-2 text-center text-[11px] font-bold uppercase tracking-wide text-black sm:text-xs">
-          Mínimo de compra $100.000
+        <div className="flex h-8 items-center justify-center bg-white px-4 text-center text-sm font-medium uppercase leading-none tracking-wide text-black sm:text-base">
+          Compra mínima $100.000
         </div>
 
         <div className="grid h-[60px] grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 px-3 sm:px-5 md:grid-cols-[1fr_auto_1fr] md:px-10">
@@ -89,15 +93,11 @@ export default function Navbar() {
               width={300}
               height={48}
               priority
-              className="h-11 w-[145px] object-contain min-[380px]:w-[165px] sm:w-52 md:h-12 md:w-72"
+              className="h-[56px] w-[210px] object-contain min-[380px]:w-[235px] sm:w-80 md:h-[60px] md:w-[400px]"
             />
           </Link>
 
-          <div
-            className="relative flex items-center justify-end gap-3 sm:gap-5"
-            onMouseEnter={() => setIsMiniCartOpen(true)}
-            onMouseLeave={() => setIsMiniCartOpen(false)}
-          >
+          <div className="relative flex items-center justify-end gap-3 sm:gap-5">
             <button
               type="button"
               onClick={() => setIsSearchOpen(true)}
@@ -107,33 +107,28 @@ export default function Navbar() {
               <Search size={24} />
             </button>
 
-            <Link
-              href="/cart"
-              className="relative text-zinc-300 transition hover:text-white"
-              aria-label="Ir al carrito"
+            <button
+              type="button"
+              onClick={() => setIsCartOpen(true)}
+              className="flex items-center gap-2 rounded-full text-zinc-300 transition hover:text-white"
+              aria-label="Abrir carrito"
             >
-              <ShoppingBag size={24} />
-
               {cart.length > 0 && (
-                <span className="absolute -right-4 -top-2 flex h-5 w-5 items-center justify-center rounded-full bg-white text-xs text-black">
-                  {cart.reduce(
-                    (acc, item) => acc + item.quantity,
-                    0
-                  )}
+                <span className="hidden rounded-full border border-zinc-700 px-2.5 py-1 text-xs font-semibold text-white min-[420px]:inline">
+                  {formatPrice(cartTotal)}
                 </span>
               )}
-            </Link>
 
-            {isMiniCartOpen && cart.length > 0 && (
-              <div className="absolute right-0 top-full pt-2">
-                <Cart
-                  cart={cart}
-                  isCartReady={isCartReady}
-                  deleteItem={deleteItem}
-                  onClose={() => setIsMiniCartOpen(false)}
-                />
-              </div>
-            )}
+              <span className="relative">
+                <ShoppingBag size={24} />
+
+                {cart.length > 0 && (
+                  <span className="absolute -right-4 -top-2 flex h-5 w-5 items-center justify-center rounded-full bg-white text-xs text-black">
+                    {cartItemCount}
+                  </span>
+                )}
+              </span>
+            </button>
           </div>
         </div>
 

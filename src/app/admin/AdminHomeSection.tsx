@@ -266,17 +266,17 @@ export default function AdminHomeSection({
           <section className="grid gap-4 rounded-2xl bg-zinc-950 p-4">
             <div>
               <p className="text-sm font-semibold text-zinc-300">
-                Textos de tienda
+                Textos de catalogo
               </p>
               <p className="mt-1 text-xs text-zinc-500">
-                Controla el boton que manda a Tienda y los titulos de bloques.
+                Controla el boton que manda a Catalogo y los titulos de bloques.
               </p>
             </div>
 
             <div className="grid gap-3 md:grid-cols-2">
               <label className="grid gap-1.5">
                 <span className="text-xs font-semibold uppercase text-zinc-500">
-                  Boton tienda
+                  Boton catalogo
                 </span>
                 <input
                   type="text"
@@ -294,7 +294,7 @@ export default function AdminHomeSection({
 
               <label className="grid gap-1.5">
                 <span className="text-xs font-semibold uppercase text-zinc-500">
-                  Titulo tienda interno
+                  Titulo catalogo interno
                 </span>
                 <input
                   type="text"
@@ -451,7 +451,7 @@ export default function AdminHomeSection({
 
           <section className="rounded-2xl border border-zinc-800 bg-zinc-950 p-4">
             <p className="text-sm font-semibold text-zinc-300">
-              Descripcion de tienda
+              Descripcion de catalogo
             </p>
             <p className="mt-1 text-xs text-zinc-500">
               Este campo queda guardado, pero hoy no se muestra en Home.
