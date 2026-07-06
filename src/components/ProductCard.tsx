@@ -2,7 +2,15 @@
 
 import Image from "next/image";
 import Link from "next/link";
+import {
+  getCurveUnitsPerSet,
+  isCurveProduct,
+} from "@/lib/curve";
 import { getProductImage } from "@/lib/productDisplay";
+import {
+  getPublicProductName,
+  isPublicCurveProduct,
+} from "@/lib/publicProducts";
 import { formatPrice } from "@/lib/pricing";
 import type { Product } from "@/types/product";
 
@@ -11,6 +19,7 @@ type Props = {
 };
 
 export default function ProductCard({ product }: Props) {
+  const productName = getPublicProductName(product);
   const productImage = getProductImage(product);
   const hoverImage =
     product.images[1] ||
@@ -31,6 +40,20 @@ export default function ProductCard({ product }: Props) {
     product.variants.length - visibleVariants.length,
     0
   );
+  const canBuyCurve = isCurveProduct(product);
+  const isCurvePublication = isPublicCurveProduct(product);
+  const curveUnitsPerSet = getCurveUnitsPerSet(product.variants[0]);
+  const unitReferencePrice = product.price;
+  const curveUnitPrice =
+    canBuyCurve && product.curvePrice > 0
+      ? product.curvePrice
+      : product.price;
+  const curveSetPrice = curveUnitPrice * curveUnitsPerSet;
+  const curveSavings = Math.max(
+    unitReferencePrice * curveUnitsPerSet - curveSetPrice,
+    0
+  );
+
   return (
     <div className="flex h-full flex-col overflow-hidden rounded-xl bg-white transition duration-300 hover:-translate-y-1 hover:shadow-xl hover:shadow-black/20 sm:rounded-2xl sm:hover:-translate-y-2 sm:hover:shadow-2xl sm:hover:shadow-black/50">
       <Link
@@ -39,7 +62,7 @@ export default function ProductCard({ product }: Props) {
       >
         <Image
           src={productImage}
-          alt={product.name}
+          alt={productName}
           width={380}
           height={520}
           className="h-[230px] w-full object-cover transition duration-500 group-hover/image:scale-105 sm:h-[330px] md:h-[370px] lg:h-[400px]"
@@ -59,16 +82,40 @@ export default function ProductCard({ product }: Props) {
 
       <div className="flex min-h-[115px] flex-1 flex-col p-3 sm:min-h-[145px] sm:p-4">
         <Link href={`/product/${product.slug}`}>
-          <h2 className="line-clamp-2 text-sm font-semibold leading-tight sm:text-xl">
-            {product.name}
+          <h2 className="font-brand line-clamp-2 text-base leading-tight sm:text-2xl">
+            {productName}
           </h2>
         </Link>
 
-        <div className="mt-2">
-          <p className="text-sm font-bold text-black sm:text-base">
-            {formatPrice(product.price)}
-          </p>
-        </div>
+        {isCurvePublication && curveUnitsPerSet > 1 ? (
+          <div className="mt-2 space-y-0.5">
+            <p className="text-sm font-bold text-black sm:text-base">
+              Curva x{curveUnitsPerSet} {formatPrice(curveSetPrice)}
+            </p>
+
+            <p className="text-xs font-bold uppercase text-zinc-600">
+              {formatPrice(curveUnitPrice)} por prenda
+            </p>
+
+            {curveSavings > 0 && (
+              <p className="text-[11px] font-semibold text-emerald-700">
+                Ahorras {formatPrice(curveSavings)}
+              </p>
+            )}
+          </div>
+        ) : canBuyCurve && curveUnitsPerSet > 1 ? (
+          <div className="mt-2">
+            <p className="text-sm font-bold text-black sm:text-base">
+              {formatPrice(unitReferencePrice)}
+            </p>
+          </div>
+        ) : (
+          <div className="mt-2">
+            <p className="text-sm font-bold text-black sm:text-base">
+              {formatPrice(product.price)}
+            </p>
+          </div>
+        )}
 
         <div className="mt-1.5 flex items-center gap-1.5 sm:gap-2">
           {visibleVariants.map((variant) => (

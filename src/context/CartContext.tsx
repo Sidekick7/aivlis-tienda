@@ -23,6 +23,7 @@ export type CartItem = {
   sku?: string;
   name: string;
   price: number;
+  curvePrice: number;
   retailPrice: number;
   cost: number;
   saleMode: Product["saleMode"];
@@ -142,6 +143,7 @@ function normalizeSavedCart(value: unknown): CartItem[] {
       sku: cartItem.sku,
       name: cartItem.name,
       price,
+      curvePrice: Number(cartItem.curvePrice || price),
       retailPrice: Number(cartItem.retailPrice || price),
       cost: Number(cartItem.cost || 0),
       saleMode: cartItem.saleMode === "curve" ? "curve" : "unit",

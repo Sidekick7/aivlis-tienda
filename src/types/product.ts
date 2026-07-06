@@ -18,6 +18,7 @@ export type Product = {
   slug: string;
   name: string;
   price: number;
+  curvePrice: number;
   retailPrice: number;
   cost: number;
   saleMode: ProductSaleMode;
@@ -44,6 +45,7 @@ export type SupabaseProductRow = Partial<
   sizes?: unknown;
   stock?: number | null;
   cost?: number | string | null;
+  curve_price?: number | string | null;
   retail_price?: number | string | null;
   sale_mode?: unknown;
 };

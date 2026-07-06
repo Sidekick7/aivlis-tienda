@@ -1,14 +1,17 @@
 "use client";
 
 import Image from "next/image";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState, type PointerEvent } from "react";
 import Link from "next/link";
 import {
   AlertCircle,
+  ChevronDown,
+  ChevronLeft,
+  ChevronRight,
+  ChevronUp,
   Barcode,
   CheckCircle,
   Tag,
-  Truck,
 } from "lucide-react";
 import { fallbackProductImage } from "@/config/store";
 import { useCart } from "@/context/CartContext";
@@ -25,6 +28,10 @@ import type { Product, ProductVariant } from "@/types/product";
 
 type Props = {
   product: Product;
+  displayName?: string;
+  displayCategoryLabel?: string;
+  initialPurchaseMode?: "unit" | "curve";
+  lockPurchaseMode?: boolean;
 };
 
 function getDefaultSize(variant?: ProductVariant) {
@@ -62,7 +69,14 @@ function sortSizes(sizes: string[]) {
   });
 }
 
-export default function ProductInfo({ product }: Props) {
+export default function ProductInfo({
+  product,
+  displayName,
+  displayCategoryLabel,
+  initialPurchaseMode = "unit",
+  lockPurchaseMode = false,
+}: Props) {
+  const productDisplayName = displayName ?? product.name;
   const [categoryLabel, setCategoryLabel] = useState(product.category);
   const firstVariant = product.variants[0];
   const firstImage =
@@ -98,7 +112,7 @@ export default function ProductInfo({ product }: Props) {
     firstImage
   );
   const [purchaseMode, setPurchaseMode] = useState<"unit" | "curve">(
-    "unit"
+    initialPurchaseMode
   );
   const [cartMessage, setCartMessage] = useState("");
   const [cartError, setCartError] = useState("");
@@ -106,10 +120,31 @@ export default function ProductInfo({ product }: Props) {
     x: 50,
     y: 50,
   });
+  const [thumbnailRubberBand, setThumbnailRubberBand] = useState({
+    x: 0,
+    y: 0,
+  });
+  const [isThumbnailDragging, setIsThumbnailDragging] = useState(false);
+  const thumbnailListRef = useRef<HTMLDivElement>(null);
+  const thumbnailDragRef = useRef({
+    active: false,
+    moved: false,
+    pointerId: -1,
+    thumbnailIndex: null as number | null,
+    scrollLeft: 0,
+    scrollTop: 0,
+    startX: 0,
+    startY: 0,
+  });
+  const suppressThumbnailClickRef = useRef(false);
 
   const { addToCart, cart } = useCart();
 
   useEffect(() => {
+    if (displayCategoryLabel) {
+      return;
+    }
+
     getCategories().then((categories) => {
       setCategoryLabel(
         categories.find(
@@ -117,14 +152,16 @@ export default function ProductInfo({ product }: Props) {
         )?.label ?? product.category
       );
     });
-  }, [product.category]);
+  }, [displayCategoryLabel, product.category]);
 
   const selectedVariant =
     product.variants.find(
       (variant) => variant.color === selectedColor
     ) || firstVariant;
   const canBuyCurve = isCurveProduct(product);
+  const canSwitchPurchaseMode = canBuyCurve && !lockPurchaseMode;
   const isCurveSale = canBuyCurve && purchaseMode === "curve";
+  const currentCategoryLabel = displayCategoryLabel ?? categoryLabel;
   const curveStockLimit = canBuyCurve
     ? getCurveStockLimit({
         variant: selectedVariant,
@@ -133,6 +170,20 @@ export default function ProductInfo({ product }: Props) {
   const curveUnitsPerSet = canBuyCurve
     ? getCurveUnitsPerSet(selectedVariant)
     : 1;
+  const unitReferencePrice = product.price;
+  const curveUnitPrice =
+    canBuyCurve && product.curvePrice > 0
+      ? product.curvePrice
+      : product.price;
+  const curveSetPrice = curveUnitPrice * curveUnitsPerSet;
+  const curveReferenceTotal = unitReferencePrice * curveUnitsPerSet;
+  const curveSavings = Math.max(
+    curveReferenceTotal - curveSetPrice,
+    0
+  );
+  const visiblePrice = isCurveSale
+    ? curveSetPrice
+    : unitReferencePrice;
   const curveLabel = canBuyCurve ? getCurveLabel(selectedVariant) : "";
   const curveSizes = getCurveSizesFromVariant(selectedVariant);
   const allProductSizes = sortSizes(
@@ -178,6 +229,164 @@ export default function ProductInfo({ product }: Props) {
     setQuantity(1);
   };
 
+  const selectThumbnail = (index: number) => {
+    const thumbnail = thumbnails[index];
+
+    if (!thumbnail) return;
+
+    resetCartFeedback();
+    setSelectedImage(thumbnail.image);
+
+    if (thumbnail.variant) {
+      setSelectedColor(thumbnail.variant.color);
+      setSelectedSize(getDefaultSize(thumbnail.variant));
+    }
+  };
+
+  const scrollThumbnails = (direction: -1 | 1) => {
+    thumbnailListRef.current?.scrollBy({
+      top: direction * 145,
+      left: direction * 92,
+      behavior: "smooth",
+    });
+  };
+
+  const stopThumbnailDrag = (
+    event?: PointerEvent<HTMLDivElement>
+  ) => {
+    const dragState = thumbnailDragRef.current;
+
+    if (!dragState.active) return;
+
+    if (
+      event &&
+      event.currentTarget.hasPointerCapture(dragState.pointerId)
+    ) {
+      event.currentTarget.releasePointerCapture(dragState.pointerId);
+    }
+
+    if (dragState.moved) {
+      suppressThumbnailClickRef.current = true;
+      window.setTimeout(() => {
+        suppressThumbnailClickRef.current = false;
+      }, 0);
+    } else if (
+      event?.type === "pointerup" &&
+      dragState.thumbnailIndex !== null
+    ) {
+      selectThumbnail(dragState.thumbnailIndex);
+    }
+
+    thumbnailDragRef.current = {
+      ...dragState,
+      active: false,
+      pointerId: -1,
+      thumbnailIndex: null,
+    };
+    setIsThumbnailDragging(false);
+    setThumbnailRubberBand({
+      x: 0,
+      y: 0,
+    });
+  };
+
+  const handleThumbnailPointerDown = (
+    event: PointerEvent<HTMLDivElement>
+  ) => {
+    if (!thumbnailListRef.current) {
+      return;
+    }
+
+    if (event.pointerType === "mouse" && event.button !== 0) {
+      return;
+    }
+
+    event.currentTarget.setPointerCapture(event.pointerId);
+    const thumbnailButton = (event.target as Element | null)?.closest(
+      "[data-thumbnail-index]"
+    );
+    const thumbnailIndex = thumbnailButton
+      ? Number(thumbnailButton.getAttribute("data-thumbnail-index"))
+      : null;
+
+    setIsThumbnailDragging(true);
+    setThumbnailRubberBand({
+      x: 0,
+      y: 0,
+    });
+
+    thumbnailDragRef.current = {
+      active: true,
+      moved: false,
+      pointerId: event.pointerId,
+      thumbnailIndex: typeof thumbnailIndex === "number"
+        ? thumbnailIndex
+        : null,
+      scrollLeft: thumbnailListRef.current.scrollLeft,
+      scrollTop: thumbnailListRef.current.scrollTop,
+      startX: event.clientX,
+      startY: event.clientY,
+    };
+  };
+
+  const handleThumbnailPointerMove = (
+    event: PointerEvent<HTMLDivElement>
+  ) => {
+    const dragState = thumbnailDragRef.current;
+
+    if (
+      !dragState.active ||
+      dragState.pointerId !== event.pointerId ||
+      !thumbnailListRef.current
+    ) {
+      return;
+    }
+
+    event.preventDefault();
+
+    const deltaX = event.clientX - dragState.startX;
+    const deltaY = event.clientY - dragState.startY;
+    const maxScrollLeft = Math.max(
+      0,
+      thumbnailListRef.current.scrollWidth -
+        thumbnailListRef.current.clientWidth
+    );
+    const maxScrollTop = Math.max(
+      0,
+      thumbnailListRef.current.scrollHeight -
+        thumbnailListRef.current.clientHeight
+    );
+    const nextScrollLeft = dragState.scrollLeft - deltaX;
+    const nextScrollTop = dragState.scrollTop - deltaY;
+    const clampedScrollLeft = Math.min(
+      Math.max(nextScrollLeft, 0),
+      maxScrollLeft
+    );
+    const clampedScrollTop = Math.min(
+      Math.max(nextScrollTop, 0),
+      maxScrollTop
+    );
+    const overflowX = nextScrollLeft - clampedScrollLeft;
+    const overflowY = nextScrollTop - clampedScrollTop;
+    const isDesktopThumbnailLayout =
+      window.matchMedia("(min-width: 768px)").matches;
+
+    if (Math.abs(deltaX) > 3 || Math.abs(deltaY) > 3) {
+      dragState.moved = true;
+    }
+
+    thumbnailListRef.current.scrollLeft = clampedScrollLeft;
+    thumbnailListRef.current.scrollTop = clampedScrollTop;
+    setThumbnailRubberBand({
+      x: isDesktopThumbnailLayout
+        ? 0
+        : Math.max(Math.min(-overflowX * 0.28, 18), -18),
+      y: isDesktopThumbnailLayout
+        ? Math.max(Math.min(-overflowY * 0.28, 24), -24)
+        : 0,
+    });
+  };
+
   const handleAddToCart = () => {
     setCartMessage("");
     setCartError("");
@@ -199,6 +408,8 @@ export default function ProductInfo({ product }: Props) {
         {
           ...product,
           saleMode: "curve",
+          price: curveUnitPrice,
+          retailPrice: curveUnitPrice,
           selectedImage: selectedImage || fallbackProductImage,
           selectedColor,
         },
@@ -238,6 +449,8 @@ export default function ProductInfo({ product }: Props) {
       {
         ...product,
         saleMode: "unit",
+        price: unitReferencePrice,
+        retailPrice: unitReferencePrice,
         selectedImage: selectedImage || fallbackProductImage,
         selectedColor,
       },
@@ -256,33 +469,105 @@ export default function ProductInfo({ product }: Props) {
 
     <div className="grid items-start gap-10 lg:grid-cols-[1.08fr_.92fr] lg:gap-14">
       <div className="space-y-4">
-        <div className="flex flex-wrap items-center gap-2 text-sm text-zinc-500">
-          <Link
-            href="/"
-            className="rounded-full bg-white px-3 py-1.5 transition hover:text-black"
-          >
-            Inicio
-          </Link>
+        <div className="grid gap-4 md:grid-cols-[92px_minmax(0,1fr)] md:items-start md:gap-4">
+          <div className="order-2 md:order-1">
+            <div className="flex items-center gap-2 md:block">
+              {thumbnails.length > 1 && (
+                <button
+                  type="button"
+                  onClick={() => scrollThumbnails(-1)}
+                  className="flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center rounded-full bg-white text-black shadow-sm transition hover:bg-zinc-100 md:hidden"
+                  aria-label="Ver miniaturas anteriores"
+                >
+                  <ChevronLeft size={20} />
+                </button>
+              )}
 
-          <span>/</span>
+              <div
+                ref={thumbnailListRef}
+                onPointerDown={handleThumbnailPointerDown}
+                onPointerMove={handleThumbnailPointerMove}
+                onPointerUp={stopThumbnailDrag}
+                onPointerCancel={stopThumbnailDrag}
+                style={{
+                  transform: `translate3d(${thumbnailRubberBand.x}px, ${thumbnailRubberBand.y}px, 0)`,
+                  transition: isThumbnailDragging
+                    ? "none"
+                    : "transform 220ms cubic-bezier(.2,.8,.2,1)",
+                }}
+                className="flex flex-1 touch-none select-none gap-3 overflow-hidden [-ms-overflow-style:none] [scrollbar-width:none] md:max-h-[560px] md:cursor-grab md:flex-col md:active:cursor-grabbing [&::-webkit-scrollbar]:hidden"
+              >
+              {thumbnails.map((thumbnail, index) => (
 
-          <Link
-            href={`/tienda?categoria=${product.category}`}
-            className="rounded-full bg-white px-3 py-1.5 transition hover:text-black"
-          >
-            {categoryLabel}
-          </Link>
+                <button
+                  key={thumbnail.image}
+                  data-thumbnail-index={index}
+                  onClick={(event) => {
+                    if (suppressThumbnailClickRef.current) {
+                      event.preventDefault();
+                      return;
+                    }
 
-          <span>/</span>
+                    selectThumbnail(index);
+                  }}
+                  className={`shrink-0 cursor-pointer overflow-hidden rounded-2xl transition-all duration-300 ${
+                    selectedImage === thumbnail.image
+                      ? "ring-2 ring-black/70 scale-[1.02]"
+                      : "opacity-75 hover:opacity-100 hover:scale-[1.02]"
+                  }`}
+                >
 
-          <span className="rounded-full bg-zinc-200 px-3 py-1.5 text-zinc-700">
-            {product.name}
-          </span>
-        </div>
+                  <Image
+                    src={thumbnail.image}
+                    alt=""
+                    width={96}
+                    height={128}
+                    draggable={false}
+                    className="h-28 w-20 rounded-2xl object-cover md:h-32 md:w-24"
+                  />
 
-        <div className="flex flex-col gap-4 md:flex-row md:items-start md:gap-5">
+                </button>
+
+              ))}
+              </div>
+
+              {thumbnails.length > 1 && (
+                <button
+                  type="button"
+                  onClick={() => scrollThumbnails(1)}
+                  className="flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center rounded-full bg-white text-black shadow-sm transition hover:bg-zinc-100 md:hidden"
+                  aria-label="Ver mas miniaturas"
+                >
+                  <ChevronRight size={20} />
+                </button>
+              )}
+            </div>
+
+            {thumbnails.length > 1 && (
+              <div className="hidden grid-cols-2 gap-2 md:grid">
+                <button
+                  type="button"
+                  onClick={() => scrollThumbnails(-1)}
+                  className="flex h-9 cursor-pointer items-center justify-center rounded-xl bg-white text-black transition hover:bg-zinc-200"
+                  aria-label="Ver miniaturas anteriores"
+                >
+                  <ChevronUp size={18} />
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => scrollThumbnails(1)}
+                  className="flex h-9 cursor-pointer items-center justify-center rounded-xl bg-white text-black transition hover:bg-zinc-200"
+                  aria-label="Ver mas miniaturas"
+                >
+                  <ChevronDown size={18} />
+                </button>
+              </div>
+            )}
+          </div>
+
           <div
-            className="w-full max-w-[700px] overflow-hidden rounded-3xl"
+            className="relative order-1 w-full overflow-hidden rounded-3xl md:order-2"
             onMouseMove={(e) => {
 
               const rect =
@@ -300,79 +585,65 @@ export default function ProductInfo({ product }: Props) {
           >
             <Image
               src={selectedImage || fallbackProductImage}
-              alt={product.name}
+              alt={productDisplayName}
               width={700}
               height={800}
-              className="aspect-[7/8] w-full object-cover transition-transform duration-300 hover:scale-150"
+              className="aspect-[7/8] w-full object-cover transition-transform duration-300 md:hover:scale-150"
               style={{
                 transformOrigin: `${zoomPosition.x}% ${zoomPosition.y}%`,
               }}
             />
 
-
-          </div>
-          <div className="flex gap-3 overflow-x-auto pb-1 md:flex-col md:overflow-visible md:pt-2">
-
-            {thumbnails.map((thumbnail) => (
-
-              <button
-                key={thumbnail.image}
-                onClick={() => {
-                  resetCartFeedback();
-                  setSelectedImage(thumbnail.image);
-
-                  if (thumbnail.variant) {
-                    setSelectedColor(thumbnail.variant.color);
-                    setSelectedSize(
-                      getDefaultSize(thumbnail.variant)
-                    );
-                  }
-                }}
-                className={`rounded-2xl overflow-hidden transition-all duration-300 ${
-                  selectedImage === thumbnail.image
-                    ? "ring-2 ring-black/70 scale-[1.02]"
-                    : "opacity-70 hover:opacity-100 hover:scale-[1.02]"
-                }`}
-              >
-
-                <Image
-                  src={thumbnail.image}
-                  alt=""
-                  width={96}
-                  height={128}
-                  className="h-28 w-20 object-cover md:h-32 md:w-24"
-                />
-
-              </button>
-
-            ))}
-
           </div>
         </div>
       </div>
       <div className="lg:sticky lg:top-28">
+        <div className="mb-3 flex flex-wrap items-center gap-2 text-sm text-zinc-500">
+          <Link
+            href="/"
+            className="cursor-pointer transition hover:text-black hover:underline"
+          >
+            Inicio
+          </Link>
 
-      <h1 className="text-4xl font-bold leading-tight md:text-5xl">
-        {product.name}
-      </h1>
+          <span>/</span>
 
-      <div className="mt-5 rounded-3xl bg-white p-5 shadow-sm">
-        <div className="flex flex-wrap items-start gap-4">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
-              Precio
-            </p>
+          <Link
+            href={`/tienda?categoria=${product.category}`}
+            className="cursor-pointer uppercase transition hover:text-black hover:underline"
+          >
+            {currentCategoryLabel}
+          </Link>
 
-            <p className="mt-1 text-4xl font-bold">
-              {formatPrice(product.price)}
-            </p>
-          </div>
+          <span>/</span>
 
+          <span className="font-semibold uppercase text-black">
+            {productDisplayName}
+          </span>
         </div>
 
+      <h1 className="font-brand text-3xl leading-none md:text-4xl">
+        {productDisplayName}
+      </h1>
+
+      <div className="mt-3">
+        <p className="text-2xl font-bold">
+          {formatPrice(visiblePrice)}
+        </p>
+
+        {canBuyCurve && (
+          <p className="mt-1 text-xs font-semibold uppercase text-zinc-500">
+            {isCurveSale
+              ? `${curveUnitsPerSet} prendas · ${formatPrice(
+                  curveUnitPrice
+                )} por prenda`
+              : "Precio por unidad"}
+          </p>
+        )}
+
         {product.details.length > 0 && (
-          <div className="mt-4 rounded-2xl border border-zinc-200 bg-zinc-50 px-4 py-3">
-            <ul className="list-disc space-y-1.5 pl-5 text-base font-semibold leading-7 text-zinc-700">
+          <div className="mt-3">
+            <ul className="space-y-0.5 pl-5 text-sm leading-5 text-black [list-style-type:square]">
               {product.details.map((detail) => (
                 <li key={detail}>
                   {detail}
@@ -395,32 +666,27 @@ export default function ProductInfo({ product }: Props) {
           Agotado
         </div>
       )}
-      <div className="mt-6 space-y-5 rounded-3xl bg-white p-5 shadow-sm">
-        {canBuyCurve && (
+      <div className="mt-5 space-y-4">
+        {canSwitchPurchaseMode && (
           <div>
-            <p className="mb-3 text-sm font-semibold uppercase tracking-wide text-zinc-500">
+            <p className="font-brand mb-2 text-sm uppercase text-zinc-500">
               Modalidad
             </p>
 
-            <div className="grid gap-3 sm:grid-cols-2">
+            <div className="flex flex-wrap gap-2">
               <button
                 type="button"
                 onClick={() => {
                   resetCartFeedback();
                   setPurchaseMode("unit");
                 }}
-                className={`rounded-2xl border px-4 py-3 text-left transition ${
+                className={`h-9 min-w-20 rounded-xl border px-4 text-sm font-semibold transition ${
                   purchaseMode === "unit"
                     ? "border-black bg-black text-white"
                     : "border-zinc-200 bg-zinc-50 hover:border-black"
                 }`}
               >
-                <span className="block text-sm font-bold">
-                  Unidad
-                </span>
-                <span className="mt-1 block text-xs opacity-75">
-                  Elegis talle y cantidad
-                </span>
+                Unidad
               </button>
 
               <button
@@ -430,7 +696,7 @@ export default function ProductInfo({ product }: Props) {
                   setPurchaseMode("curve");
                 }}
                 disabled={curveStockLimit <= 0}
-                className={`rounded-2xl border px-4 py-3 text-left transition ${
+                className={`h-9 min-w-20 rounded-xl border px-4 text-sm font-semibold transition ${
                   purchaseMode === "curve"
                     ? "border-black bg-black text-white"
                     : "border-zinc-200 bg-zinc-50 hover:border-black"
@@ -440,20 +706,15 @@ export default function ProductInfo({ product }: Props) {
                     : "cursor-pointer"
                 }`}
               >
-                <span className="block text-sm font-bold">
-                  Curva
-                </span>
-                <span className="mt-1 block text-xs opacity-75">
-                  1 de cada talle del color
-                </span>
+                Curva
               </button>
             </div>
           </div>
         )}
 
         <div>
-          <div className="mb-3 flex items-center gap-3">
-            <p className="text-sm font-semibold uppercase tracking-wide text-zinc-500">
+          <div className="mb-2 flex items-center gap-3">
+            <p className="font-brand text-sm uppercase text-zinc-500">
               Color
             </p>
 
@@ -464,7 +725,7 @@ export default function ProductInfo({ product }: Props) {
             )}
           </div>
 
-          <div className="flex flex-wrap gap-3">
+          <div className="flex flex-wrap gap-2">
             {product.variants.map((variant) => (
               <button
                 key={variant.color}
@@ -483,14 +744,14 @@ export default function ProductInfo({ product }: Props) {
                     getDefaultSize(variant)
                   );
                 }}
-                className={`flex h-10 w-10 cursor-pointer items-center justify-center rounded-full border-2 transition ${
+                className={`flex h-9 w-9 cursor-pointer items-center justify-center rounded-full border-2 transition ${
                   selectedColor === variant.color
                     ? "scale-110 border-black"
                     : "border-zinc-200 hover:border-black"
                 }`}
               >
                 <span
-                  className="h-7 w-7 rounded-full border border-black/10"
+                  className="h-6 w-6 rounded-full border border-black/10"
                   style={{
                     backgroundColor: variant.hex,
                   }}
@@ -501,9 +762,9 @@ export default function ProductInfo({ product }: Props) {
         </div>
 
         {isCurveSale ? (
-          <div className="rounded-2xl bg-zinc-50 p-3">
+          <div>
             <div className="flex flex-wrap items-center gap-3">
-              <p className="text-sm font-semibold uppercase tracking-wide text-zinc-500">
+              <p className="font-brand text-sm uppercase text-zinc-500">
                 Venta por curva
               </p>
 
@@ -515,7 +776,7 @@ export default function ProductInfo({ product }: Props) {
               )}
             </div>
 
-            <p className="mt-2 text-lg font-bold">
+            <p className="mt-1 text-base font-bold">
               {curveLabel}
             </p>
 
@@ -523,24 +784,36 @@ export default function ProductInfo({ product }: Props) {
               1 unidad de cada talle del color. Total: {curveUnitsPerSet} prendas.
             </p>
 
-            <div className="mt-3 grid gap-2 rounded-2xl bg-white p-3 sm:grid-cols-2">
+            <div className="mt-2 grid gap-2 sm:grid-cols-2">
               <div>
                 <p className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
-                  Precio por unidad
+                  Unidad suelta
                 </p>
                 <p className="text-base font-bold text-zinc-900">
-                  {formatPrice(product.price)}
+                  {formatPrice(unitReferencePrice)}
                 </p>
               </div>
 
               <div>
                 <p className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
-                  Precio por curva
+                  Curva completa
                 </p>
                 <p className="text-base font-bold text-zinc-900">
-                  {formatPrice(product.price * curveUnitsPerSet)}
+                  {formatPrice(curveSetPrice)}
                 </p>
               </div>
+            </div>
+
+            <div className="mt-2 flex flex-wrap items-center gap-2 text-xs font-semibold">
+              <span className="rounded-full bg-zinc-200 px-2.5 py-1 text-zinc-700">
+                {formatPrice(curveUnitPrice)} por prenda
+              </span>
+
+              {curveSavings > 0 && (
+                <span className="rounded-full bg-emerald-100 px-2.5 py-1 text-emerald-700">
+                  Ahorras {formatPrice(curveSavings)}
+                </span>
+              )}
             </div>
 
             <div className="mt-2 flex flex-wrap gap-2">
@@ -557,8 +830,8 @@ export default function ProductInfo({ product }: Props) {
           </div>
         ) : (
         <div>
-          <div className="mb-3 flex items-center gap-3">
-            <p className="text-sm font-semibold uppercase tracking-wide text-zinc-500">
+          <div className="mb-2 flex items-center gap-3">
+            <p className="font-brand text-sm uppercase text-zinc-500">
               Talle
             </p>
 
@@ -572,7 +845,7 @@ export default function ProductInfo({ product }: Props) {
               )}
           </div>
 
-          <div className="flex flex-wrap gap-3">
+          <div className="flex flex-wrap gap-2">
             {allProductSizes.map((size) => {
               const sizeItem = selectedVariant?.sizes.find(
                 (item) => item.size === size
@@ -598,7 +871,7 @@ export default function ProductInfo({ product }: Props) {
                       setSelectedSize(size);
                     }}
                     disabled={!isAvailable}
-                    className={`h-11 min-w-11 rounded-xl border px-4 text-sm font-semibold transition ${
+                    className={`h-10 min-w-10 rounded-xl border px-3 text-sm font-semibold transition ${
                       isAvailable && isSelected
                         ? "border-black bg-black text-white"
                         : "border-zinc-200 bg-zinc-50 hover:border-black"
@@ -625,9 +898,9 @@ export default function ProductInfo({ product }: Props) {
 
       </div>
 
-      <div className="mt-5 rounded-3xl bg-white p-3 shadow-sm">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-          <div className="flex h-14 items-center rounded-2xl border border-zinc-200 bg-zinc-50">
+      <div className="mt-5 w-full max-w-[350px] sm:max-w-[360px]">
+        <div className="grid grid-cols-[112px_210px] items-center gap-2">
+          <div className="flex h-11 items-center rounded-xl border border-zinc-200 bg-zinc-50">
             <button
               onClick={() =>
                 setQuantity(
@@ -636,7 +909,7 @@ export default function ProductInfo({ product }: Props) {
                     : 1
                 )
               }
-              className="flex h-full w-12 items-center justify-center text-xl transition hover:bg-zinc-100 cursor-pointer"
+              className="flex h-full w-9 cursor-pointer items-center justify-center text-lg transition hover:bg-zinc-100"
             >
               -
             </button>
@@ -662,7 +935,7 @@ export default function ProductInfo({ product }: Props) {
                     : 1
                 );
               }}
-              className="w-14 bg-transparent text-center text-lg font-semibold outline-none"
+              className="w-10 bg-transparent text-center text-base font-semibold outline-none"
             />
 
             <button
@@ -677,7 +950,7 @@ export default function ProductInfo({ product }: Props) {
                 availableToAdd <= 0 ||
                 selectedQuantity >= availableToAdd
               }
-              className="flex h-full w-12 items-center justify-center text-xl transition hover:bg-zinc-100 cursor-pointer disabled:cursor-not-allowed disabled:opacity-40"
+              className="flex h-full w-9 cursor-pointer items-center justify-center text-lg transition hover:bg-zinc-100 disabled:cursor-not-allowed disabled:opacity-40"
             >
               +
             </button>
@@ -691,7 +964,7 @@ export default function ProductInfo({ product }: Props) {
               (isCurveSale && curveStockLimit <= 0) ||
               availableToAdd <= 0
             }
-            className={`h-14 flex-1 rounded-2xl font-semibold tracking-wide transition ${
+            className={`h-11 whitespace-nowrap rounded-xl px-2 text-xs font-semibold tracking-wide transition sm:text-sm ${
               (!isCurveSale && (!selectedSizeData ||
               selectedSizeData.stock <= 0)) ||
               (isCurveSale && curveStockLimit <= 0) ||
@@ -700,58 +973,64 @@ export default function ProductInfo({ product }: Props) {
                 : "bg-black text-white hover:bg-zinc-800 cursor-pointer"
             }`}
           >
-            {isCurveSale && curveStockLimit <= 0
-              ? "AGOTADO"
-              : !isCurveSale && (!selectedSizeData || selectedSizeData.stock <= 0)
-              ? "AGOTADO"
-              : availableToAdd <= 0
-              ? "STOCK EN CARRITO"
-              : isCurveSale
-              ? "AGREGAR CURVA AL CARRITO"
-              : "AGREGAR AL CARRITO"}
+            <span className="sm:hidden">
+              {isCurveSale && curveStockLimit <= 0
+                ? "AGOTADO"
+                : !isCurveSale &&
+                  (!selectedSizeData || selectedSizeData.stock <= 0)
+                ? "AGOTADO"
+                : availableToAdd <= 0
+                ? "EN CARRITO"
+                : isCurveSale
+                ? "AGREGAR CURVA"
+                : "AGREGAR"}
+            </span>
+            <span className="hidden sm:inline">
+              {isCurveSale && curveStockLimit <= 0
+                ? "AGOTADO"
+                : !isCurveSale &&
+                  (!selectedSizeData || selectedSizeData.stock <= 0)
+                ? "AGOTADO"
+                : availableToAdd <= 0
+                ? "STOCK EN CARRITO"
+                : isCurveSale
+                ? "AGREGAR CURVA AL CARRITO"
+                : "AGREGAR AL CARRITO"}
+            </span>
           </button>
         </div>
-      </div>
 
-          {quantityAlreadyInCart > 0 && availableToAdd > 0 && (
-            <div className="mt-3 rounded-2xl bg-zinc-100 px-4 py-3 text-sm text-zinc-600">
-              Ya tenes {quantityAlreadyInCart} en el carrito para este{" "}
-              {isCurveSale ? "color y curva" : "talle y color"}.
-            </div>
-          )}
+        <div className="mt-2 min-h-[68px] space-y-1.5">
+          <p className="min-h-4 text-xs font-semibold text-zinc-500">
+            {quantityAlreadyInCart > 0 && availableToAdd > 0
+              ? `Ya tenes ${quantityAlreadyInCart} en carrito para este ${
+                  isCurveSale ? "color y curva" : "talle/color"
+                }.`
+              : ""}
+          </p>
 
-          {cartError && (
-            <div className="mt-3 flex items-start gap-2 rounded-2xl bg-red-50 px-4 py-3 text-sm font-semibold text-red-600">
+          {cartError ? (
+            <div className="flex min-h-9 items-center gap-2 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-xs font-semibold text-red-600">
               <AlertCircle
-                size={16}
-                className="mt-0.5 shrink-0"
+                size={14}
+                className="shrink-0"
               />
               <span>{cartError}</span>
             </div>
-          )}
-
-          {cartMessage && (
-            <div className="mt-3 flex items-start gap-2 rounded-2xl bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-700">
+          ) : cartMessage ? (
+            <div className="flex min-h-9 items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-700">
               <CheckCircle
-                size={16}
-                className="mt-0.5 shrink-0"
+                size={14}
+                className="shrink-0"
               />
               <span>{cartMessage}</span>
             </div>
-          )}
+          ) : null}
+        </div>
+      </div>
 
 
-          <div className="mt-6 space-y-4">
-            <div className="rounded-2xl bg-white p-4 shadow-sm">
-              <div className="flex items-center gap-3 text-sm font-semibold text-zinc-900">
-                <span className="flex h-9 w-9 items-center justify-center rounded-full bg-zinc-100">
-                  <Truck size={18} />
-                </span>
-                Envios a todo el pais
-              </div>
-
-            </div>
-
+          <div className="mt-6">
             <div className="flex flex-wrap gap-2 text-xs font-semibold uppercase tracking-wide text-zinc-500">
               <span className="inline-flex items-center gap-2 rounded-full bg-white px-3 py-2">
                 <Barcode size={14} />
@@ -760,7 +1039,7 @@ export default function ProductInfo({ product }: Props) {
 
               <span className="inline-flex items-center gap-2 rounded-full bg-white px-3 py-2">
                 <Tag size={14} />
-                {categoryLabel}
+                {currentCategoryLabel}
               </span>
             </div>
           </div>

@@ -35,6 +35,7 @@ export function getProductFormError({
   productSlug,
   productSku,
   productPrice,
+  productCurvePrice,
   productRetailPrice,
   productCost,
   productCategory,
@@ -45,6 +46,7 @@ export function getProductFormError({
   productSlug: string;
   productSku: string;
   productPrice: string | number;
+  productCurvePrice?: string | number;
   productRetailPrice: string | number;
   productCost: string | number;
   productCategory: string;
@@ -55,6 +57,10 @@ export function getProductFormError({
     String(productRetailPrice).trim() === ""
       ? productPrice
       : productRetailPrice;
+  const effectiveCurvePrice =
+    String(productCurvePrice ?? "").trim() === ""
+      ? productPrice
+      : productCurvePrice;
 
   if (!productName.trim()) return "El nombre es obligatorio.";
   if (!productSlug.trim()) return "El slug es obligatorio.";
@@ -63,6 +69,12 @@ export function getProductFormError({
   }
   if (!Number.isFinite(Number(productPrice)) || Number(productPrice) <= 0) {
     return "El precio mayorista debe ser mayor a 0.";
+  }
+  if (
+    !Number.isFinite(Number(effectiveCurvePrice)) ||
+    Number(effectiveCurvePrice) <= 0
+  ) {
+    return "El precio curva debe ser mayor a 0.";
   }
   if (
     !Number.isFinite(Number(effectiveRetailPrice)) ||
@@ -186,6 +198,7 @@ export async function createAdminProduct({
   slug,
   sku,
   price,
+  curvePrice,
   retailPrice,
   cost,
   category,
@@ -198,6 +211,7 @@ export async function createAdminProduct({
   slug: string;
   sku: string;
   price: string;
+  curvePrice: string;
   retailPrice: string;
   cost: string;
   category: string;
@@ -216,6 +230,7 @@ export async function createAdminProduct({
         slug,
         sku,
         price: Number(price),
+        curve_price: Number(curvePrice || price),
         retail_price: Number(retailPrice || price),
         cost: Number(cost),
         sale_mode: saleMode,
@@ -254,6 +269,7 @@ export async function updateAdminProduct({
       slug,
       sku: product.sku,
       price: Number(product.price),
+      curve_price: Number(product.curvePrice || product.price),
       retail_price: Number(product.retailPrice || product.price),
       cost: Number(product.cost),
       sale_mode: product.saleMode,

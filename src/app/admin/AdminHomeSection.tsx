@@ -35,26 +35,24 @@ export default function AdminHomeSection({
   const [heroImagesText, setHeroImagesText] = useState(
     arrayToLines(content.heroImages)
   );
-  const [trustItemsText, setTrustItemsText] = useState(
-    arrayToLines(content.trustItems)
+  const [socialLinks, setSocialLinks] = useState(
+    content.socialLinks
   );
-  const [draftContent, setDraftContent] = useState(content);
   const heroImages = linesToArray(heroImagesText);
-  const trustItems = linesToArray(trustItemsText);
 
   const saveContent = async () => {
     await onSave({
-      ...draftContent,
+      ...content,
       heroImages,
-      trustItems,
+      socialLinks,
     });
   };
 
-  const updateDraftContent = (
-    field: keyof Omit<HomeContent, "heroImages" | "trustItems">,
+  const updateSocialLink = (
+    field: keyof typeof socialLinks,
     value: string
   ) => {
-    setDraftContent((current) => ({
+    setSocialLinks((current) => ({
       ...current,
       [field]: value,
     }));
@@ -82,29 +80,8 @@ export default function AdminHomeSection({
     setHeroImagesText(arrayToLines(nextImages));
   };
 
-  const updateTrustItem = (index: number, value: string) => {
-    const nextItems = [...trustItems];
-    nextItems[index] = value;
-
-    setTrustItemsText(arrayToLines(nextItems));
-  };
-
-  const addTrustItem = () => {
-    setTrustItemsText((current) =>
-      arrayToLines([...linesToArray(current), ""])
-    );
-  };
-
-  const removeTrustItem = (indexToRemove: number) => {
-    setTrustItemsText((current) =>
-      arrayToLines(
-        linesToArray(current).filter((_, index) => index !== indexToRemove)
-      )
-    );
-  };
-
   return (
-    <div className="mt-6 rounded-3xl bg-zinc-900 p-4 md:p-6">
+    <div className="mx-auto mt-6 max-w-6xl rounded-3xl bg-zinc-900 p-4 md:p-6">
       <div className="mb-5 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h2 className="text-2xl font-black">
@@ -112,7 +89,7 @@ export default function AdminHomeSection({
           </h2>
 
           <p className="mt-1 text-sm text-zinc-500">
-            Hero, textos principales, destacados y accesos.
+            Imagenes visibles en el slider principal.
           </p>
         </div>
 
@@ -132,9 +109,8 @@ export default function AdminHomeSection({
         </div>
       )}
 
-      <div className="grid gap-5 xl:grid-cols-[minmax(0,1.35fr)_minmax(360px,0.65fr)]">
-        <div className="space-y-5">
-          <section className="rounded-2xl bg-zinc-950 p-4">
+      <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_360px]">
+        <section className="rounded-2xl bg-zinc-950 p-4">
             <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <p className="text-sm font-semibold text-zinc-300">
@@ -261,214 +237,151 @@ export default function AdminHomeSection({
                 Subiendo imagenes...
               </p>
             )}
-          </section>
+        </section>
 
-          <section className="grid gap-4 rounded-2xl bg-zinc-950 p-4">
-            <div>
-              <p className="text-sm font-semibold text-zinc-300">
-                Textos de catalogo
-              </p>
-              <p className="mt-1 text-xs text-zinc-500">
-                Controla el boton que manda a Catalogo y los titulos de bloques.
-              </p>
-            </div>
+        <section className="grid content-start gap-4 rounded-2xl bg-zinc-950 p-4">
+          <div>
+            <p className="text-sm font-semibold text-zinc-300">
+              Redes y contacto
+            </p>
 
-            <div className="grid gap-3 md:grid-cols-2">
-              <label className="grid gap-1.5">
-                <span className="text-xs font-semibold uppercase text-zinc-500">
-                  Boton catalogo
-                </span>
-                <input
-                  type="text"
-                  value={draftContent.storeButtonLabel}
-                  onChange={(event) =>
-                    updateDraftContent(
-                      "storeButtonLabel",
-                      event.target.value
-                    )
-                  }
-                  disabled={isSaving}
-                  className="h-11 rounded-xl bg-zinc-900 px-4 text-sm font-semibold outline-none disabled:opacity-60"
-                />
-              </label>
+            <p className="mt-1 text-xs text-zinc-500">
+              Se usa en contacto, footer y accesos de WhatsApp.
+            </p>
+          </div>
 
-              <label className="grid gap-1.5">
-                <span className="text-xs font-semibold uppercase text-zinc-500">
-                  Titulo catalogo interno
-                </span>
-                <input
-                  type="text"
-                  value={draftContent.storeTitle}
-                  onChange={(event) =>
-                    updateDraftContent("storeTitle", event.target.value)
-                  }
-                  disabled={isSaving}
-                  className="h-11 rounded-xl bg-zinc-900 px-4 text-sm font-semibold outline-none disabled:opacity-60"
-                />
-              </label>
+          <label className="grid gap-1.5">
+            <span className="text-xs font-semibold uppercase text-zinc-500">
+              WhatsApp
+            </span>
+            <input
+              type="text"
+              value={socialLinks.whatsappNumber}
+              onChange={(event) =>
+                updateSocialLink("whatsappNumber", event.target.value)
+              }
+              disabled={isSaving}
+              placeholder="5491164513813"
+              className="h-11 rounded-xl bg-zinc-900 px-4 text-sm font-semibold outline-none disabled:opacity-60"
+            />
+          </label>
 
-              <label className="grid gap-1.5">
-                <span className="text-xs font-semibold uppercase text-zinc-500">
-                  Etiqueta destacados
-                </span>
-                <input
-                  type="text"
-                  value={draftContent.featuredEyebrow}
-                  onChange={(event) =>
-                    updateDraftContent(
-                      "featuredEyebrow",
-                      event.target.value
-                    )
-                  }
-                  disabled={isSaving}
-                  className="h-11 rounded-xl bg-zinc-900 px-4 text-sm font-semibold outline-none disabled:opacity-60"
-                />
-              </label>
+          <label className="grid gap-1.5">
+            <span className="text-xs font-semibold uppercase text-zinc-500">
+              Direccion showroom
+            </span>
+            <input
+              type="text"
+              value={socialLinks.showroomAddress}
+              onChange={(event) =>
+                updateSocialLink("showroomAddress", event.target.value)
+              }
+              disabled={isSaving}
+              placeholder="Yerbal 3160 - Flores - CABA"
+              className="h-11 rounded-xl bg-zinc-900 px-4 text-sm font-semibold outline-none disabled:opacity-60"
+            />
+          </label>
 
-              <label className="grid gap-1.5">
-                <span className="text-xs font-semibold uppercase text-zinc-500">
-                  Titulo destacados
-                </span>
-                <input
-                  type="text"
-                  value={draftContent.featuredTitle}
-                  onChange={(event) =>
-                    updateDraftContent("featuredTitle", event.target.value)
-                  }
-                  disabled={isSaving}
-                  className="h-11 rounded-xl bg-zinc-900 px-4 text-sm font-semibold outline-none disabled:opacity-60"
-                />
-              </label>
-
-              <label className="grid gap-1.5">
-                <span className="text-xs font-semibold uppercase text-zinc-500">
-                  Etiqueta categorias
-                </span>
-                <input
-                  type="text"
-                  value={draftContent.categoryEyebrow}
-                  onChange={(event) =>
-                    updateDraftContent(
-                      "categoryEyebrow",
-                      event.target.value
-                    )
-                  }
-                  disabled={isSaving}
-                  className="h-11 rounded-xl bg-zinc-900 px-4 text-sm font-semibold outline-none disabled:opacity-60"
-                />
-              </label>
-
-              <label className="grid gap-1.5">
-                <span className="text-xs font-semibold uppercase text-zinc-500">
-                  Titulo categorias
-                </span>
-                <input
-                  type="text"
-                  value={draftContent.categoryTitle}
-                  onChange={(event) =>
-                    updateDraftContent("categoryTitle", event.target.value)
-                  }
-                  disabled={isSaving}
-                  className="h-11 rounded-xl bg-zinc-900 px-4 text-sm font-semibold outline-none disabled:opacity-60"
-                />
-              </label>
-            </div>
+          <div className="grid gap-3">
+            <label className="grid gap-1.5">
+              <span className="text-xs font-semibold uppercase text-zinc-500">
+                Instagram URL
+              </span>
+              <input
+                type="url"
+                value={socialLinks.instagramUrl}
+                onChange={(event) =>
+                  updateSocialLink("instagramUrl", event.target.value)
+                }
+                disabled={isSaving}
+                className="h-11 rounded-xl bg-zinc-900 px-4 text-sm outline-none disabled:opacity-60"
+              />
+            </label>
 
             <label className="grid gap-1.5">
               <span className="text-xs font-semibold uppercase text-zinc-500">
-                Texto boton de categoria
+                Instagram visible
               </span>
               <input
                 type="text"
-                value={draftContent.categoryCardText}
+                value={socialLinks.instagramLabel}
                 onChange={(event) =>
-                  updateDraftContent("categoryCardText", event.target.value)
+                  updateSocialLink("instagramLabel", event.target.value)
                 }
                 disabled={isSaving}
+                placeholder="@aivlis.ind"
                 className="h-11 rounded-xl bg-zinc-900 px-4 text-sm font-semibold outline-none disabled:opacity-60"
               />
             </label>
-          </section>
-        </div>
+          </div>
 
-        <div className="space-y-5">
-          <section className="rounded-2xl bg-zinc-950 p-4">
-            <div className="mb-4 flex items-center justify-between gap-3">
-              <div>
-                <p className="text-sm font-semibold text-zinc-300">
-                  Bloque de confianza
-                </p>
-
-                <p className="mt-1 text-sm text-zinc-500">
-                  {trustItems.length} frases
-                </p>
-              </div>
-
-              <button
-                type="button"
-                onClick={addTrustItem}
+          <div className="grid gap-3">
+            <label className="grid gap-1.5">
+              <span className="text-xs font-semibold uppercase text-zinc-500">
+                Facebook URL
+              </span>
+              <input
+                type="url"
+                value={socialLinks.facebookUrl}
+                onChange={(event) =>
+                  updateSocialLink("facebookUrl", event.target.value)
+                }
                 disabled={isSaving}
-                className="h-10 rounded-lg bg-white px-4 text-sm font-semibold text-black transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                Agregar
-              </button>
-            </div>
+                placeholder="https://www.facebook.com/..."
+                className="h-11 rounded-xl bg-zinc-900 px-4 text-sm outline-none disabled:opacity-60"
+              />
+            </label>
 
-            <div className="grid gap-2">
-              {trustItems.map((item, index) => (
-                <div
-                  key={`${item}-${index}`}
-                  className="flex gap-2"
-                >
-                  <input
-                    type="text"
-                    value={item}
-                    onChange={(event) =>
-                      updateTrustItem(index, event.target.value)
-                    }
-                    disabled={isSaving}
-                    className="h-10 min-w-0 flex-1 rounded-xl bg-zinc-900 px-3 text-sm outline-none disabled:opacity-60"
-                  />
+            <label className="grid gap-1.5">
+              <span className="text-xs font-semibold uppercase text-zinc-500">
+                Facebook visible
+              </span>
+              <input
+                type="text"
+                value={socialLinks.facebookLabel}
+                onChange={(event) =>
+                  updateSocialLink("facebookLabel", event.target.value)
+                }
+                disabled={isSaving}
+                placeholder="AIVLIS"
+                className="h-11 rounded-xl bg-zinc-900 px-4 text-sm font-semibold outline-none disabled:opacity-60"
+              />
+            </label>
+          </div>
 
-                  <button
-                    type="button"
-                    onClick={() => removeTrustItem(index)}
-                    disabled={isSaving}
-                    className="h-10 rounded-xl border border-red-500/30 px-3 text-xs font-semibold text-red-300 transition hover:bg-red-500/15 disabled:cursor-not-allowed disabled:opacity-50"
-                  >
-                    Quitar
-                  </button>
-                </div>
-              ))}
-            </div>
+          <div className="grid gap-3">
+            <label className="grid gap-1.5">
+              <span className="text-xs font-semibold uppercase text-zinc-500">
+                TikTok URL
+              </span>
+              <input
+                type="url"
+                value={socialLinks.tiktokUrl}
+                onChange={(event) =>
+                  updateSocialLink("tiktokUrl", event.target.value)
+                }
+                disabled={isSaving}
+                className="h-11 rounded-xl bg-zinc-900 px-4 text-sm outline-none disabled:opacity-60"
+              />
+            </label>
 
-            {trustItems.length === 0 && (
-              <p className="rounded-xl border border-zinc-800 p-4 text-sm text-zinc-500">
-                Todavia no hay frases cargadas.
-              </p>
-            )}
-          </section>
-
-          <section className="rounded-2xl border border-zinc-800 bg-zinc-950 p-4">
-            <p className="text-sm font-semibold text-zinc-300">
-              Descripcion de catalogo
-            </p>
-            <p className="mt-1 text-xs text-zinc-500">
-              Este campo queda guardado, pero hoy no se muestra en Home.
-            </p>
-            <textarea
-              value={draftContent.storeDescription}
-              onChange={(event) =>
-                updateDraftContent(
-                  "storeDescription",
-                  event.target.value
-                )
-              }
-              disabled={isSaving}
-              className="mt-3 min-h-24 w-full rounded-xl bg-zinc-900 p-3 text-sm outline-none disabled:opacity-60"
-            />
-          </section>
-        </div>
+            <label className="grid gap-1.5">
+              <span className="text-xs font-semibold uppercase text-zinc-500">
+                TikTok visible
+              </span>
+              <input
+                type="text"
+                value={socialLinks.tiktokLabel}
+                onChange={(event) =>
+                  updateSocialLink("tiktokLabel", event.target.value)
+                }
+                disabled={isSaving}
+                placeholder="@aivlis.ind"
+                className="h-11 rounded-xl bg-zinc-900 px-4 text-sm font-semibold outline-none disabled:opacity-60"
+              />
+            </label>
+          </div>
+        </section>
       </div>
 
     </div>

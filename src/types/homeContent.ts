@@ -1,3 +1,14 @@
+export type SiteSocialLinks = {
+  whatsappNumber: string;
+  instagramUrl: string;
+  instagramLabel: string;
+  facebookUrl: string;
+  facebookLabel: string;
+  tiktokUrl: string;
+  tiktokLabel: string;
+  showroomAddress: string;
+};
+
 export type HomeContent = {
   heroImages: string[];
   trustItems: string[];
@@ -9,6 +20,7 @@ export type HomeContent = {
   categoryEyebrow: string;
   categoryTitle: string;
   categoryCardText: string;
+  socialLinks: SiteSocialLinks;
 };
 
 export type SupabaseHomeContentRow = {
@@ -23,4 +35,5 @@ export type SupabaseHomeContentRow = {
   category_eyebrow?: string | null;
   category_title?: string | null;
   category_card_text?: string | null;
+  social_links?: unknown;
 };

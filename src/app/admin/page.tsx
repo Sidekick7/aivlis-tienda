@@ -79,6 +79,7 @@ const [slug, setSlug] = useState("");
 const [skuCode, setSkuCode] = useState("");
 const [isSlugEdited, setIsSlugEdited] = useState(false);
 const [price, setPrice] = useState("");
+const [curvePrice, setCurvePrice] = useState("");
 const [retailPrice, setRetailPrice] = useState("");
 const [cost, setCost] = useState("");
 const [saleMode, setSaleMode] = useState<Product["saleMode"]>("unit");
@@ -280,6 +281,7 @@ const createProduct = async () => {
     productSlug: nextSlug,
     productSku: nextSkuCode,
     productPrice: price,
+    productCurvePrice: curvePrice,
     productRetailPrice: retailPrice,
     productCost: cost,
     productCategory: category,
@@ -314,6 +316,7 @@ const createProduct = async () => {
       slug: nextSlug,
       sku: formatSku(nextSkuCode),
       price,
+      curvePrice,
       retailPrice,
       cost,
       category,
@@ -332,6 +335,7 @@ const createProduct = async () => {
     setSkuCode("");
     setIsSlugEdited(false);
     setPrice("");
+    setCurvePrice("");
     setRetailPrice("");
     setCost("");
     setSaleMode("unit");
@@ -742,6 +746,7 @@ const updateProduct = async () => {
       productSlug: nextSlug,
       productSku: getSkuCode(editingProduct.sku),
       productPrice: editingProduct.price,
+      productCurvePrice: editingProduct.curvePrice,
       productRetailPrice: editingProduct.retailPrice,
       productCost: editingProduct.cost,
       productCategory: editingProduct.category,
@@ -995,6 +1000,8 @@ if (!session) {
     setIsSlugEdited={setIsSlugEdited}
     price={price}
     setPrice={setPrice}
+    curvePrice={curvePrice}
+    setCurvePrice={setCurvePrice}
     retailPrice={retailPrice}
     setRetailPrice={setRetailPrice}
     cost={cost}

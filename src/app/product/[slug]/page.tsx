@@ -1,41 +1,13 @@
 
 import ProductInfo from "@/components/ProductInfo";
-import Image from "next/image";
-import Link from "next/link";
+import RelatedProductsSlider from "@/components/RelatedProductsSlider";
 
-import { getProductBySlug, getProductsByCategory } from "@/lib/products";
-import { getProductImage } from "@/lib/productDisplay";
-import { formatPrice } from "@/lib/pricing";
-import type { Product } from "@/types/product";
-
-function RelatedProductCard({ product }: { product: Product }) {
-  return (
-    <Link
-      href={`/product/${product.slug}`}
-      className="group overflow-hidden rounded-2xl bg-white transition hover:-translate-y-1 hover:shadow-xl"
-    >
-      <div className="relative h-72 bg-zinc-200 sm:h-80 lg:h-96">
-        <Image
-          src={getProductImage(product)}
-          alt={product.name}
-          width={320}
-          height={360}
-          className="h-full w-full object-cover transition duration-500 group-hover:scale-105"
-        />
-      </div>
-
-      <div className="p-4">
-        <h3 className="line-clamp-2 text-lg font-semibold">
-          {product.name}
-        </h3>
-
-        <p className="mt-2 text-lg font-bold text-black">
-          {formatPrice(product.price)}
-        </p>
-      </div>
-    </Link>
-  );
-}
+import {
+  curveCategoryLabel,
+  getPublicProductBySlug,
+  getPublicProductName,
+  getPublicProducts,
+} from "@/lib/publicProducts";
 
 export default async function ProductPage({
 
@@ -46,7 +18,7 @@ export default async function ProductPage({
 
   const { slug } = await params;
 
-  const product = await getProductBySlug(slug);
+  const product = await getPublicProductBySlug(slug);
 
   if (!product) {
     
@@ -57,46 +29,53 @@ export default async function ProductPage({
     );
   }
 
-  const relatedProducts = (await getProductsByCategory(product.category))
-    .filter((relatedProduct) => relatedProduct.id !== product.id)
-    .slice(0, 4);
+  const publicProducts = await getPublicProducts();
+  const categoryProducts = publicProducts.filter(
+    (relatedProduct) =>
+      relatedProduct.slug !== product.slug &&
+      relatedProduct.category === product.category
+  );
+  const featuredProducts =
+    categoryProducts.length >= 6
+      ? []
+      : publicProducts.filter(
+          (relatedProduct) =>
+            relatedProduct.slug !== product.slug &&
+            relatedProduct.featured &&
+            !categoryProducts.some(
+              (categoryProduct) =>
+                categoryProduct.slug === relatedProduct.slug
+            )
+        );
+  const relatedProducts = [
+    ...categoryProducts,
+    ...featuredProducts,
+  ].slice(0, 6);
 
   return (
     <main className="home-main-offset min-h-screen bg-zinc-100 px-6 pb-20 text-black">
 
-      <div className="mx-auto mt-5 max-w-7xl md:mt-7">
+      <div className="mx-auto mt-8 max-w-7xl md:mt-10">
 
-        <ProductInfo product={product} />
+        <ProductInfo
+          product={product}
+          displayName={getPublicProductName(product)}
+          displayCategoryLabel={
+            product.publicationMode === "curve"
+              ? curveCategoryLabel
+              : undefined
+          }
+          initialPurchaseMode={product.publicationMode}
+          lockPurchaseMode
+        />
 
         {relatedProducts.length > 0 && (
-          <section className="mt-20">
-            <div className="mb-6 flex items-end justify-between gap-4">
-              <div>
-                <p className="text-sm font-semibold uppercase text-zinc-500">
-                  Tambien podria gustarte
-                </p>
+          <section className="mt-16">
+            <h2 className="font-brand mb-5 text-3xl uppercase text-black md:text-4xl">
+              Productos relacionados
+            </h2>
 
-                <h2 className="mt-2 text-3xl font-bold">
-                  Productos relacionados
-                </h2>
-              </div>
-
-              <Link
-                href="/tienda"
-                className="hidden h-11 items-center rounded-full bg-black px-5 text-sm font-semibold text-white transition hover:bg-zinc-800 sm:inline-flex"
-              >
-                Ver mas productos
-              </Link>
-            </div>
-
-            <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
-              {relatedProducts.map((relatedProduct) => (
-                <RelatedProductCard
-                  key={relatedProduct.id}
-                  product={relatedProduct}
-                />
-              ))}
-            </div>
+            <RelatedProductsSlider products={relatedProducts} />
           </section>
         )}
 

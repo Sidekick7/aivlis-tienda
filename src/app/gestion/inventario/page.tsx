@@ -46,6 +46,7 @@ type QuickProductDraft = {
   category: string;
   cost: string;
   price: string;
+  curvePrice: string;
   retailPrice: string;
   colors: Array<{
     color: string;
@@ -197,6 +198,7 @@ export default function GestionInventarioPage() {
     product: Product;
     cost: string;
     price: string;
+    curvePrice: string;
     retailPrice: string;
   } | null>(null);
   const [stockEditor, setStockEditor] = useState<{
@@ -358,6 +360,7 @@ export default function GestionInventarioPage() {
       product,
       cost: formatInventoryPriceInput(product.cost),
       price: formatInventoryPriceInput(product.price),
+      curvePrice: formatInventoryPriceInput(product.curvePrice),
       retailPrice: formatInventoryPriceInput(product.retailPrice),
     });
   };
@@ -389,6 +392,7 @@ export default function GestionInventarioPage() {
       category: categoryOptions[0]?.value || "",
       cost: "",
       price: "",
+      curvePrice: "",
       retailPrice: "",
       colors: [
         {
@@ -411,15 +415,18 @@ export default function GestionInventarioPage() {
     if (!priceEditor || isSavingPrice) return;
 
     const nextPrice = parseInventoryPriceInput(priceEditor.price);
+    const nextCurvePrice = parseInventoryPriceInput(priceEditor.curvePrice);
     const nextRetailPrice = parseInventoryPriceInput(priceEditor.retailPrice);
     const nextCost = parseInventoryPriceInput(priceEditor.cost);
 
     if (
       !Number.isFinite(nextCost) ||
       !Number.isFinite(nextPrice) ||
+      !Number.isFinite(nextCurvePrice) ||
       !Number.isFinite(nextRetailPrice) ||
       nextCost < 0 ||
       nextPrice < 0 ||
+      nextCurvePrice < 0 ||
       nextRetailPrice < 0
     ) {
       setInventoryError("Costo y precios tienen que ser numeros validos.");
@@ -440,6 +447,7 @@ export default function GestionInventarioPage() {
         .update({
           cost: nextCost,
           price: nextPrice,
+          curve_price: nextCurvePrice || nextPrice,
           retail_price: nextRetailPrice,
         })
         .eq("id", priceEditor.product.id);
@@ -455,6 +463,7 @@ export default function GestionInventarioPage() {
               ...product,
                 cost: nextCost,
                 price: nextPrice,
+                curvePrice: nextCurvePrice || nextPrice,
                 retailPrice: nextRetailPrice,
               }
             : product
@@ -612,6 +621,9 @@ export default function GestionInventarioPage() {
     const category = quickProductDraft.category.trim();
     const cost = parseInventoryPriceInput(quickProductDraft.cost);
     const price = parseInventoryPriceInput(quickProductDraft.price);
+    const curvePrice = parseInventoryPriceInput(
+      quickProductDraft.curvePrice || quickProductDraft.price
+    );
     const retailPrice = parseInventoryPriceInput(
       quickProductDraft.retailPrice || quickProductDraft.price
     );
@@ -657,9 +669,11 @@ export default function GestionInventarioPage() {
     if (
       !Number.isFinite(cost) ||
       !Number.isFinite(price) ||
+      !Number.isFinite(curvePrice) ||
       !Number.isFinite(retailPrice) ||
       cost < 0 ||
       price <= 0 ||
+      curvePrice <= 0 ||
       retailPrice <= 0
     ) {
       setInventoryError("Costo y precios tienen que ser numeros validos.");
@@ -720,6 +734,7 @@ export default function GestionInventarioPage() {
           slug,
           sku: formatSku(skuCode),
           price,
+          curve_price: curvePrice,
           retail_price: retailPrice,
           cost,
           sale_mode: "unit",
@@ -1399,7 +1414,7 @@ export default function GestionInventarioPage() {
                 </>
               ) : (
                 <>
-                  <div className="grid grid-cols-[76px_minmax(0,1fr)_100px_72px_64px_100px_108px_108px_104px_124px] gap-3 border-b border-zinc-800 bg-zinc-900/90 px-3 py-1.5 text-xs font-bold uppercase text-zinc-400">
+                  <div className="grid grid-cols-[76px_minmax(0,1fr)_100px_72px_64px_96px_104px_96px_104px_104px_124px] gap-3 border-b border-zinc-800 bg-zinc-900/90 px-3 py-1.5 text-xs font-bold uppercase text-zinc-400">
                     <span>SKU</span>
                     <span>Producto</span>
                     <span className="text-center">Categoria</span>
@@ -1407,6 +1422,7 @@ export default function GestionInventarioPage() {
                     <span className="text-center">Stock</span>
                     <span className="text-center">Costo</span>
                     <span className="text-center">Mayorista</span>
+                    <span className="text-center">Curva</span>
                     <span className="text-center">Minorista</span>
                     <span className="text-center">Estado</span>
                     <span className="text-center">Acciones</span>
@@ -1444,7 +1460,7 @@ export default function GestionInventarioPage() {
                               );
                             }
                           }}
-                          className="grid h-9 cursor-pointer grid-cols-[76px_minmax(0,1fr)_100px_72px_64px_100px_108px_108px_104px_124px] items-center gap-3 rounded-lg text-sm transition hover:bg-zinc-800/45"
+                          className="grid h-9 cursor-pointer grid-cols-[76px_minmax(0,1fr)_100px_72px_64px_96px_104px_96px_104px_104px_124px] items-center gap-3 rounded-lg text-sm transition hover:bg-zinc-800/45"
                         >
                           <span className="w-fit rounded-lg bg-zinc-800 px-2 py-1 text-xs font-bold text-zinc-300">
                             {getShortSku(product.sku)}
@@ -1468,6 +1484,9 @@ export default function GestionInventarioPage() {
                           </span>
                           <span className="flex h-full items-center justify-center text-center font-black tabular-nums text-white">
                             {formatPrice(product.price)}
+                          </span>
+                          <span className="flex h-full items-center justify-center text-center font-black tabular-nums text-sky-100">
+                            {formatPrice(product.curvePrice || product.price)}
                           </span>
                           <span className="flex h-full items-center justify-center text-center font-black tabular-nums text-zinc-200">
                             {formatPrice(product.retailPrice)}
@@ -1831,6 +1850,30 @@ export default function GestionInventarioPage() {
 
               <label className="grid gap-2">
                 <span className="text-xs font-bold uppercase text-zinc-500">
+                  Precio curva
+                </span>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  value={priceEditor.curvePrice}
+                  onChange={(event) =>
+                    setPriceEditor((currentEditor) =>
+                      currentEditor
+                        ? {
+                            ...currentEditor,
+                            curvePrice: formatInventoryPriceInput(
+                              event.target.value
+                            ),
+                          }
+                        : currentEditor
+                    )
+                  }
+                  className="h-11 rounded-xl bg-zinc-900 px-3 text-lg font-black text-white outline-none ring-1 ring-zinc-800 transition focus:ring-white"
+                />
+              </label>
+
+              <label className="grid gap-2">
+                <span className="text-xs font-bold uppercase text-zinc-500">
                   Precio minorista / local
                 </span>
                 <input
@@ -1998,7 +2041,7 @@ export default function GestionInventarioPage() {
                       Precios
                     </h3>
 
-                    <div className="grid gap-3 sm:grid-cols-3">
+                    <div className="grid gap-3 sm:grid-cols-4">
                       <label className="grid min-w-0 gap-1.5">
                         <span className="text-xs font-semibold uppercase text-zinc-500">
                           Costo
@@ -2039,6 +2082,31 @@ export default function GestionInventarioPage() {
                                 ? {
                                     ...currentDraft,
                                     price: formatInventoryPriceInput(
+                                      event.target.value
+                                    ),
+                                  }
+                                : currentDraft
+                            )
+                          }
+                          className="h-10 min-w-0 rounded-xl bg-zinc-800 px-3 text-sm font-bold outline-none ring-1 ring-transparent transition focus:ring-white"
+                        />
+                      </label>
+
+                      <label className="grid min-w-0 gap-1.5">
+                        <span className="text-xs font-semibold uppercase text-zinc-500">
+                          Precio curva
+                        </span>
+                        <input
+                          type="text"
+                          inputMode="numeric"
+                          placeholder="Curva"
+                          value={quickProductDraft.curvePrice}
+                          onChange={(event) =>
+                            setQuickProductDraft((currentDraft) =>
+                              currentDraft
+                                ? {
+                                    ...currentDraft,
+                                    curvePrice: formatInventoryPriceInput(
                                       event.target.value
                                     ),
                                   }

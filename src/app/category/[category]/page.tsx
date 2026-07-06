@@ -2,8 +2,12 @@
 
 import ProductCard from "@/components/ProductCard";
 import { use, useEffect, useState } from "react";
-import { getProductsByCategory } from "@/lib/products";
 import { getCategories } from "@/lib/categories";
+import {
+  curveCategoryLabel,
+  curveCategoryValue,
+  getPublicProducts,
+} from "@/lib/publicProducts";
 import type { Product } from "@/types/product";
 
 export default function CategoryPage({
@@ -23,17 +27,19 @@ export default function CategoryPage({
       setProductsError("");
 
       try {
-        const products = await getProductsByCategory(
-          category
+        const products = (await getPublicProducts()).filter(
+          (product) => product.category === category
         );
         const categories = await getCategories();
 
         setProducts(products);
         setCategoryLabel(
-          categories.find(
-            (categoryOption) =>
-              categoryOption.value === category
-          )?.label ?? category
+          category === curveCategoryValue
+            ? curveCategoryLabel
+            : categories.find(
+                (categoryOption) =>
+                  categoryOption.value === category
+              )?.label ?? category
         );
       } catch {
         setProductsError("No se pudo cargar esta categoría.");
@@ -63,7 +69,7 @@ export default function CategoryPage({
         {products.map((product) => (
 
           <ProductCard
-            key={product.id}
+            key={product.slug}
             product={product}
           />
 

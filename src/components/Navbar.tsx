@@ -3,12 +3,19 @@
 import { Menu, Search, ShoppingBag, X } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useCart } from "@/context/CartContext";
-import { useSearch } from "@/context/SearchContext";
 import { getCategories, getFallbackCategories } from "@/lib/categories";
+import { getProductImage } from "@/lib/productDisplay";
+import {
+  getPublicProductName,
+  getPublicProductSortPrice,
+  getPublicProducts,
+  withCurveCategory,
+} from "@/lib/publicProducts";
 import { formatPrice, getCartPricing } from "@/lib/pricing";
 import type { StoreCategory } from "@/types/category";
+import type { Product } from "@/types/product";
 
 const infoNavLinks = [
   { label: "Contacto", href: "/contacto" },
@@ -19,21 +26,49 @@ const infoNavLinks = [
 
 export default function Navbar() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [isMobileSearchOpen, setIsMobileSearchOpen] =
+    useState(false);
   const [isCategoryBarVisible, setIsCategoryBarVisible] =
     useState(true);
   const [navCategories, setNavCategories] = useState<StoreCategory[]>(
     getFallbackCategories()
   );
-  const { setIsSearchOpen } = useSearch();
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchProducts, setSearchProducts] = useState<Product[]>([]);
+  const mobileSearchInputRef = useRef<HTMLInputElement>(null);
   const { cart, setIsCartOpen } = useCart();
   const cartItemCount = cart.reduce(
     (acc, item) => acc + item.quantity,
     0
   );
   const cartTotal = getCartPricing(cart).total;
+  const normalizedSearchQuery = searchQuery.trim().toLowerCase();
+  const searchResults = normalizedSearchQuery
+    ? searchProducts
+        .filter((product) =>
+          getPublicProductName(product)
+            .toLowerCase()
+            .includes(normalizedSearchQuery)
+        )
+        .slice(0, 6)
+    : [];
 
   useEffect(() => {
-    getCategories().then(setNavCategories);
+    const loadNavContent = async () => {
+      try {
+        const [categories, products] = await Promise.all([
+          getCategories(),
+          getPublicProducts(),
+        ]);
+
+        setNavCategories(withCurveCategory(categories, products));
+        setSearchProducts(products);
+      } catch {
+        setSearchProducts([]);
+      }
+    };
+
+    loadNavContent();
   }, []);
 
   useEffect(() => {
@@ -51,10 +86,47 @@ export default function Navbar() {
     };
   }, []);
 
+  useEffect(() => {
+    if (!isMobileSearchOpen) return;
+
+    const focusTimeout = window.setTimeout(() => {
+      mobileSearchInputRef.current?.focus();
+    }, 80);
+
+    return () => window.clearTimeout(focusTimeout);
+  }, [isMobileSearchOpen]);
+
+  useEffect(() => {
+    if (!isMobileSearchOpen) return;
+
+    const handlePointerDown = (event: MouseEvent | TouchEvent) => {
+      const target = event.target;
+
+      if (
+        target instanceof Element &&
+        target.closest("[data-mobile-search='true']")
+      ) {
+        return;
+      }
+
+      setIsMobileSearchOpen(false);
+    };
+
+    document.addEventListener("mousedown", handlePointerDown);
+    document.addEventListener("touchstart", handlePointerDown, {
+      passive: true,
+    });
+
+    return () => {
+      document.removeEventListener("mousedown", handlePointerDown);
+      document.removeEventListener("touchstart", handlePointerDown);
+    };
+  }, [isMobileSearchOpen]);
+
   return (
     <>
       <nav className="fixed left-0 top-0 z-50 w-full border-b border-zinc-800 bg-black text-white">
-        <div className="flex h-8 items-center justify-center bg-white px-4 text-center text-sm font-medium uppercase leading-none tracking-wide text-black sm:text-base">
+        <div className="font-brand flex h-10 items-center justify-center bg-white px-4 text-center text-lg uppercase leading-none text-black sm:text-xl">
           Compra mínima $100.000
         </div>
 
@@ -74,7 +146,7 @@ export default function Navbar() {
                 <Link
                   key={link.href}
                   href={link.href}
-                  className="text-sm font-semibold uppercase tracking-wide text-zinc-300 transition hover:text-white"
+                  className="font-brand text-base uppercase text-zinc-300 transition hover:text-white"
                 >
                   {link.label}
                 </Link>
@@ -84,7 +156,7 @@ export default function Navbar() {
 
           <Link
             href="/"
-            className="flex h-full min-w-0 items-center justify-center transition hover:opacity-80"
+            className="mx-auto inline-flex w-fit items-center justify-center transition hover:opacity-80"
             aria-label="AIVLIS"
           >
             <Image
@@ -98,13 +170,75 @@ export default function Navbar() {
           </Link>
 
           <div className="relative flex items-center justify-end gap-3 sm:gap-5">
+            <div className="relative hidden sm:block">
+              <label className="flex h-8 w-[155px] items-center border border-white bg-black px-2 text-white transition focus-within:bg-zinc-950">
+                <input
+                  type="search"
+                  value={searchQuery}
+                  onChange={(event) => setSearchQuery(event.target.value)}
+                  placeholder="BUSCAR"
+                  className="min-w-0 flex-1 bg-transparent text-sm uppercase outline-none placeholder:text-zinc-400"
+                />
+
+                <Search
+                  size={18}
+                  className="shrink-0 text-white"
+                />
+              </label>
+
+              {normalizedSearchQuery && (
+                <div className="absolute right-0 top-[calc(100%+8px)] z-[60] w-[280px] overflow-hidden rounded-xl border border-zinc-800 bg-zinc-950 shadow-2xl">
+                  {searchResults.length > 0 ? (
+                    searchResults.map((product) => (
+                      <Link
+                        key={product.slug}
+                        href={`/product/${product.slug}`}
+                        onClick={() => {
+                          setSearchQuery("");
+                          setIsMobileSearchOpen(false);
+                        }}
+                        className="flex items-center gap-3 border-b border-zinc-800 p-3 text-white transition last:border-b-0 hover:bg-zinc-900"
+                      >
+                        <Image
+                          src={getProductImage(product)}
+                          alt={getPublicProductName(product)}
+                          width={42}
+                          height={42}
+                          className="h-11 w-11 rounded-lg object-cover"
+                        />
+
+                        <div className="min-w-0">
+                          <p className="line-clamp-1 text-sm font-semibold">
+                            {getPublicProductName(product)}
+                          </p>
+
+                          <p className="text-xs text-zinc-400">
+                            {formatPrice(
+                              getPublicProductSortPrice(product)
+                            )}
+                          </p>
+                        </div>
+                      </Link>
+                    ))
+                  ) : (
+                    <p className="p-3 text-sm text-zinc-400">
+                      Sin resultados.
+                    </p>
+                  )}
+                </div>
+              )}
+            </div>
+
             <button
               type="button"
-              onClick={() => setIsSearchOpen(true)}
-              className="text-zinc-300 transition hover:text-white"
+              onClick={() =>
+                setIsMobileSearchOpen((current) => !current)
+              }
+              data-mobile-search="true"
+              className="text-zinc-300 transition hover:text-white sm:hidden"
               aria-label="Buscar productos"
             >
-              <Search size={24} />
+              <Search size={23} />
             </button>
 
             <button
@@ -133,6 +267,73 @@ export default function Navbar() {
         </div>
 
         <div
+          data-mobile-search="true"
+          className={`overflow-hidden border-t border-zinc-800 bg-black px-3 transition-all duration-300 sm:hidden ${
+            isMobileSearchOpen
+              ? "max-h-[360px] py-3 opacity-100"
+              : "max-h-0 py-0 opacity-0"
+          }`}
+        >
+          <label className="flex h-9 items-center border border-white bg-black px-2 text-white">
+            <input
+              ref={mobileSearchInputRef}
+              type="search"
+              value={searchQuery}
+              onChange={(event) => setSearchQuery(event.target.value)}
+              placeholder="BUSCAR"
+              className="min-w-0 flex-1 bg-transparent text-sm uppercase outline-none placeholder:text-zinc-400"
+            />
+
+            <Search
+              size={18}
+              className="shrink-0 text-white"
+            />
+          </label>
+
+          {normalizedSearchQuery && (
+            <div className="mt-3 overflow-hidden rounded-xl border border-zinc-800 bg-zinc-950">
+              {searchResults.length > 0 ? (
+                searchResults.map((product) => (
+                  <Link
+                    key={product.slug}
+                    href={`/product/${product.slug}`}
+                    onClick={() => {
+                      setSearchQuery("");
+                      setIsMobileSearchOpen(false);
+                    }}
+                    className="flex items-center gap-3 border-b border-zinc-800 p-3 text-white transition last:border-b-0 hover:bg-zinc-900"
+                  >
+                    <Image
+                      src={getProductImage(product)}
+                      alt={getPublicProductName(product)}
+                      width={42}
+                      height={42}
+                      className="h-11 w-11 rounded-lg object-cover"
+                    />
+
+                    <div className="min-w-0">
+                      <p className="line-clamp-1 text-sm font-semibold">
+                        {getPublicProductName(product)}
+                      </p>
+
+                      <p className="text-xs text-zinc-400">
+                        {formatPrice(
+                          getPublicProductSortPrice(product)
+                        )}
+                      </p>
+                    </div>
+                  </Link>
+                ))
+              ) : (
+                <p className="p-3 text-sm text-zinc-400">
+                  Sin resultados.
+                </p>
+              )}
+            </div>
+          )}
+        </div>
+
+        <div
           className={`desktop-category-bar overflow-hidden px-5 transition-all duration-300 ease-out md:px-10 ${
             isCategoryBarVisible
               ? "max-h-12 border-t border-zinc-800 opacity-100"
@@ -144,7 +345,7 @@ export default function Navbar() {
               <Link
                 key={category.value}
                 href={`/tienda?categoria=${category.value}`}
-                className="text-sm font-semibold uppercase tracking-wide text-zinc-300 transition hover:text-white"
+                className="font-brand text-base uppercase text-zinc-300 transition hover:text-white"
               >
                 {category.label}
               </Link>
@@ -168,7 +369,7 @@ export default function Navbar() {
           }`}
         >
           <div className="mb-10 flex items-center justify-between">
-            <h2 className="text-xl font-bold">
+            <h2 className="font-brand text-2xl">
               Menú
             </h2>
 
@@ -187,7 +388,7 @@ export default function Navbar() {
                 key={link.href}
                 href={link.href}
                 onClick={() => setIsMenuOpen(false)}
-                className="w-fit transition hover:text-zinc-400"
+                className="font-brand w-fit transition hover:text-zinc-400"
               >
                 {link.label}
               </Link>
@@ -201,7 +402,7 @@ export default function Navbar() {
                   key={category.value}
                   href={`/tienda?categoria=${category.value}`}
                   onClick={() => setIsMenuOpen(false)}
-                  className="w-fit transition hover:text-zinc-400"
+                  className="font-brand w-fit transition hover:text-zinc-400"
                 >
                   {category.label}
                 </Link>

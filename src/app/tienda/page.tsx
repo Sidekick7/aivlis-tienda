@@ -2,7 +2,11 @@
 
 import ProductCard from "@/components/ProductCard";
 import { getCategories, getFallbackCategories } from "@/lib/categories";
-import { getProducts } from "@/lib/products";
+import {
+  getPublicProducts,
+  getPublicProductSortPrice,
+  withCurveCategory,
+} from "@/lib/publicProducts";
 import type { StoreCategory } from "@/types/category";
 import type { Product } from "@/types/product";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -54,12 +58,14 @@ function ShopPageContent() {
     const fetchShopContent = async () => {
       try {
         const [loadedProducts, loadedCategories] = await Promise.all([
-          getProducts(),
+          getPublicProducts(),
           getCategories(),
         ]);
 
         setProducts(loadedProducts);
-        setCategories(loadedCategories);
+        setCategories(
+          withCurveCategory(loadedCategories, loadedProducts)
+        );
       } catch {
         setProductsError("No se pudo cargar el catalogo.");
       } finally {
@@ -79,8 +85,18 @@ function ShopPageContent() {
 
     return [...filteredProducts].sort((a, b) => {
       if (sortBy === "newest") return b.id - a.id;
-      if (sortBy === "price-asc") return a.price - b.price;
-      if (sortBy === "price-desc") return b.price - a.price;
+      if (sortBy === "price-asc") {
+        return (
+          getPublicProductSortPrice(a) -
+          getPublicProductSortPrice(b)
+        );
+      }
+      if (sortBy === "price-desc") {
+        return (
+          getPublicProductSortPrice(b) -
+          getPublicProductSortPrice(a)
+        );
+      }
 
       return 0;
     });
@@ -101,14 +117,14 @@ function ShopPageContent() {
         <div className="mx-auto max-w-7xl">
           <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div>
-              <h1 className="text-3xl font-bold md:text-4xl">
+              <h1 className="font-brand text-4xl md:text-5xl">
                 Catalogo
               </h1>
             </div>
 
             <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
               <div className="flex flex-col gap-2">
-                <span className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
+                <span className="font-brand text-base uppercase text-zinc-500">
                   Filtro
                 </span>
 
@@ -116,7 +132,7 @@ function ShopPageContent() {
                   <button
                     type="button"
                     onClick={() => updateCategory("all")}
-                    className={`h-11 rounded-full px-4 text-sm font-semibold transition ${
+                    className={`font-brand h-11 rounded-full px-4 text-base transition ${
                       categoryFilter === "all"
                         ? "bg-black text-white"
                         : "border border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-200"
@@ -128,7 +144,7 @@ function ShopPageContent() {
                   <button
                     type="button"
                     onClick={() => updateCategory("featured")}
-                    className={`h-11 rounded-full px-4 text-sm font-semibold transition ${
+                    className={`font-brand h-11 rounded-full px-4 text-base transition ${
                       categoryFilter === "featured"
                         ? "bg-black text-white"
                         : "border border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-200"
@@ -142,7 +158,7 @@ function ShopPageContent() {
               <div className="flex flex-col gap-2">
                 <label
                   htmlFor="shop-category"
-                  className="text-xs font-semibold uppercase tracking-wide text-zinc-500"
+                  className="font-brand text-base uppercase text-zinc-500"
                 >
                   Categoria
                 </label>
@@ -153,7 +169,7 @@ function ShopPageContent() {
                   onChange={(event) =>
                     updateCategory(event.target.value)
                   }
-                  className="h-11 min-w-48 rounded-full border border-zinc-300 bg-white px-4 text-sm font-semibold outline-none"
+                  className="font-brand h-11 min-w-48 rounded-full border border-zinc-300 bg-white px-4 text-base outline-none"
                 >
                   <option value="all">Categorias</option>
                   {categories.map((category) => (
@@ -170,7 +186,7 @@ function ShopPageContent() {
               <div className="flex flex-col gap-2">
                 <label
                   htmlFor="shop-sort"
-                  className="text-xs font-semibold uppercase tracking-wide text-zinc-500"
+                  className="font-brand text-base uppercase text-zinc-500"
                 >
                   Ordenar
                 </label>
@@ -181,7 +197,7 @@ function ShopPageContent() {
                   onChange={(event) =>
                     setSortBy(event.target.value as ShopSort)
                   }
-                  className="h-11 min-w-44 rounded-full border border-zinc-300 bg-white px-4 text-sm font-semibold outline-none"
+                  className="font-brand h-11 min-w-44 rounded-full border border-zinc-300 bg-white px-4 text-base outline-none"
                 >
                   {sortOptions.map((option) => (
                     <option
@@ -218,7 +234,7 @@ function ShopPageContent() {
               !productsError &&
               visibleProducts.length === 0 && (
                 <div className="col-span-full rounded-lg border border-zinc-200 bg-white px-6 py-12 text-center">
-                  <p className="text-2xl font-bold">
+                  <p className="font-brand text-3xl">
                     No hay productos para este filtro.
                   </p>
 
@@ -232,7 +248,7 @@ function ShopPageContent() {
                     <button
                       type="button"
                       onClick={() => updateCategory("all")}
-                      className="inline-flex h-11 items-center justify-center rounded-full bg-black px-5 text-sm font-semibold text-white transition hover:bg-zinc-800"
+                      className="font-brand inline-flex h-11 items-center justify-center rounded-full bg-black px-5 text-base text-white transition hover:bg-zinc-800"
                     >
                       Ver todos
                     </button>
@@ -245,7 +261,7 @@ function ShopPageContent() {
             {!isProductsLoading &&
               visibleProducts.map((product) => (
                 <ProductCard
-                  key={product.id}
+                  key={product.slug}
                   product={product}
                 />
               ))}

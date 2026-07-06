@@ -22,9 +22,10 @@ export type EditableVariant = {
 
 export type EditableProduct = Omit<
   Product,
-  "price" | "retailPrice" | "cost" | "variants"
+  "price" | "curvePrice" | "retailPrice" | "cost" | "variants"
 > & {
   price: number | string;
+  curvePrice: number | string;
   retailPrice: number | string;
   cost: number | string;
   variants: EditableVariant[];

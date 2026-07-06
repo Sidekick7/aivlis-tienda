@@ -15,9 +15,31 @@ create table if not exists public.home_content (
   category_eyebrow text not null default 'Accesos rapidos',
   category_title text not null default 'Comprar por categoria',
   category_card_text text not null default 'Ver productos disponibles',
+  social_links jsonb not null default '{
+    "whatsappNumber": "5491164513813",
+    "instagramUrl": "https://www.instagram.com/aivlis.ind",
+    "instagramLabel": "@aivlis.ind",
+    "facebookUrl": "",
+    "facebookLabel": "Facebook",
+    "tiktokUrl": "https://www.tiktok.com/@aivlis.ind",
+    "tiktokLabel": "@aivlis.ind",
+    "showroomAddress": "Yerbal 3160 - Flores - CABA"
+  }'::jsonb,
   updated_at timestamptz not null default now(),
   constraint home_content_singleton check (id = 1)
 );
+
+alter table public.home_content
+add column if not exists social_links jsonb not null default '{
+  "whatsappNumber": "5491164513813",
+  "instagramUrl": "https://www.instagram.com/aivlis.ind",
+  "instagramLabel": "@aivlis.ind",
+  "facebookUrl": "",
+  "facebookLabel": "Facebook",
+  "tiktokUrl": "https://www.tiktok.com/@aivlis.ind",
+  "tiktokLabel": "@aivlis.ind",
+  "showroomAddress": "Yerbal 3160 - Flores - CABA"
+}'::jsonb;
 
 alter table public.home_content enable row level security;
 

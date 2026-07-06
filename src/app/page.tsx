@@ -15,7 +15,10 @@ import {
   fallbackHomeContent,
   getHomeContent,
 } from "@/lib/homeContent";
-import { getProducts } from "@/lib/products";
+import {
+  getPublicProducts,
+  withCurveCategory,
+} from "@/lib/publicProducts";
 import type { StoreCategory } from "@/types/category";
 import type { HomeContent } from "@/types/homeContent";
 import type { Product } from "@/types/product";
@@ -67,13 +70,13 @@ export default function Home() {
     const fetchHomeContent = async () => {
       try {
         const [products, categories, content] = await Promise.all([
-          getProducts(),
+          getPublicProducts(),
           getCategories(),
           getHomeContent(),
         ]);
 
         setPreviewProducts(getHomePreviewProducts(products));
-        setHomeCategories(categories);
+        setHomeCategories(withCurveCategory(categories, products));
         setHomeContent(content);
       } catch {
         setProductsError("No se pudo cargar la seleccion de productos.");
@@ -162,7 +165,7 @@ export default function Home() {
         <div className="mx-auto flex max-w-7xl flex-col items-center text-center">
           <Link
             href="/tienda"
-            className="inline-flex h-12 items-center justify-center rounded-full bg-black px-8 text-sm font-semibold uppercase tracking-wide text-white transition hover:bg-zinc-800"
+            className="font-brand inline-flex h-12 items-center justify-center rounded-full bg-black px-8 text-base uppercase text-white transition hover:bg-zinc-800"
           >
             {homeContent.storeButtonLabel}
           </Link>
@@ -173,11 +176,7 @@ export default function Home() {
         <div className="mx-auto max-w-7xl">
           <div className="mb-6 flex items-end justify-between gap-6">
             <div>
-              <p className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
-                {homeContent.featuredEyebrow}
-              </p>
-
-              <h2 className="mt-2 text-3xl font-bold md:text-4xl">
+              <h2 className="font-brand text-4xl md:text-5xl">
                 {homeContent.featuredTitle}
               </h2>
             </div>
@@ -246,7 +245,7 @@ export default function Home() {
                 {!isProductsLoading &&
                   previewProducts.map((product) => (
                     <SwiperSlide
-                      key={product.id}
+                      key={product.slug}
                       className="h-auto"
                     >
                       <ProductCard product={product} />
@@ -294,11 +293,11 @@ export default function Home() {
       <section className="px-6 pb-20 md:px-10">
         <div className="mx-auto max-w-7xl">
           <div className="mb-6">
-            <p className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
+            <p className="font-brand text-base uppercase text-zinc-500">
               {homeContent.categoryEyebrow}
             </p>
 
-            <h2 className="mt-2 text-3xl font-bold md:text-4xl">
+            <h2 className="font-brand mt-2 text-4xl md:text-5xl">
               {homeContent.categoryTitle}
             </h2>
           </div>
@@ -311,7 +310,7 @@ export default function Home() {
                 className="group flex min-h-24 items-center justify-between rounded-lg border border-zinc-200 bg-white px-5 py-4 transition hover:border-zinc-400"
               >
                 <div>
-                  <p className="text-xl font-bold">
+                  <p className="font-brand text-2xl">
                     {category.label}
                   </p>
 
@@ -320,7 +319,7 @@ export default function Home() {
                   </p>
                 </div>
 
-                <span className="text-sm font-semibold uppercase tracking-wide text-zinc-500 transition group-hover:text-black">
+                <span className="font-brand text-base uppercase text-zinc-500 transition group-hover:text-black">
                   Entrar
                 </span>
               </Link>

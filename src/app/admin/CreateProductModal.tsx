@@ -24,6 +24,8 @@ type Props = {
   setIsSlugEdited: Dispatch<SetStateAction<boolean>>;
   price: string;
   setPrice: Dispatch<SetStateAction<string>>;
+  curvePrice: string;
+  setCurvePrice: Dispatch<SetStateAction<string>>;
   retailPrice: string;
   setRetailPrice: Dispatch<SetStateAction<string>>;
   cost: string;
@@ -60,6 +62,8 @@ export default function CreateProductModal({
   setIsSlugEdited,
   price,
   setPrice,
+  curvePrice,
+  setCurvePrice,
   retailPrice,
   setRetailPrice,
   cost,
@@ -247,7 +251,7 @@ export default function CreateProductModal({
                   Precios y venta
                 </h3>
 
-                <div className="grid gap-2 sm:grid-cols-3">
+                <div className="grid gap-2 sm:grid-cols-4">
                   <label className="grid min-w-0 gap-1.5">
                     <span className="text-xs font-semibold uppercase text-zinc-500">
                       Costo
@@ -270,6 +274,19 @@ export default function CreateProductModal({
                       placeholder="Mayorista"
                       value={price}
                       onChange={(event) => setPrice(event.target.value)}
+                      className="h-9 min-w-0 rounded-xl bg-zinc-800 px-3 text-sm font-bold outline-none ring-1 ring-transparent transition focus:ring-white"
+                    />
+                  </label>
+
+                  <label className="grid min-w-0 gap-1.5">
+                    <span className="text-xs font-semibold uppercase text-zinc-500">
+                      Precio curva
+                    </span>
+                    <input
+                      type="number"
+                      placeholder="Curva"
+                      value={curvePrice}
+                      onChange={(event) => setCurvePrice(event.target.value)}
                       className="h-9 min-w-0 rounded-xl bg-zinc-800 px-3 text-sm font-bold outline-none ring-1 ring-transparent transition focus:ring-white"
                     />
                   </label>

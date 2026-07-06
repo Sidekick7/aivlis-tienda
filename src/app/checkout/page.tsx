@@ -302,7 +302,10 @@ export default function CheckoutPage() {
       return {
         ...item,
         sku: currentProduct?.sku || item.sku,
-        price: currentProduct?.price ?? item.price,
+        price: isCurveProduct(item)
+          ? currentProduct?.curvePrice ?? item.price
+          : currentProduct?.price ?? item.price,
+        curvePrice: currentProduct?.curvePrice ?? item.curvePrice,
         retailPrice: currentProduct?.retailPrice ?? item.retailPrice,
         images: currentProduct?.images ?? item.images,
         variants: currentProduct?.variants ?? item.variants,
@@ -438,7 +441,7 @@ export default function CheckoutPage() {
       <div className="mx-auto mt-4 max-w-7xl md:mt-6">
         <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
           <div>
-            <h1 className="text-4xl font-bold">
+            <h1 className="font-brand text-5xl">
               Finalizar pedido
             </h1>
 
@@ -612,7 +615,7 @@ export default function CheckoutPage() {
         </div>
 
           <aside className="sticky top-28 mx-auto w-full max-w-[430px] rounded-3xl border border-zinc-200 bg-white p-5 shadow-sm">
-            <h2 className="mb-4 text-2xl font-bold">
+            <h2 className="font-brand mb-4 text-3xl">
               Mi pedido
             </h2>
 

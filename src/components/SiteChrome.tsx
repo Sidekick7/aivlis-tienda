@@ -3,8 +3,8 @@
 import { usePathname } from "next/navigation";
 import CartWrapper from "@/components/CartWrapper";
 import Footer from "@/components/Footer";
+import MobileBottomNav from "@/components/MobileBottomNav";
 import Navbar from "@/components/Navbar";
-import SearchModal from "@/components/SearchModal";
 import WhatsAppFloatingButton from "@/components/WhatsAppFloatingButton";
 
 type SiteChromeProps = {
@@ -26,10 +26,12 @@ export default function SiteChrome({
     <>
       <Navbar />
       <CartWrapper />
-      <SearchModal />
       <WhatsAppFloatingButton />
-      {children}
-      <Footer />
+      <div className="pb-24 sm:pb-0">
+        {children}
+        <Footer />
+      </div>
+      <MobileBottomNav />
     </>
   );
 }

@@ -2,6 +2,7 @@ import { editorialImages } from "@/config/store";
 import { supabase } from "@/lib/supabase";
 import type {
   HomeContent,
+  SiteSocialLinks,
   SupabaseHomeContentRow,
 } from "@/types/homeContent";
 
@@ -15,7 +16,59 @@ function normalizeCatalogText(value: string) {
   return value
     .replaceAll("TIENDA", "CATALOGO")
     .replaceAll("Tienda", "Catalogo")
-    .replaceAll("tienda", "catalogo");
+    .replaceAll("tienda", "catalogo")
+    .replaceAll("Ir a catalogo", "Ir al catalogo")
+    .replaceAll("Ir a Catalogo", "Ir al Catalogo")
+    .replaceAll("IR A CATALOGO", "IR AL CATALOGO");
+}
+
+function toRecord(value: unknown): Record<string, unknown> {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : {};
+}
+
+function toStringValue(value: unknown, fallback: string) {
+  return typeof value === "string" ? value : fallback;
+}
+
+function normalizeSocialLinks(value: unknown): SiteSocialLinks {
+  const record = toRecord(value);
+
+  return {
+    whatsappNumber: toStringValue(
+      record.whatsappNumber,
+      fallbackHomeContent.socialLinks.whatsappNumber
+    ),
+    instagramUrl: toStringValue(
+      record.instagramUrl,
+      fallbackHomeContent.socialLinks.instagramUrl
+    ),
+    instagramLabel: toStringValue(
+      record.instagramLabel,
+      fallbackHomeContent.socialLinks.instagramLabel
+    ),
+    facebookUrl: toStringValue(
+      record.facebookUrl,
+      fallbackHomeContent.socialLinks.facebookUrl
+    ),
+    facebookLabel: toStringValue(
+      record.facebookLabel,
+      fallbackHomeContent.socialLinks.facebookLabel
+    ),
+    tiktokUrl: toStringValue(
+      record.tiktokUrl,
+      fallbackHomeContent.socialLinks.tiktokUrl
+    ),
+    tiktokLabel: toStringValue(
+      record.tiktokLabel,
+      fallbackHomeContent.socialLinks.tiktokLabel
+    ),
+    showroomAddress: toStringValue(
+      record.showroomAddress,
+      fallbackHomeContent.socialLinks.showroomAddress
+    ),
+  };
 }
 
 export const fallbackHomeContent: HomeContent = {
@@ -28,12 +81,22 @@ export const fallbackHomeContent: HomeContent = {
   ],
   storeTitle: "CATALOGO",
   storeDescription: "",
-  storeButtonLabel: "Ir a catalogo",
+  storeButtonLabel: "Ir al catalogo",
   featuredEyebrow: "Seleccion",
   featuredTitle: "Destacados",
   categoryEyebrow: "Accesos rapidos",
   categoryTitle: "Comprar por categoria",
   categoryCardText: "Ver productos disponibles",
+  socialLinks: {
+    whatsappNumber: "5491164513813",
+    instagramUrl: "https://www.instagram.com/aivlis.ind",
+    instagramLabel: "@aivlis.ind",
+    facebookUrl: "",
+    facebookLabel: "Facebook",
+    tiktokUrl: "https://www.tiktok.com/@aivlis.ind",
+    tiktokLabel: "@aivlis.ind",
+    showroomAddress: "Yerbal 3160 - Flores - CABA",
+  },
 };
 
 function normalizeHomeContent(
@@ -67,6 +130,7 @@ function normalizeHomeContent(
     categoryCardText:
       row.category_card_text ??
       fallbackHomeContent.categoryCardText,
+    socialLinks: normalizeSocialLinks(row.social_links),
   };
 }
 
@@ -119,9 +183,22 @@ export async function updateHomeContent(content: HomeContent) {
     category_eyebrow: content.categoryEyebrow,
     category_title: content.categoryTitle,
     category_card_text: content.categoryCardText,
+    social_links: content.socialLinks,
   });
 
-  if (error) throw error;
+  if (error) {
+    const isMissingSocialLinksColumn =
+      error.code === "PGRST204" ||
+      error.message.toLowerCase().includes("social_links");
+
+    if (isMissingSocialLinksColumn) {
+      throw new Error(
+        "Falta ejecutar supabase/home-content-social-links.sql en Supabase para guardar redes."
+      );
+    }
+
+    throw error;
+  }
 }
 
 export async function uploadHomeImage(file: File) {

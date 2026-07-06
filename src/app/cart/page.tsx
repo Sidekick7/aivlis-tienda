@@ -149,7 +149,7 @@ const {
 
             </div>
 
-            <h2 className="text-2xl font-semibold mb-3">
+            <h2 className="font-brand mb-3 text-3xl">
                 Tu carrito esta vacio
             </h2>
 
@@ -239,7 +239,7 @@ const {
 
                 <div className="min-w-0">
 
-                    <h2 className="line-clamp-2 text-lg font-semibold leading-tight text-zinc-950">
+                    <h2 className="font-brand line-clamp-2 text-2xl leading-tight text-zinc-950">
                       <Link
                         href={`/product/${item.slug}`}
                         className="cursor-pointer transition hover:text-zinc-600 hover:underline"
@@ -401,7 +401,7 @@ const {
         <div className="sticky top-28 h-fit rounded-3xl border border-zinc-200 bg-white p-4 shadow-lg shadow-black/5 sm:p-5">
 
             <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-              <h2 className="text-2xl font-bold">
+              <h2 className="font-brand text-3xl">
                 Resumen
               </h2>
 

@@ -36,7 +36,7 @@ type PosTicketItem = LocalSaleItemInput & {
   adjustmentValue: number;
 };
 
-type PosPriceList = "base" | "retail";
+type PosPriceList = "base" | "curve" | "retail";
 type PosOperationType = "sale" | "reserve";
 
 type PosAdjustmentType =
@@ -85,6 +85,7 @@ const priceLists: Array<{
   value: PosPriceList;
 }> = [
   { label: "Mayorista", value: "base" },
+  { label: "Curva", value: "curve" },
   { label: "Minorista", value: "retail" },
 ];
 
@@ -526,9 +527,10 @@ function getPriceListLabel(priceList: PosPriceList) {
 }
 
 function getProductUnitPrice(product: Product, priceList: PosPriceList) {
-  return priceList === "retail"
-    ? getRetailPrice(product)
-    : product.price;
+  if (priceList === "retail") return getRetailPrice(product);
+  if (priceList === "curve") return product.curvePrice || product.price;
+
+  return product.price;
 }
 
 function getAdjustedUnitPrice(item: PosTicketItem, baseUnitPrice: number) {
@@ -1418,7 +1420,7 @@ export default function PointOfSalePanel({
                       </span>
                     </span>
                     <span className="text-sm font-bold text-zinc-200">
-                      {formatPrice(product.price)}
+                      {formatPrice(getProductUnitPrice(product, priceList))}
                     </span>
                   </button>
                 ))
@@ -2343,7 +2345,10 @@ export default function PointOfSalePanel({
                   </h2>
                   <p className="mt-1 text-xs font-semibold text-zinc-500">
                     SKU {getShortSku(selectedProduct.sku)} - Mayorista{" "}
-                    {formatPrice(selectedProduct.price)} - Local{" "}
+                    {formatPrice(selectedProduct.price)} - Curva{" "}
+                    {formatPrice(
+                      selectedProduct.curvePrice || selectedProduct.price
+                    )} - Local{" "}
                     {formatPrice(getRetailPrice(selectedProduct))}
                   </p>
                 </div>
@@ -2562,10 +2567,11 @@ export default function PointOfSalePanel({
                 </p>
               ) : (
                 <div className="grid gap-2">
-                  <div className="grid grid-cols-[80px_minmax(0,1fr)_104px_104px_76px_92px] gap-2 px-3 text-xs font-semibold uppercase tracking-wide text-zinc-500">
+                  <div className="grid grid-cols-[80px_minmax(0,1fr)_96px_96px_96px_76px_92px] gap-2 px-3 text-xs font-semibold uppercase tracking-wide text-zinc-500">
                     <span>SKU</span>
                     <span>Nombre</span>
                     <span className="text-center">Mayorista</span>
+                    <span className="text-center">Curva</span>
                     <span className="text-center">Local</span>
                     <span className="text-center">Stock</span>
                     <span />
@@ -2578,7 +2584,7 @@ export default function PointOfSalePanel({
                         index % 2 === 0 ? "bg-zinc-950/80" : "bg-zinc-900"
                       }`}
                     >
-                      <div className="grid grid-cols-[80px_minmax(0,1fr)_104px_104px_76px_92px] items-center gap-2 px-3 py-2">
+                      <div className="grid grid-cols-[80px_minmax(0,1fr)_96px_96px_96px_76px_92px] items-center gap-2 px-3 py-2">
                         <button
                           type="button"
                           onClick={() => selectProduct(product)}
@@ -2599,6 +2605,10 @@ export default function PointOfSalePanel({
 
                         <span className="flex h-full items-center justify-center text-center text-sm font-bold tabular-nums text-zinc-100">
                           {formatPrice(product.price)}
+                        </span>
+
+                        <span className="flex h-full items-center justify-center text-center text-sm font-bold tabular-nums text-sky-100">
+                          {formatPrice(product.curvePrice || product.price)}
                         </span>
 
                         <span className="flex h-full items-center justify-center text-center text-sm font-bold tabular-nums text-emerald-100">

@@ -5,8 +5,12 @@ import Link from "next/link";
 import { X } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { useSearch } from "@/context/SearchContext";
-import { getProducts } from "@/lib/products";
 import { getProductImage } from "@/lib/productDisplay";
+import {
+  getPublicProductName,
+  getPublicProductSortPrice,
+  getPublicProducts,
+} from "@/lib/publicProducts";
 import { formatPrice } from "@/lib/pricing";
 import type { Product } from "@/types/product";
 
@@ -30,7 +34,7 @@ export default function SearchModal() {
       setProductsError("");
 
       try {
-        const products = await getProducts();
+        const products = await getPublicProducts();
 
         setProducts(products);
       } catch {
@@ -62,9 +66,11 @@ export default function SearchModal() {
   const normalizedQuery = query.trim().toLowerCase();
   const filteredProducts = normalizedQuery
     ? products.filter((product) =>
-        product.name.toLowerCase().includes(normalizedQuery)
+        getPublicProductName(product)
+          .toLowerCase()
+          .includes(normalizedQuery)
       )
-    : products;
+    : [];
 
   if (!isSearchOpen) return null;
 
@@ -98,9 +104,10 @@ export default function SearchModal() {
             </p>
           )}
 
-          {filteredProducts.map((product) => (
+          {normalizedQuery &&
+            filteredProducts.map((product) => (
             <Link
-              key={product.id}
+              key={product.slug}
               href={`/product/${product.slug}`}
               onClick={closeSearch}
               className="rounded-2xl border border-zinc-800 bg-zinc-900 p-4 transition hover:border-white"
@@ -108,7 +115,7 @@ export default function SearchModal() {
               <div className="flex items-center gap-4">
                 <Image
                   src={getProductImage(product)}
-                  alt={product.name}
+                  alt={getPublicProductName(product)}
                   width={80}
                   height={80}
                   className="h-20 w-20 rounded-xl object-cover"
@@ -116,11 +123,11 @@ export default function SearchModal() {
 
                 <div>
                   <p className="text-lg font-semibold">
-                    {product.name}
+                    {getPublicProductName(product)}
                   </p>
 
                   <p className="text-zinc-300">
-                    {formatPrice(product.price)}
+                    {formatPrice(getPublicProductSortPrice(product))}
                   </p>
                 </div>
               </div>

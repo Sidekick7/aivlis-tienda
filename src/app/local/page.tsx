@@ -8,8 +8,7 @@ import {
 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
-
-const showroomAddress = "Yerbal 3160 - Flores - CABA";
+import { getHomeContent } from "@/lib/homeContent";
 
 const localDetails = [
   {
@@ -34,7 +33,10 @@ const localDetails = [
   },
 ];
 
-export default function LocalPage() {
+export default async function LocalPage() {
+  const { socialLinks } = await getHomeContent();
+  const showroomAddress = socialLinks.showroomAddress;
+
   return (
     <main className="home-main-offset min-h-screen bg-zinc-100 text-black">
       <section className="mx-auto grid max-w-7xl gap-8 px-6 pb-10 pt-5 md:px-10 lg:grid-cols-[minmax(0,540px)_1fr] lg:items-stretch lg:pb-12 lg:pt-7">
@@ -52,11 +54,11 @@ export default function LocalPage() {
 
         <div className="flex flex-col gap-4 lg:h-full">
           <div>
-            <p className="mb-3 text-sm font-semibold uppercase tracking-wide text-zinc-500">
+            <p className="font-brand mb-3 text-base uppercase text-zinc-500">
               Showroom
             </p>
 
-            <h1 className="text-4xl font-bold md:text-6xl">
+            <h1 className="font-brand text-5xl md:text-7xl">
               AIVLIS
             </h1>
           </div>
@@ -68,10 +70,10 @@ export default function LocalPage() {
               </span>
 
               <div>
-                <p className="text-sm font-semibold uppercase tracking-wide text-zinc-500">
+                <p className="font-brand text-base uppercase text-zinc-500">
                   Direccion
                 </p>
-                <h2 className="mt-1 text-2xl font-bold">
+                <h2 className="font-brand mt-1 text-3xl">
                   {showroomAddress}
                 </h2>
                 <p className="mt-2 text-sm font-semibold text-zinc-500">
@@ -95,7 +97,7 @@ export default function LocalPage() {
                     className="text-zinc-500"
                   />
 
-                  <h2 className="mt-4 text-lg font-bold">
+                  <h2 className="font-brand mt-4 text-2xl">
                     {detail.title}
                   </h2>
 
@@ -114,7 +116,7 @@ export default function LocalPage() {
                 className="text-zinc-500"
               />
 
-              <h2 className="mt-4 text-lg font-bold">
+              <h2 className="font-brand mt-4 text-2xl">
                 Retiro de pedidos
               </h2>
 
@@ -125,7 +127,7 @@ export default function LocalPage() {
             </article>
 
             <article className="rounded-2xl border border-zinc-200 bg-white p-5">
-              <h2 className="text-lg font-bold">
+              <h2 className="font-brand text-2xl">
                 Antes de venir
               </h2>
 
@@ -136,7 +138,7 @@ export default function LocalPage() {
 
               <Link
                 href="/tienda"
-                className="mt-5 inline-flex h-11 items-center justify-center rounded-full bg-zinc-100 px-5 text-sm font-semibold text-zinc-800 transition hover:bg-zinc-200"
+                className="font-brand mt-5 inline-flex h-11 items-center justify-center rounded-full bg-zinc-100 px-5 text-base text-zinc-800 transition hover:bg-zinc-200"
               >
                 Ver productos
               </Link>
@@ -148,17 +150,17 @@ export default function LocalPage() {
       <section className="mx-auto max-w-7xl px-6 pb-14 md:px-10">
         <div className="grid overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm lg:grid-cols-[.9fr_1.35fr]">
           <div className="border-b border-zinc-100 p-5 lg:border-b-0 lg:border-r">
-            <p className="text-sm font-semibold uppercase tracking-wide text-zinc-500">
+            <p className="font-brand text-base uppercase text-zinc-500">
               Ubicacion
             </p>
 
-            <h2 className="mt-1 text-2xl font-bold">
+            <h2 className="font-brand mt-1 text-3xl">
               Como llegar al showroom
             </h2>
 
             <p className="mt-2 text-sm leading-6 text-zinc-600">
-              Estamos en Yerbal 3160, Flores, CABA, dentro de la zona
-              comercial de Av. Avellaneda.
+              Estamos en {showroomAddress}, dentro de la zona comercial
+              de Av. Avellaneda.
             </p>
 
             <div className="mt-5 grid gap-2 text-sm font-semibold leading-6 text-zinc-700">

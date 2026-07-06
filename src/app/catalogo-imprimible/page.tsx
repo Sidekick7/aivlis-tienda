@@ -6,6 +6,11 @@ import { ArrowLeft, Printer } from "lucide-react";
 import { getProductImage } from "@/lib/productDisplay";
 import { getProducts } from "@/lib/products";
 import { formatPrice } from "@/lib/pricing";
+import {
+  fallbackHomeContent,
+  getHomeContent,
+} from "@/lib/homeContent";
+import type { SiteSocialLinks } from "@/types/homeContent";
 import type { Product } from "@/types/product";
 
 function getShortSku(sku?: string | null) {
@@ -40,6 +45,9 @@ function getAvailableColors(product: Product) {
 
 export default function PrintableCatalogPage() {
   const [products, setProducts] = useState<Product[]>([]);
+  const [socialLinks, setSocialLinks] = useState<SiteSocialLinks>(
+    fallbackHomeContent.socialLinks
+  );
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -51,11 +59,15 @@ export default function PrintableCatalogPage() {
       setError("");
 
       try {
-        const nextProducts = await getProducts();
+        const [nextProducts, homeContent] = await Promise.all([
+          getProducts(),
+          getHomeContent(),
+        ]);
 
         if (!isCurrent) return;
 
         setProducts(nextProducts);
+        setSocialLinks(homeContent.socialLinks);
       } catch (loadError) {
         if (!isCurrent) return;
 
@@ -145,8 +157,8 @@ export default function PrintableCatalogPage() {
 
             <div className="text-left text-sm font-bold text-zinc-600 sm:text-right">
               <p>Actualizado: {updatedAt}</p>
-              <p>WhatsApp: +54 9 11 6451-3813</p>
-              <p>Instagram: @aivlis.ind</p>
+              <p>WhatsApp: {socialLinks.whatsappNumber}</p>
+              <p>Instagram: {socialLinks.instagramLabel}</p>
             </div>
           </div>
 
