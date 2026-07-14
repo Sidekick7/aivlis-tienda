@@ -39,7 +39,7 @@ export default async function LocalPage() {
 
   return (
     <main className="home-main-offset min-h-screen bg-zinc-100 text-black">
-      <section className="mx-auto grid max-w-7xl gap-8 px-6 pb-10 pt-5 md:px-10 lg:grid-cols-[minmax(0,540px)_1fr] lg:items-stretch lg:pb-12 lg:pt-7">
+      <section className="mx-auto grid max-w-7xl gap-5 px-6 pb-8 pt-4 md:px-10 lg:grid-cols-[minmax(0,520px)_1fr] lg:items-stretch lg:pb-10 lg:pt-5">
         <div className="overflow-hidden rounded-2xl bg-white shadow-sm lg:h-full">
           <Image
             src="/showroom-door.png"
@@ -52,56 +52,56 @@ export default async function LocalPage() {
           />
         </div>
 
-        <div className="flex flex-col gap-4 lg:h-full">
+        <div className="flex flex-col gap-3 lg:h-full">
           <div>
-            <p className="font-brand mb-3 text-base uppercase text-zinc-500">
+            <p className="font-brand mb-2 text-lg uppercase text-zinc-500">
               Showroom
             </p>
 
-            <h1 className="font-brand text-5xl md:text-7xl">
+            <h1 className="font-brand text-5xl leading-none md:text-7xl">
               AIVLIS
             </h1>
           </div>
 
-          <div className="rounded-2xl border border-zinc-200 bg-white p-5">
+          <div className="rounded-2xl border border-zinc-200 bg-white p-4">
             <div className="flex items-start gap-3">
               <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-black text-white">
                 <MapPin size={20} />
               </span>
 
               <div>
-                <p className="font-brand text-base uppercase text-zinc-500">
+                <p className="font-brand text-lg uppercase text-zinc-500">
                   Direccion
                 </p>
-                <h2 className="font-brand mt-1 text-3xl">
+                <h2 className="font-brand mt-1 text-3xl leading-none md:text-4xl">
                   {showroomAddress}
                 </h2>
-                <p className="mt-2 text-sm font-semibold text-zinc-500">
+                <p className="mt-2 text-base font-semibold text-zinc-500">
                   Flores / zona Avellaneda comercial
                 </p>
               </div>
             </div>
           </div>
 
-          <div className="grid flex-1 gap-4 sm:grid-cols-2">
+          <div className="grid flex-1 gap-3 sm:grid-cols-2">
             {localDetails.map((detail) => {
               const Icon = detail.icon;
 
               return (
                 <article
                   key={detail.title}
-                  className="rounded-2xl border border-zinc-200 bg-white p-5"
+                  className="rounded-2xl border border-zinc-200 bg-white p-4"
                 >
                   <Icon
-                    size={21}
+                    size={23}
                     className="text-zinc-500"
                   />
 
-                  <h2 className="font-brand mt-4 text-2xl">
+                  <h2 className="font-brand mt-3 text-3xl leading-none">
                     {detail.title}
                   </h2>
 
-                  <p className="mt-2 whitespace-pre-line text-sm leading-6 text-zinc-600">
+                  <p className="mt-2 whitespace-pre-line text-base font-semibold leading-6 text-zinc-600">
                     {detail.body}
                   </p>
                 </article>
@@ -109,36 +109,36 @@ export default async function LocalPage() {
             })}
           </div>
 
-          <div className="grid gap-4 sm:grid-cols-2">
-            <article className="rounded-2xl border border-zinc-200 bg-white p-5">
+          <div className="grid gap-3 sm:grid-cols-2">
+            <article className="rounded-2xl border border-zinc-200 bg-white p-4">
               <Package
-                size={21}
+                size={23}
                 className="text-zinc-500"
               />
 
-              <h2 className="font-brand mt-4 text-2xl">
+              <h2 className="font-brand mt-3 text-3xl leading-none">
                 Retiro de pedidos
               </h2>
 
-              <p className="mt-2 text-sm leading-6 text-zinc-600">
+              <p className="mt-2 text-base font-semibold leading-6 text-zinc-600">
                 Despues de enviar el pedido por WhatsApp, coordinamos dia y
                 horario de retiro.
               </p>
             </article>
 
-            <article className="rounded-2xl border border-zinc-200 bg-white p-5">
-              <h2 className="font-brand text-2xl">
+            <article className="rounded-2xl border border-zinc-200 bg-white p-4">
+              <h2 className="font-brand text-3xl leading-none">
                 Antes de venir
               </h2>
 
-              <p className="mt-2 text-sm leading-6 text-zinc-600">
+              <p className="mt-2 text-base font-semibold leading-6 text-zinc-600">
                 Si buscas un talle o color puntual, escribinos antes para
                 confirmar disponibilidad.
               </p>
 
               <Link
                 href="/tienda"
-                className="font-brand mt-5 inline-flex h-11 items-center justify-center rounded-full bg-zinc-100 px-5 text-base text-zinc-800 transition hover:bg-zinc-200"
+                className="font-brand mt-4 inline-flex h-11 items-center justify-center rounded-xl bg-zinc-100 px-5 text-lg text-zinc-800 transition hover:bg-zinc-200"
               >
                 Ver productos
               </Link>
@@ -147,23 +147,23 @@ export default async function LocalPage() {
         </div>
       </section>
 
-      <section className="mx-auto max-w-7xl px-6 pb-14 md:px-10">
+      <section className="mx-auto max-w-7xl px-6 pb-12 md:px-10">
         <div className="grid overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm lg:grid-cols-[.9fr_1.35fr]">
-          <div className="border-b border-zinc-100 p-5 lg:border-b-0 lg:border-r">
-            <p className="font-brand text-base uppercase text-zinc-500">
+          <div className="border-b border-zinc-100 p-4 lg:border-b-0 lg:border-r">
+            <p className="font-brand text-lg uppercase text-zinc-500">
               Ubicacion
             </p>
 
-            <h2 className="font-brand mt-1 text-3xl">
+            <h2 className="font-brand mt-1 text-3xl leading-none md:text-4xl">
               Como llegar al showroom
             </h2>
 
-            <p className="mt-2 text-sm leading-6 text-zinc-600">
+            <p className="mt-2 text-base font-semibold leading-6 text-zinc-600">
               Estamos en {showroomAddress}, dentro de la zona comercial
               de Av. Avellaneda.
             </p>
 
-            <div className="mt-5 grid gap-2 text-sm font-semibold leading-6 text-zinc-700">
+            <div className="mt-4 grid gap-2 text-base font-semibold leading-6 text-zinc-700">
               <p className="rounded-xl bg-zinc-100 px-4 py-3">
                 A 2 cuadras de estacion San Pedrito.
               </p>

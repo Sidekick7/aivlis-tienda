@@ -10,6 +10,7 @@ import {
   Images,
   LogOut,
   Plus,
+  RefreshCw,
   Search,
   Settings,
   ShoppingBag,
@@ -26,6 +27,7 @@ import {
   getCategories,
   getFallbackCategories,
 } from "@/lib/categories";
+import { isCurveProduct } from "@/lib/curve";
 import { getProducts } from "@/lib/products";
 import { formatPrice } from "@/lib/pricing";
 import { supabase } from "@/lib/supabase";
@@ -39,7 +41,6 @@ type InventoryTab =
   | "out"
   | "critical"
   | "inactive";
-type InventorySort = "stock_asc" | "stock_desc" | "newest" | "sku" | "category";
 type QuickProductDraft = {
   name: string;
   skuCode: string;
@@ -59,6 +60,16 @@ type QuickProductDraft = {
 };
 
 const lowStockLimit = 2;
+
+const inventoryViews: Array<{
+  label: string;
+  value: InventoryTab;
+}> = [
+  { label: "Todos", value: "all" },
+  { label: "Bajo stock", value: "low" },
+  { label: "Sin stock", value: "out" },
+  { label: "Ocultos", value: "inactive" },
+];
 
 const navItems = [
   {
@@ -98,28 +109,6 @@ const navItems = [
     href: "/gestion/catalogo",
     icon: Images,
   },
-];
-
-const inventoryTabs: Array<{
-  label: string;
-  value: InventoryTab;
-}> = [
-  { label: "Todos", value: "all" },
-  { label: "Bajo stock", value: "low" },
-  { label: "Sin stock", value: "out" },
-  { label: "Critico", value: "critical" },
-  { label: "Inactivos", value: "inactive" },
-];
-
-const sortOptions: Array<{
-  label: string;
-  value: InventorySort;
-}> = [
-  { label: "Menor stock", value: "stock_asc" },
-  { label: "Mayor stock", value: "stock_desc" },
-  { label: "Mas nuevo", value: "newest" },
-  { label: "SKU", value: "sku" },
-  { label: "Categoria", value: "category" },
 ];
 
 function getShortSku(sku?: string | null) {
@@ -190,7 +179,6 @@ export default function GestionInventarioPage() {
   const [activeTab, setActiveTab] = useState<InventoryTab>("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("all");
-  const [sortMode, setSortMode] = useState<InventorySort>("newest");
   const [expandedProductId, setExpandedProductId] = useState<number | null>(
     null
   );
@@ -757,7 +745,6 @@ export default function GestionInventarioPage() {
       setQuickProductDraft(null);
       setSelectedQuickColorIndex(0);
       setActiveTab("inactive");
-      setSortMode("newest");
       setInventoryNotice(
         `${name} creado oculto. Completa fotos en Admin antes de publicarlo.`
       );
@@ -959,10 +946,7 @@ export default function GestionInventarioPage() {
   );
   const criticalEntries = products
     .filter((product) => product.active)
-    .flatMap(getCriticalStockEntries)
-    .filter(({ product }) =>
-      categoryFilter === "all" ? true : product.category === categoryFilter
-    );
+    .flatMap(getCriticalStockEntries);
   const normalizedSearch = searchQuery.trim().toLowerCase();
   const visibleProducts = products.filter((product) => {
     const stock = getProductStock(product);
@@ -990,31 +974,9 @@ export default function GestionInventarioPage() {
 
     return matchesCategory && matchesTab && matchesSearch;
   });
-  const sortedProducts = [...visibleProducts].sort((firstProduct, secondProduct) => {
-    if (sortMode === "stock_asc") {
-      return getProductStock(firstProduct) - getProductStock(secondProduct);
-    }
-
-    if (sortMode === "stock_desc") {
-      return getProductStock(secondProduct) - getProductStock(firstProduct);
-    }
-
-    if (sortMode === "newest") {
-      return secondProduct.id - firstProduct.id;
-    }
-
-    if (sortMode === "sku") {
-      return getShortSku(firstProduct.sku).localeCompare(
-        getShortSku(secondProduct.sku),
-        "es"
-      );
-    }
-
-    return `${firstProduct.category}-${firstProduct.name}`.localeCompare(
-      `${secondProduct.category}-${secondProduct.name}`,
-      "es"
-    );
-  });
+  const sortedProducts = [...visibleProducts].sort(
+    (firstProduct, secondProduct) => secondProduct.id - firstProduct.id
+  );
   const filteredCriticalEntries = criticalEntries
     .filter(({ product, color, size }) => {
       if (!normalizedSearch) return true;
@@ -1183,21 +1145,21 @@ export default function GestionInventarioPage() {
         </aside>
 
         <section className="flex min-h-0 min-w-0 flex-col overflow-hidden px-3 py-2">
-          <header className="mb-2 flex shrink-0 flex-wrap items-center justify-between gap-2 rounded-2xl border border-zinc-800 bg-zinc-950 px-3 py-2">
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-zinc-500">
-                Gestion
-              </p>
-              <h1 className="text-xl font-black text-white">
-                Inventario
-              </h1>
+          <header className="mb-2 flex shrink-0 items-center justify-between gap-3 border-b border-zinc-800 px-1 pb-2">
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+                <h1 className="text-xl font-black text-white">Inventario</h1>
+                <p className="text-xs font-semibold text-zinc-500">
+                  {stockSummary.activeProducts.length} activos · {stockSummary.stockTotal} unidades · {formatPrice(stockSummary.totalValue)} en costo
+                </p>
+              </div>
             </div>
 
-            <div className="flex flex-wrap items-center gap-2">
+            <div className="flex shrink-0 items-center gap-1.5">
               <button
                 type="button"
                 onClick={openQuickProductCreator}
-                className="inline-flex h-9 items-center gap-2 rounded-xl bg-emerald-400 px-3 text-xs font-black text-black transition hover:bg-emerald-300"
+                className="inline-flex h-9 cursor-pointer items-center gap-2 rounded-lg bg-emerald-400 px-3 text-xs font-black text-black transition hover:bg-emerald-300"
               >
                 <Plus size={15} />
                 Nuevo producto
@@ -1205,17 +1167,24 @@ export default function GestionInventarioPage() {
 
               <Link
                 href="/admin"
-                className="h-9 rounded-xl bg-zinc-900 px-3 py-2 text-xs font-bold text-zinc-300 transition hover:bg-zinc-800"
+                title="Editar catalogo web"
+                aria-label="Editar catalogo web"
+                className="flex h-9 w-9 items-center justify-center rounded-lg bg-zinc-900 text-zinc-400 transition hover:bg-zinc-800 hover:text-white"
               >
-                Editar productos
+                <Settings size={16} />
               </Link>
               <button
                 type="button"
                 onClick={() => void refreshProducts()}
                 disabled={isLoadingProducts}
-                className="h-9 rounded-xl bg-white px-3 text-xs font-black text-black transition hover:bg-zinc-200 disabled:cursor-not-allowed disabled:opacity-60"
+                title="Actualizar inventario"
+                aria-label="Actualizar inventario"
+                className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg bg-zinc-900 text-zinc-400 transition hover:bg-zinc-800 hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
               >
-                {isLoadingProducts ? "Cargando..." : "Actualizar"}
+                <RefreshCw
+                  size={16}
+                  className={isLoadingProducts ? "animate-spin" : ""}
+                />
               </button>
             </div>
           </header>
@@ -1232,130 +1201,54 @@ export default function GestionInventarioPage() {
             </div>
           )}
 
-          <section className="mb-2 grid shrink-0 gap-2 md:grid-cols-2 xl:grid-cols-5">
-            <article className="rounded-xl border border-zinc-800 bg-zinc-950 px-3 py-2">
-              <p className="text-[11px] font-semibold uppercase text-zinc-500">
-                Productos activos
-              </p>
-              <p className="text-xl font-black text-white">
-                {stockSummary.activeProducts.length}
-              </p>
-            </article>
-            <article className="rounded-xl border border-zinc-800 bg-zinc-950 px-3 py-2">
-              <p className="text-[11px] font-semibold uppercase text-zinc-500">
-                Unidades
-              </p>
-              <p className="text-xl font-black text-white">
-                {stockSummary.stockTotal}
-              </p>
-            </article>
-            <article className="rounded-xl border border-yellow-500/20 bg-yellow-500/10 px-3 py-2">
-              <p className="text-[11px] font-semibold uppercase text-yellow-200/70">
-                Bajo stock
-              </p>
-              <p className="text-xl font-black text-yellow-100">
-                {stockSummary.lowProducts.length}
-              </p>
-            </article>
-            <article className="rounded-xl border border-red-500/20 bg-red-500/10 px-3 py-2">
-              <p className="text-[11px] font-semibold uppercase text-red-200/70">
-                Sin stock
-              </p>
-              <p className="text-xl font-black text-red-100">
-                {stockSummary.outProducts.length}
-              </p>
-            </article>
-            <article className="rounded-xl border border-zinc-800 bg-zinc-950 px-3 py-2">
-              <p className="text-[11px] font-semibold uppercase text-zinc-500">
-                Valor inventario
-              </p>
-              <p className="text-xl font-black text-white">
-                {formatPrice(stockSummary.totalValue)}
-              </p>
-            </article>
-          </section>
-
           <section className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border border-zinc-800 bg-zinc-950 p-2">
-            <div className="mb-2 flex shrink-0 flex-wrap items-center justify-between gap-2">
-              <div className="flex gap-2 overflow-x-auto">
-                {inventoryTabs.map((tab) => {
-                  const count =
-                    tab.value === "all"
-                      ? products.length
-                      : tab.value === "low"
-                        ? stockSummary.lowProducts.length
-                        : tab.value === "out"
-                          ? stockSummary.outProducts.length
-                          : tab.value === "critical"
-                            ? criticalEntries.length
-                            : stockSummary.inactiveProducts.length;
+            <div className="mb-2 flex shrink-0 items-center gap-2">
+              <label className="relative block min-w-0 flex-1 lg:max-w-xl">
+                <Search
+                  size={16}
+                  className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500"
+                />
+                <input
+                  type="search"
+                  value={searchQuery}
+                  onChange={(event) => setSearchQuery(event.target.value)}
+                  placeholder="Buscar producto, SKU o color"
+                  className="h-9 w-full rounded-lg bg-zinc-900 pl-9 pr-3 text-xs font-semibold text-white outline-none ring-1 ring-zinc-800 transition focus:ring-white"
+                />
+              </label>
 
-                  return (
-                    <button
-                      key={tab.value}
-                      type="button"
-                      onClick={() => {
-                        setActiveTab(tab.value);
-                        setExpandedProductId(null);
-                      }}
-                      className={`h-8 shrink-0 rounded-lg px-2.5 text-xs font-bold transition ${
-                        activeTab === tab.value
-                          ? "bg-white text-black"
-                          : "bg-zinc-900 text-zinc-400 hover:bg-zinc-800 hover:text-white"
-                      }`}
-                    >
-                      {tab.label}
-                      <span className="ml-2 opacity-70">{count}</span>
-                    </button>
-                  );
-                })}
-              </div>
+              <select
+                value={activeTab}
+                onChange={(event) => {
+                  setActiveTab(event.target.value as InventoryTab);
+                  setExpandedProductId(null);
+                }}
+                aria-label="Filtrar por estado de stock"
+                className="h-9 w-36 rounded-lg bg-zinc-900 px-2.5 text-xs font-bold text-white outline-none ring-1 ring-zinc-800 transition focus:ring-white"
+              >
+                {inventoryViews.map((view) => (
+                  <option key={view.value} value={view.value}>
+                    {view.label}
+                  </option>
+                ))}
+              </select>
 
-              <div className="flex w-full flex-wrap gap-2 lg:w-auto lg:justify-end">
-                <select
-                  value={categoryFilter}
-                  onChange={(event) => {
-                    setCategoryFilter(event.target.value);
-                    setExpandedProductId(null);
-                  }}
-                  className="h-8 rounded-lg bg-zinc-900 px-2.5 text-xs font-bold text-white outline-none ring-1 ring-zinc-800 transition focus:ring-white"
-                >
-                  <option value="all">Todas las categorias</option>
-                  {categories.map((category) => (
-                    <option key={category} value={category}>
-                      {category}
-                    </option>
-                  ))}
-                </select>
-
-                <select
-                  value={sortMode}
-                  onChange={(event) =>
-                    setSortMode(event.target.value as InventorySort)
-                  }
-                  className="h-8 rounded-lg bg-zinc-900 px-2.5 text-xs font-bold text-white outline-none ring-1 ring-zinc-800 transition focus:ring-white"
-                >
-                  {sortOptions.map((option) => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
-
-                <label className="relative block min-w-72 flex-1 lg:max-w-sm">
-                  <Search
-                    size={16}
-                    className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500"
-                  />
-                  <input
-                    type="search"
-                    value={searchQuery}
-                    onChange={(event) => setSearchQuery(event.target.value)}
-                    placeholder="Buscar SKU, producto, categoria o color"
-                    className="h-8 w-full rounded-lg bg-zinc-900 pl-9 pr-3 text-xs font-semibold text-white outline-none ring-1 ring-zinc-800 transition focus:ring-white"
-                  />
-                </label>
-              </div>
+              <select
+                value={categoryFilter}
+                onChange={(event) => {
+                  setCategoryFilter(event.target.value);
+                  setExpandedProductId(null);
+                }}
+                aria-label="Filtrar por categoria"
+                className="h-9 w-44 rounded-lg bg-zinc-900 px-2.5 text-xs font-bold text-white outline-none ring-1 ring-zinc-800 transition focus:ring-white"
+              >
+                <option value="all">Todas las categorias</option>
+                {categories.map((category) => (
+                  <option key={category} value={category}>
+                    {category}
+                  </option>
+                ))}
+              </select>
             </div>
 
             <div className="min-h-0 flex-1 overflow-hidden rounded-2xl border border-zinc-800 bg-[#070707] shadow-2xl shadow-black/20">
@@ -1414,18 +1307,16 @@ export default function GestionInventarioPage() {
                 </>
               ) : (
                 <>
-                  <div className="grid grid-cols-[76px_minmax(0,1fr)_100px_72px_64px_96px_104px_96px_104px_104px_124px] gap-3 border-b border-zinc-800 bg-zinc-900/90 px-3 py-1.5 text-xs font-bold uppercase text-zinc-400">
+                  <div className="grid grid-cols-[76px_minmax(0,1fr)_100px_64px_96px_104px_96px_104px_104px] gap-3 border-b border-zinc-800 bg-zinc-900/90 px-3 py-1.5 text-xs font-bold uppercase text-zinc-400">
                     <span>SKU</span>
                     <span>Producto</span>
                     <span className="text-center">Categoria</span>
-                    <span className="text-center">Colores</span>
                     <span className="text-center">Stock</span>
                     <span className="text-center">Costo</span>
                     <span className="text-center">Mayorista</span>
                     <span className="text-center">Curva</span>
                     <span className="text-center">Minorista</span>
                     <span className="text-center">Estado</span>
-                    <span className="text-center">Acciones</span>
                   </div>
 
                   <div className="h-full overflow-y-auto pb-12 [scrollbar-gutter:stable]">
@@ -1460,7 +1351,7 @@ export default function GestionInventarioPage() {
                               );
                             }
                           }}
-                          className="grid h-9 cursor-pointer grid-cols-[76px_minmax(0,1fr)_100px_72px_64px_96px_104px_96px_104px_104px_124px] items-center gap-3 rounded-lg text-sm transition hover:bg-zinc-800/45"
+                          className="grid h-9 cursor-pointer grid-cols-[76px_minmax(0,1fr)_100px_64px_96px_104px_96px_104px_104px] items-center gap-3 rounded-lg text-sm transition hover:bg-zinc-800/45"
                         >
                           <span className="w-fit rounded-lg bg-zinc-800 px-2 py-1 text-xs font-bold text-zinc-300">
                             {getShortSku(product.sku)}
@@ -1473,9 +1364,6 @@ export default function GestionInventarioPage() {
                           <span className="flex h-full items-center justify-center truncate text-center text-xs font-semibold text-zinc-400">
                             {product.category || "-"}
                           </span>
-                          <span className="mx-auto flex h-6 min-w-7 items-center justify-center rounded-lg bg-zinc-800 px-2 text-xs font-black text-zinc-200">
-                            {product.variants.length}
-                          </span>
                           <span className="flex h-full items-center justify-center text-center font-black text-white">
                             {stock}
                           </span>
@@ -1486,7 +1374,9 @@ export default function GestionInventarioPage() {
                             {formatPrice(product.price)}
                           </span>
                           <span className="flex h-full items-center justify-center text-center font-black tabular-nums text-sky-100">
-                            {formatPrice(product.curvePrice || product.price)}
+                            {isCurveProduct(product)
+                              ? formatPrice(product.curvePrice)
+                              : "-"}
                           </span>
                           <span className="flex h-full items-center justify-center text-center font-black tabular-nums text-zinc-200">
                             {formatPrice(product.retailPrice)}
@@ -1510,32 +1400,33 @@ export default function GestionInventarioPage() {
                                 ? "Publicado"
                                 : "Oculto"}
                           </button>
-                          <div className="flex h-full items-center justify-center gap-2">
-                            <button
-                              type="button"
-                              onClick={(event) => {
-                                event.stopPropagation();
-                                openStockEditor(product);
-                              }}
-                              className="h-7 rounded-lg bg-zinc-800 px-2.5 text-[11px] font-black text-zinc-200 transition hover:bg-zinc-700"
-                            >
-                              Stock
-                            </button>
-                            <button
-                              type="button"
-                              onClick={(event) => {
-                                event.stopPropagation();
-                                openPriceEditor(product);
-                              }}
-                              className="h-7 rounded-lg bg-zinc-800 px-2.5 text-[11px] font-black text-zinc-200 transition hover:bg-zinc-700"
-                            >
-                              Precio
-                            </button>
-                          </div>
                         </div>
 
                         {expandedProductId === product.id && (
                           <div className="mt-1 border-t border-zinc-800 px-2 pb-0.5 pt-1">
+                            <div className="mb-1 flex items-center justify-between gap-2">
+                              <p className="text-xs font-bold text-zinc-400">
+                                Colores ({product.variants.length})
+                              </p>
+                              <div className="flex items-center gap-1.5">
+                                <button
+                                  type="button"
+                                  onClick={() => openStockEditor(product)}
+                                  className="inline-flex h-7 cursor-pointer items-center gap-1.5 rounded-lg bg-zinc-800 px-2.5 text-[11px] font-black text-zinc-200 transition hover:bg-zinc-700"
+                                >
+                                  <Boxes size={13} />
+                                  Editar stock
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => openPriceEditor(product)}
+                                  className="inline-flex h-7 cursor-pointer items-center gap-1.5 rounded-lg bg-zinc-800 px-2.5 text-[11px] font-black text-zinc-200 transition hover:bg-zinc-700"
+                                >
+                                  <CreditCard size={13} />
+                                  Editar precios
+                                </button>
+                              </div>
+                            </div>
                             <div className="grid gap-1">
                             {product.variants.map((variant) => {
                               const hasVariantStock = variant.sizes.some(
@@ -1848,29 +1739,31 @@ export default function GestionInventarioPage() {
                 />
               </label>
 
-              <label className="grid gap-2">
-                <span className="text-xs font-bold uppercase text-zinc-500">
-                  Precio curva
-                </span>
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  value={priceEditor.curvePrice}
-                  onChange={(event) =>
-                    setPriceEditor((currentEditor) =>
-                      currentEditor
-                        ? {
-                            ...currentEditor,
-                            curvePrice: formatInventoryPriceInput(
-                              event.target.value
-                            ),
-                          }
-                        : currentEditor
-                    )
-                  }
-                  className="h-11 rounded-xl bg-zinc-900 px-3 text-lg font-black text-white outline-none ring-1 ring-zinc-800 transition focus:ring-white"
-                />
-              </label>
+              {isCurveProduct(priceEditor.product) && (
+                <label className="grid gap-2">
+                  <span className="text-xs font-bold uppercase text-zinc-500">
+                    Precio curva
+                  </span>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    value={priceEditor.curvePrice}
+                    onChange={(event) =>
+                      setPriceEditor((currentEditor) =>
+                        currentEditor
+                          ? {
+                              ...currentEditor,
+                              curvePrice: formatInventoryPriceInput(
+                                event.target.value
+                              ),
+                            }
+                          : currentEditor
+                      )
+                    }
+                    className="h-11 rounded-xl bg-zinc-900 px-3 text-lg font-black text-white outline-none ring-1 ring-zinc-800 transition focus:ring-white"
+                  />
+                </label>
+              )}
 
               <label className="grid gap-2">
                 <span className="text-xs font-bold uppercase text-zinc-500">
@@ -2041,7 +1934,7 @@ export default function GestionInventarioPage() {
                       Precios
                     </h3>
 
-                    <div className="grid gap-3 sm:grid-cols-4">
+                    <div className="grid gap-3 sm:grid-cols-3">
                       <label className="grid min-w-0 gap-1.5">
                         <span className="text-xs font-semibold uppercase text-zinc-500">
                           Costo
@@ -2082,31 +1975,6 @@ export default function GestionInventarioPage() {
                                 ? {
                                     ...currentDraft,
                                     price: formatInventoryPriceInput(
-                                      event.target.value
-                                    ),
-                                  }
-                                : currentDraft
-                            )
-                          }
-                          className="h-10 min-w-0 rounded-xl bg-zinc-800 px-3 text-sm font-bold outline-none ring-1 ring-transparent transition focus:ring-white"
-                        />
-                      </label>
-
-                      <label className="grid min-w-0 gap-1.5">
-                        <span className="text-xs font-semibold uppercase text-zinc-500">
-                          Precio curva
-                        </span>
-                        <input
-                          type="text"
-                          inputMode="numeric"
-                          placeholder="Curva"
-                          value={quickProductDraft.curvePrice}
-                          onChange={(event) =>
-                            setQuickProductDraft((currentDraft) =>
-                              currentDraft
-                                ? {
-                                    ...currentDraft,
-                                    curvePrice: formatInventoryPriceInput(
                                       event.target.value
                                     ),
                                   }

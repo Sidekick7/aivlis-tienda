@@ -1,3 +1,23 @@
+alter table public.order_items
+  add column if not exists line_group_id uuid,
+  add column if not exists sale_mode text,
+  add column if not exists bundle_quantity integer,
+  add column if not exists units_per_bundle integer,
+  add column if not exists bundle_price numeric(12, 2);
+
+alter table public.local_sale_items
+  add column if not exists line_group_id uuid,
+  add column if not exists sale_mode text,
+  add column if not exists bundle_quantity integer,
+  add column if not exists units_per_bundle integer,
+  add column if not exists bundle_price numeric(12, 2);
+
+create index if not exists order_items_line_group_id_idx
+  on public.order_items(line_group_id);
+
+create index if not exists local_sale_items_line_group_id_idx
+  on public.local_sale_items(line_group_id);
+
 create or replace function public.create_order_ticket(
   order_id uuid,
   order_number text,
@@ -42,6 +62,10 @@ begin
       or coalesce((item ->> 'unit_price')::numeric, 0) < 0
       or coalesce((item ->> 'unit_cost')::numeric, 0) < 0
       or coalesce((item ->> 'subtotal')::numeric, 0) < 0
+      or coalesce(item ->> 'sale_mode', 'unit') not in ('unit', 'curve')
+      or coalesce((item ->> 'bundle_quantity')::integer, 1) <= 0
+      or coalesce((item ->> 'units_per_bundle')::integer, 1) <= 0
+      or coalesce((item ->> 'bundle_price')::numeric, 0) < 0
       or (item ->> 'subtotal')::numeric
         <> (item ->> 'unit_price')::numeric * (item ->> 'quantity')::integer
   ) then
@@ -187,7 +211,12 @@ begin
     unit_price,
     unit_cost,
     subtotal,
-    image_url
+    image_url,
+    line_group_id,
+    sale_mode,
+    bundle_quantity,
+    units_per_bundle,
+    bundle_price
   )
   select
     order_id,
@@ -201,7 +230,15 @@ begin
     (item ->> 'unit_price')::numeric,
     coalesce(product.cost, (item ->> 'unit_cost')::numeric, 0),
     (item ->> 'subtotal')::numeric,
-    nullif(item ->> 'image_url', '')
+    nullif(item ->> 'image_url', ''),
+    nullif(item ->> 'line_group_id', '')::uuid,
+    case
+      when item ->> 'sale_mode' = 'curve' then 'curve'
+      else 'unit'
+    end,
+    coalesce((item ->> 'bundle_quantity')::integer, (item ->> 'quantity')::integer),
+    coalesce((item ->> 'units_per_bundle')::integer, 1),
+    coalesce((item ->> 'bundle_price')::numeric, (item ->> 'unit_price')::numeric)
   from jsonb_array_elements(items) as item
   left join public.products as product
     on product.id = nullif(item ->> 'product_id', '')::bigint;

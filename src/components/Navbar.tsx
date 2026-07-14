@@ -126,8 +126,8 @@ export default function Navbar() {
   return (
     <>
       <nav className="fixed left-0 top-0 z-50 w-full border-b border-zinc-800 bg-black text-white">
-        <div className="font-brand flex h-10 items-center justify-center bg-white px-4 text-center text-lg uppercase leading-none text-black sm:text-xl">
-          Compra mínima $100.000
+        <div className="flex h-10 items-center justify-center bg-white px-4 text-center text-base font-normal uppercase leading-none text-black sm:text-lg">
+          Venta mayorista - Compra mínima $100.000
         </div>
 
         <div className="grid h-[60px] grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 px-3 sm:px-5 md:grid-cols-[1fr_auto_1fr] md:px-10">
@@ -154,20 +154,24 @@ export default function Navbar() {
             </div>
           </div>
 
-          <Link
-            href="/"
-            className="mx-auto inline-flex w-fit items-center justify-center transition hover:opacity-80"
-            aria-label="AIVLIS"
-          >
+          <div className="relative mx-auto flex h-[56px] w-[210px] items-center justify-center min-[380px]:w-[235px] sm:w-80 md:h-[60px] md:w-[400px]">
             <Image
               src="/aiv.png"
               alt="AIVLIS"
               width={300}
               height={48}
               priority
-              className="h-[56px] w-[210px] object-contain min-[380px]:w-[235px] sm:w-80 md:h-[60px] md:w-[400px]"
+              className="pointer-events-none h-full w-full object-contain"
             />
-          </Link>
+
+            <Link
+              href="/"
+              className="absolute left-1/2 top-1/2 h-[72%] w-[78%] -translate-x-1/2 -translate-y-1/2 transition hover:opacity-80 sm:w-[72%] md:w-[68%]"
+              aria-label="AIVLIS"
+            >
+              <span className="sr-only">AIVLIS</span>
+            </Link>
+          </div>
 
           <div className="relative flex items-center justify-end gap-3 sm:gap-5">
             <div className="relative hidden sm:block">

@@ -9,6 +9,7 @@ import { normalizeProduct } from "@/lib/products";
 import { findVariantSize } from "@/lib/stock";
 import type {
   AdminOrder,
+  AdminOrderItem,
   OrderFulfillmentStatus,
   OrderStatus,
   CreatedOrderTicket,
@@ -17,6 +18,20 @@ import type {
   SupabaseOrderRow,
 } from "@/types/order";
 import type { Product, SupabaseProductRow } from "@/types/product";
+
+function getCurveOrderProductName(item: {
+  name: string;
+  size?: string;
+}) {
+  const sizeLabel = item.size || "";
+  const nameWithoutCurveLabel = sizeLabel
+    ? item.name.replace(` (${sizeLabel})`, "")
+    : item.name;
+
+  return nameWithoutCurveLabel.startsWith("Curva - ")
+    ? nameWithoutCurveLabel
+    : `Curva - ${nameWithoutCurveLabel}`;
+}
 
 function getOrderItemImageUrl(
   row: SupabaseOrderItemRow,
@@ -49,7 +64,7 @@ function getCartItemVariantImage(item: {
 function normalizeOrderItem(
   row: SupabaseOrderItemRow,
   productsById?: Map<number, Product>
-) {
+): AdminOrderItem {
   return {
     id: row.id,
     productId: row.product_id,
@@ -63,6 +78,16 @@ function normalizeOrderItem(
     unitCost: Number(row.unit_cost ?? 0),
     subtotal: Number(row.subtotal),
     imageUrl: getOrderItemImageUrl(row, productsById),
+    lineGroupId: row.line_group_id,
+    saleMode:
+      row.sale_mode === "curve" ||
+      row.product_name.startsWith("Curva - ") ||
+      /\(Curva\s+/i.test(row.product_name)
+        ? "curve"
+        : "unit",
+    bundleQuantity: Number(row.bundle_quantity ?? row.quantity),
+    unitsPerBundle: Number(row.units_per_bundle ?? 0),
+    bundlePrice: Number(row.bundle_price ?? 0),
   };
 }
 
@@ -226,6 +251,7 @@ export async function createOrderTicket({
   const orderId = crypto.randomUUID();
   const cartPricing = getCartPricing(cart);
   const orderItems = cart.flatMap((item) => {
+    const lineGroupId = crypto.randomUUID();
     const unitPrice = getCartItemUnitPrice(
       item,
       cartPricing.isWholesale
@@ -245,6 +271,11 @@ export async function createOrderTicket({
           unit_cost: Number(item.cost ?? 0),
           subtotal: getCartItemSubtotal(item, cartPricing.isWholesale),
           image_url: getCartItemVariantImage(item),
+          line_group_id: lineGroupId,
+          sale_mode: "unit",
+          bundle_quantity: item.quantity,
+          units_per_bundle: 1,
+          bundle_price: unitPrice,
         },
       ];
     }
@@ -253,12 +284,14 @@ export async function createOrderTicket({
       (variant) => variant.color === item.selectedColor
     );
     const quantityBySize = item.quantity;
+    const unitsPerBundle = curveVariant?.sizes.length ?? 0;
+    const bundlePrice = unitPrice * unitsPerBundle;
 
     return (curveVariant?.sizes ?? []).map((sizeItem) => ({
       product_id: item.id,
       product_slug: item.slug,
       product_sku: item.sku || "",
-      product_name: `${item.name} (${item.size})`,
+      product_name: getCurveOrderProductName(item),
       variant_color: item.selectedColor || "",
       size: sizeItem.size,
       quantity: quantityBySize,
@@ -266,6 +299,11 @@ export async function createOrderTicket({
       unit_cost: Number(item.cost ?? 0),
       subtotal: unitPrice * quantityBySize,
       image_url: getCartItemVariantImage(item),
+      line_group_id: lineGroupId,
+      sale_mode: "curve",
+      bundle_quantity: item.quantity,
+      units_per_bundle: unitsPerBundle,
+      bundle_price: bundlePrice,
     }));
   });
   const { error } = await supabase.rpc("create_order_ticket", {

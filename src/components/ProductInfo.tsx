@@ -26,6 +26,10 @@ import {
 import { formatPrice } from "@/lib/pricing";
 import type { Product, ProductVariant } from "@/types/product";
 
+type ProductWithPublicSource = Product & {
+  sourceSlug?: string;
+};
+
 type Props = {
   product: Product;
   displayName?: string;
@@ -76,6 +80,8 @@ export default function ProductInfo({
   initialPurchaseMode = "unit",
   lockPurchaseMode = false,
 }: Props) {
+  const sourceProductSlug =
+    (product as ProductWithPublicSource).sourceSlug || product.slug;
   const productDisplayName = displayName ?? product.name;
   const [categoryLabel, setCategoryLabel] = useState(product.category);
   const firstVariant = product.variants[0];
@@ -186,6 +192,10 @@ export default function ProductInfo({
     : unitReferencePrice;
   const curveLabel = canBuyCurve ? getCurveLabel(selectedVariant) : "";
   const curveSizes = getCurveSizesFromVariant(selectedVariant);
+  const sortedCurveSizes = sortSizes(curveSizes);
+  const curveFirstSize = sortedCurveSizes[0] ?? "";
+  const curveLastSize =
+    sortedCurveSizes[sortedCurveSizes.length - 1] ?? curveFirstSize;
   const allProductSizes = sortSizes(
     Array.from(
       new Set(
@@ -407,6 +417,7 @@ export default function ProductInfo({
       addToCart(
         {
           ...product,
+          slug: sourceProductSlug,
           saleMode: "curve",
           price: curveUnitPrice,
           retailPrice: curveUnitPrice,
@@ -627,11 +638,29 @@ export default function ProductInfo({
       </h1>
 
       <div className="mt-3">
-        <p className="text-2xl font-bold">
-          {formatPrice(visiblePrice)}
-        </p>
+        {isCurveSale ? (
+          <div className="flex items-center gap-2 whitespace-nowrap sm:gap-3">
+            <span className="flex h-9 items-center text-xl font-semibold leading-none text-zinc-500 line-through sm:text-2xl">
+              {formatPrice(curveReferenceTotal)}
+            </span>
 
-        {canBuyCurve && (
+            <span className="flex h-9 items-center text-xl font-semibold leading-none text-black sm:text-2xl">
+              {formatPrice(curveSetPrice)}
+            </span>
+
+            {curveSavings > 0 && (
+              <span className="inline-flex h-9 w-fit items-center bg-red-700 px-2.5 text-xs font-black leading-none text-white sm:px-3 sm:text-sm">
+                ahorro {formatPrice(curveSavings)}
+              </span>
+            )}
+          </div>
+        ) : (
+          <p className="text-2xl font-bold">
+            {formatPrice(visiblePrice)}
+          </p>
+        )}
+
+        {canBuyCurve && !isCurveSale && (
           <p className="mt-1 text-xs font-semibold uppercase text-zinc-500">
             {isCurveSale
               ? `${curveUnitsPerSet} prendas · ${formatPrice(
@@ -776,56 +805,13 @@ export default function ProductInfo({
               )}
             </div>
 
-            <p className="mt-1 text-base font-bold">
-              {curveLabel}
+            <p className="mt-2 text-base leading-6 text-zinc-700">
+              Se incluye del talle {curveFirstSize} al talle {curveLastSize} ({curveUnitsPerSet} prendas)
             </p>
 
-            <p className="mt-1 text-sm leading-5 text-zinc-600">
-              1 unidad de cada talle del color. Total: {curveUnitsPerSet} prendas.
+            <p className="mt-1 text-xs font-semibold uppercase text-zinc-500">
+              {sortedCurveSizes.join(" / ")}
             </p>
-
-            <div className="mt-2 grid gap-2 sm:grid-cols-2">
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
-                  Unidad suelta
-                </p>
-                <p className="text-base font-bold text-zinc-900">
-                  {formatPrice(unitReferencePrice)}
-                </p>
-              </div>
-
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
-                  Curva completa
-                </p>
-                <p className="text-base font-bold text-zinc-900">
-                  {formatPrice(curveSetPrice)}
-                </p>
-              </div>
-            </div>
-
-            <div className="mt-2 flex flex-wrap items-center gap-2 text-xs font-semibold">
-              <span className="rounded-full bg-zinc-200 px-2.5 py-1 text-zinc-700">
-                {formatPrice(curveUnitPrice)} por prenda
-              </span>
-
-              {curveSavings > 0 && (
-                <span className="rounded-full bg-emerald-100 px-2.5 py-1 text-emerald-700">
-                  Ahorras {formatPrice(curveSavings)}
-                </span>
-              )}
-            </div>
-
-            <div className="mt-2 flex flex-wrap gap-2">
-              {curveSizes.map((size) => (
-                <span
-                  key={size}
-                  className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-zinc-700"
-                >
-                  {size}
-                </span>
-              ))}
-            </div>
 
           </div>
         ) : (
@@ -981,8 +967,6 @@ export default function ProductInfo({
                 ? "AGOTADO"
                 : availableToAdd <= 0
                 ? "EN CARRITO"
-                : isCurveSale
-                ? "AGREGAR CURVA"
                 : "AGREGAR"}
             </span>
             <span className="hidden sm:inline">
@@ -993,8 +977,6 @@ export default function ProductInfo({
                 ? "AGOTADO"
                 : availableToAdd <= 0
                 ? "STOCK EN CARRITO"
-                : isCurveSale
-                ? "AGREGAR CURVA AL CARRITO"
                 : "AGREGAR AL CARRITO"}
             </span>
           </button>

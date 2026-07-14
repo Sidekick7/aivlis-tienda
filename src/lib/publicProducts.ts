@@ -40,7 +40,7 @@ function toCurvePublication(product: Product): PublicProduct {
     ...product,
     slug: getCurvePublicationSlug(product),
     category: curveCategoryValue,
-    publicName: `${product.name} - Curva`,
+    publicName: `Curva - ${product.name}`,
     publicationMode: "curve",
     sourceSlug: product.slug,
     sourceProductId: product.id,

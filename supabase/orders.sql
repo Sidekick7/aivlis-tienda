@@ -36,11 +36,19 @@ create table if not exists public.order_items (
   unit_price numeric(12, 2) not null,
   subtotal numeric(12, 2) not null,
   image_url text,
+  line_group_id uuid,
+  sale_mode text,
+  bundle_quantity integer,
+  units_per_bundle integer,
+  bundle_price numeric(12, 2),
   created_at timestamptz not null default now()
 );
 
 create index if not exists order_items_order_id_idx
   on public.order_items(order_id);
+
+create index if not exists order_items_line_group_id_idx
+  on public.order_items(line_group_id);
 
 alter table public.orders enable row level security;
 alter table public.order_items enable row level security;

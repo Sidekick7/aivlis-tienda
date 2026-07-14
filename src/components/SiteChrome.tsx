@@ -5,6 +5,7 @@ import CartWrapper from "@/components/CartWrapper";
 import Footer from "@/components/Footer";
 import MobileBottomNav from "@/components/MobileBottomNav";
 import Navbar from "@/components/Navbar";
+import ScrollToTopButton from "@/components/ScrollToTopButton";
 import WhatsAppFloatingButton from "@/components/WhatsAppFloatingButton";
 
 type SiteChromeProps = {
@@ -27,6 +28,7 @@ export default function SiteChrome({
       <Navbar />
       <CartWrapper />
       <WhatsAppFloatingButton />
+      <ScrollToTopButton />
       <div className="pb-24 sm:pb-0">
         {children}
         <Footer />

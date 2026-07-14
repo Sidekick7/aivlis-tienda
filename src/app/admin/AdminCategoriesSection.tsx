@@ -99,19 +99,15 @@ export default function AdminCategoriesSection({
   };
 
   return (
-    <div className="mx-auto mt-6 max-w-4xl rounded-3xl bg-zinc-900 p-4 md:p-5">
-      <div className="mb-5 flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+    <div className="mx-auto mt-4 max-w-6xl rounded-3xl bg-zinc-900 p-4 md:p-5">
+      <div className="mb-4 flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
         <div>
-          <h2 className="text-2xl font-black">
-            Categorias de catalogo
+          <h2 className="text-2xl font-black leading-none">
+            Categorias
           </h2>
-
-          <p className="mt-1 text-sm text-zinc-500">
-            Orden, estado y nombres visibles en filtros y Home.
-          </p>
         </div>
 
-        <div className="grid gap-2 sm:grid-cols-[minmax(200px,1fr)_auto_auto] xl:w-[500px]">
+        <div className="grid gap-2 sm:grid-cols-[minmax(220px,1fr)_auto_auto] xl:w-[560px]">
           <input
             type="text"
             placeholder="Nueva categoria"

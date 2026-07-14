@@ -15,6 +15,8 @@ import {
   createLocalSale,
   createLocalSaleNumber,
 } from "@/lib/localSales";
+import { isCurveProduct } from "@/lib/curve";
+import { groupSaleItems } from "@/lib/saleItemGroups";
 import { getProductImage } from "@/lib/productDisplay";
 import { formatPrice, getRetailPrice } from "@/lib/pricing";
 import { getVariantSizeStock } from "@/lib/stock";
@@ -112,7 +114,7 @@ const ticketGridColumns =
   "grid-cols-[34px_70px_minmax(120px,1fr)_82px_56px_104px_88px_92px_98px_36px]";
 const posTicketStorageKey = "aivlis-pos-ticket";
 
-function getShortSku(sku?: string) {
+function getShortSku(sku?: string | null) {
   return sku?.startsWith("AIV-") ? sku.slice(4) : sku || "";
 }
 
@@ -188,51 +190,65 @@ function printLocalSaleReceipt({
     dateStyle: "short",
     timeStyle: "short",
   }).format(new Date());
-  const groupedItems = new Map<
-    string,
-    {
-      productName: string;
-      productSku?: string;
-      variants: LocalSaleItemInput[];
-    }
-  >();
-
-  for (const item of items) {
-    const groupKey = `${item.productId}-${item.productSku ?? ""}-${item.productName}`;
-    const currentGroup = groupedItems.get(groupKey);
-
-    if (currentGroup) {
-      currentGroup.variants.push(item);
-    } else {
-      groupedItems.set(groupKey, {
-        productName: item.productName,
-        productSku: item.productSku,
-        variants: [item],
-      });
-    }
-  }
-
-  const itemsHtml = Array.from(groupedItems.values())
+  const itemsHtml = groupSaleItems(items)
     .map((group) => {
       const skuText = getShortSku(group.productSku);
-      const variantRows = group.variants
-        .map(
-          (item) => `
-            <tr>
-              <td>
-                <span class="variant-name">${escapeReceiptText(item.variantColor)} / Talle ${escapeReceiptText(item.size)}</span>
+      const isCurveGroup = group.saleMode === "curve";
+      const curveUnitPrice = group.items[0]?.unitPrice ?? 0;
+      const curveSizes = Array.from(
+        new Set(
+          group.items
+            .map((item) => item.size)
+            .filter((size): size is string => Boolean(size))
+        )
+      );
+      const curveColors = Array.from(
+        new Set(
+          group.items
+            .map((item) => item.variantColor)
+            .filter((color): color is string => Boolean(color))
+        )
+      );
+      const totalGarments = group.items.reduce(
+        (total, item) => total + item.quantity,
+        0
+      );
+      const detailRows = isCurveGroup
+        ? `
+            <tr class="details-row">
+              <td colspan="3">
+                ${curveColors.length > 0 ? `<span>${escapeReceiptText(curveColors.join(", "))}</span>` : ""}
+                <span>Talles: ${curveSizes.map((size) => escapeReceiptText(size)).join(" &middot; ")}</span>
+                <span>${escapeReceiptText(totalGarments)} prendas &middot; ${escapeReceiptText(group.bundleQuantity)} de cada talle</span>
+                <span>${escapeReceiptText(formatPrice(curveUnitPrice))} por prenda</span>
               </td>
-              <td>${escapeReceiptText(item.quantity)}</td>
-              <td>${escapeReceiptText(formatPrice(item.unitPrice))}</td>
-              <td>${escapeReceiptText(formatPrice(item.subtotal))}</td>
+            </tr>
+            <tr class="amount-row">
+              <td>${escapeReceiptText(group.bundleQuantity)} ${group.bundleQuantity === 1 ? "curva" : "curvas"}</td>
+              <td>${escapeReceiptText(formatPrice(group.bundlePrice))}</td>
+              <td>${escapeReceiptText(formatPrice(group.subtotal))}</td>
             </tr>
           `
-        )
-        .join("");
+        : group.items
+            .map(
+              (item) => `
+                <tr class="details-row">
+                  <td colspan="3">
+                    <span>${escapeReceiptText(item.variantColor)} / Talle ${escapeReceiptText(item.size)}</span>
+                  </td>
+                </tr>
+                <tr class="amount-row">
+                  <td>${escapeReceiptText(item.quantity)} ${item.quantity === 1 ? "prenda" : "prendas"}</td>
+                  <td>${escapeReceiptText(formatPrice(item.unitPrice))}</td>
+                  <td>${escapeReceiptText(formatPrice(item.subtotal))}</td>
+                </tr>
+              `
+            )
+            .join("");
 
       return `
         <tr class="product-row">
-          <td colspan="4">
+          <td colspan="3">
             <strong>${escapeReceiptText(group.productName)}</strong>
             ${
               skuText
@@ -241,7 +257,7 @@ function printLocalSaleReceipt({
             }
           </td>
         </tr>
-        ${variantRows}
+        ${detailRows}
       `;
     })
     .join("");
@@ -296,6 +312,7 @@ function printLocalSaleReceipt({
           }
           table {
             width: 100%;
+            table-layout: fixed;
             border-collapse: collapse;
           }
           th {
@@ -309,6 +326,9 @@ function printLocalSaleReceipt({
           td:first-child {
             text-align: left;
           }
+          th:nth-child(1), td:nth-child(1) { width: 32%; }
+          th:nth-child(2), td:nth-child(2) { width: 31%; }
+          th:nth-child(3), td:nth-child(3) { width: 37%; }
           td {
             border-bottom: 1px solid #eee;
             padding: 7px 0;
@@ -329,9 +349,22 @@ function printLocalSaleReceipt({
             display: block;
             font-size: 12px;
           }
-          .variant-name {
+          .details-row td {
+            border-bottom: 0;
+            padding: 2px 0;
+            text-align: left;
+          }
+          .details-row span {
             color: #111;
             font-size: 11px;
+          }
+          .amount-row td {
+            padding: 5px 0 9px;
+            font-weight: 700;
+          }
+          .amount-row td:nth-child(2),
+          .amount-row td:nth-child(3) {
+            text-align: right;
           }
           .total {
             display: flex;
@@ -378,10 +411,9 @@ function printLocalSaleReceipt({
           <table>
             <thead>
               <tr>
-                <th>Producto</th>
                 <th>Cant.</th>
-                <th>Unit.</th>
-                <th>Subt.</th>
+                <th>Valor</th>
+                <th>Subtotal</th>
               </tr>
             </thead>
             <tbody>${itemsHtml}</tbody>
@@ -407,7 +439,7 @@ function printLocalSaleReceipt({
 }
 
 function isPriceList(value: unknown): value is PosPriceList {
-  return value === "base" || value === "retail";
+  return value === "base" || value === "curve" || value === "retail";
 }
 
 function isPaymentMethod(
@@ -464,6 +496,23 @@ function normalizeStoredTicketItems(value: unknown) {
             ? storedItem.adjustmentValue
             : 0,
         imageUrl: storedItem.imageUrl,
+        lineGroupId:
+          typeof storedItem.lineGroupId === "string"
+            ? storedItem.lineGroupId
+            : crypto.randomUUID(),
+        saleMode: storedItem.saleMode === "curve" ? "curve" : "unit",
+        bundleQuantity:
+          typeof storedItem.bundleQuantity === "number"
+            ? storedItem.bundleQuantity
+            : storedItem.quantity,
+        unitsPerBundle:
+          typeof storedItem.unitsPerBundle === "number"
+            ? storedItem.unitsPerBundle
+            : 1,
+        bundlePrice:
+          typeof storedItem.bundlePrice === "number"
+            ? storedItem.bundlePrice
+            : storedItem.unitPrice,
       },
     ];
   });
@@ -581,8 +630,8 @@ function applyLocalSalePricing(
   items: PosTicketItem[],
   productsById: Map<number, Product>,
   priceList: PosPriceList
-) {
-  return items.map((item) => {
+): PosTicketItem[] {
+  const pricedItems = items.map((item) => {
     const product = productsById.get(item.productId);
     const baseUnitPrice = product
       ? getProductUnitPrice(product, priceList)
@@ -593,6 +642,56 @@ function applyLocalSalePricing(
       ...item,
       unitPrice,
       subtotal: unitPrice * item.quantity,
+    };
+  });
+
+  const groupedItems = new Map<string, PosTicketItem[]>();
+
+  for (const item of pricedItems) {
+    const groupKey =
+      item.lineGroupId || `${item.productId}|${item.variantColor}`;
+    const currentItems = groupedItems.get(groupKey) ?? [];
+
+    currentItems.push(item);
+    groupedItems.set(groupKey, currentItems);
+  }
+
+  return pricedItems.map((item) => {
+    const groupKey =
+      item.lineGroupId || `${item.productId}|${item.variantColor}`;
+    const groupItems = groupedItems.get(groupKey) ?? [item];
+    const product = productsById.get(item.productId);
+    const variant = product?.variants.find(
+      (productVariant) => productVariant.color === item.variantColor
+    );
+    const expectedSizes = variant?.sizes.map((size) => size.size) ?? [];
+    const groupQuantities = groupItems.map((groupItem) => groupItem.quantity);
+    const firstQuantity = groupQuantities[0] ?? 0;
+    const isCompleteCurve =
+      priceList === "curve" &&
+      !!product &&
+      isCurveProduct(product) &&
+      expectedSizes.length > 0 &&
+      expectedSizes.every((size) =>
+        groupItems.some(
+          (groupItem) => groupItem.size === size && groupItem.quantity > 0
+        )
+      ) &&
+      groupQuantities.every((quantity) => quantity === firstQuantity);
+
+    return {
+      ...item,
+      saleMode: isCompleteCurve ? ("curve" as const) : ("unit" as const),
+      bundleQuantity: isCompleteCurve
+        ? firstQuantity
+        : groupItems.reduce(
+            (total, groupItem) => total + groupItem.quantity,
+            0
+          ),
+      unitsPerBundle: isCompleteCurve ? expectedSizes.length : 1,
+      bundlePrice: isCompleteCurve
+        ? item.unitPrice * expectedSizes.length
+        : item.unitPrice,
     };
   });
 }
@@ -966,8 +1065,22 @@ export default function PointOfSalePanel({
 
     setTicketItems((currentItems) => {
       let updatedItems = [...currentItems];
+      const lineGroupIdsByColor = new Map<string, string>();
 
       for (const size of selectedVariants) {
+        const colorGroupKey = `${selectedProduct.id}|${size.color}`;
+        const existingGroupId = updatedItems.find(
+          (item) =>
+            item.productId === selectedProduct.id &&
+            item.variantColor === size.color
+        )?.lineGroupId;
+        const lineGroupId =
+          existingGroupId ||
+          lineGroupIdsByColor.get(colorGroupKey) ||
+          crypto.randomUUID();
+
+        lineGroupIdsByColor.set(colorGroupKey, lineGroupId);
+
         const itemKey = getItemKey(
           selectedProduct.id,
           size.color,
@@ -1001,6 +1114,11 @@ export default function PointOfSalePanel({
                 quantity: size.quantity,
                 unitPrice,
                 subtotal: unitPrice * size.quantity,
+                lineGroupId,
+                saleMode: "unit" as const,
+                bundleQuantity: size.quantity,
+                unitsPerBundle: 1,
+                bundlePrice: unitPrice,
                 adjustmentType: "none",
                 adjustmentValue: 0,
                 imageUrl:
@@ -1254,6 +1372,16 @@ export default function PointOfSalePanel({
     }
 
     if (
+      priceList === "curve" &&
+      pricedTicketItems.some((item) => item.saleMode !== "curve")
+    ) {
+      setError(
+        "Para usar precio curva agrega todos los talles con la misma cantidad."
+      );
+      return;
+    }
+
+    if (
       operationType === "sale" &&
       paymentMethod === "cash" &&
       cashAmount.trim().length === 0
@@ -1288,6 +1416,16 @@ export default function PointOfSalePanel({
 
     if (pricedTicketItems.length === 0) {
       setError("Agrega al menos un producto.");
+      return;
+    }
+
+    if (
+      priceList === "curve" &&
+      pricedTicketItems.some((item) => item.saleMode !== "curve")
+    ) {
+      setError(
+        "Para usar precio curva agrega todos los talles con la misma cantidad."
+      );
       return;
     }
 

@@ -5,6 +5,10 @@ import {
   fallbackHomeContent,
   getHomeContent,
 } from "@/lib/homeContent";
+import {
+  buildDirectWhatsAppUrl,
+  normalizeWhatsAppNumber,
+} from "@/lib/whatsapp";
 
 const whatsappMessage = "Hola, quiero hacer una consulta.";
 
@@ -21,11 +25,12 @@ export default function WhatsAppFloatingButton() {
       .catch(() => {});
   }, []);
 
-  if (!whatsappNumber) return null;
+  if (!normalizeWhatsAppNumber(whatsappNumber)) return null;
 
-  const whatsappUrl = `https://wa.me/${
-    whatsappNumber
-  }?text=${encodeURIComponent(whatsappMessage)}`;
+  const whatsappUrl = buildDirectWhatsAppUrl({
+    number: whatsappNumber,
+    message: whatsappMessage,
+  });
 
   return (
     <a
@@ -33,12 +38,12 @@ export default function WhatsAppFloatingButton() {
       target="_blank"
       rel="noreferrer"
       aria-label="Consultar por WhatsApp"
-      className="fixed bottom-5 right-5 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-[#25D366] text-white shadow-xl shadow-black/25 transition hover:-translate-y-0.5 hover:bg-[#20bd5a] sm:bottom-6 sm:right-6"
+      className="fixed bottom-40 right-5 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-[#25D366] text-white shadow-xl shadow-black/25 transition hover:-translate-y-0.5 hover:bg-[#20bd5a] sm:bottom-24 sm:right-6"
     >
       <svg
         viewBox="0 0 32 32"
         aria-hidden="true"
-        className="h-11 w-11"
+        className="h-12 w-12"
       >
         <path
           fill="currentColor"

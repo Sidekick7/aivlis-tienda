@@ -3,6 +3,7 @@ import "./globals.css";
 import { CartProvider } from "@/context/CartContext";
 import { SearchProvider } from "@/context/SearchContext";
 import SiteChrome from "@/components/SiteChrome";
+import NumberInputWheelGuard from "@/components/NumberInputWheelGuard";
 
 export const metadata: Metadata = {
   title: "A I V L I S",
@@ -22,6 +23,8 @@ export default function RootLayout({
     >
 
       <body className="bg-black text-white min-h-full">
+
+      <NumberInputWheelGuard />
 
       <SearchProvider>  
 

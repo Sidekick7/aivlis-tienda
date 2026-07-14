@@ -78,63 +78,75 @@ export default function ProductCard({ product }: Props) {
             className="absolute inset-0 hidden h-full w-full object-cover opacity-0 transition duration-500 md:block md:group-hover/image:opacity-100"
           />
         )}
+
+        {isCurvePublication && (
+          <div className="absolute left-2 top-2 z-10 flex flex-col items-start gap-1.5 sm:left-3 sm:top-3">
+            <span className="bg-red-700 px-2.5 py-1 text-[11px] font-black uppercase leading-none text-white sm:text-xs">
+              Curva
+            </span>
+          </div>
+        )}
       </Link>
 
       <div className="flex min-h-[115px] flex-1 flex-col p-3 sm:min-h-[145px] sm:p-4">
         <Link href={`/product/${product.slug}`}>
-          <h2 className="font-brand line-clamp-2 text-base leading-tight sm:text-2xl">
+          <h2 className="font-brand line-clamp-2 text-sm leading-tight sm:text-xl">
             {productName}
           </h2>
         </Link>
 
         {isCurvePublication && curveUnitsPerSet > 1 ? (
-          <div className="mt-2 space-y-0.5">
-            <p className="text-sm font-bold text-black sm:text-base">
-              Curva x{curveUnitsPerSet} {formatPrice(curveSetPrice)}
-            </p>
+          <div className="mt-2 space-y-1">
+            <div className="flex flex-wrap items-baseline gap-2">
+              <span className="text-sm font-semibold text-zinc-500 line-through sm:text-base">
+                {formatPrice(unitReferencePrice * curveUnitsPerSet)}
+              </span>
 
-            <p className="text-xs font-bold uppercase text-zinc-600">
-              {formatPrice(curveUnitPrice)} por prenda
-            </p>
+              <span className="text-base font-semibold text-black sm:text-lg">
+                {formatPrice(curveSetPrice)}
+              </span>
+            </div>
 
             {curveSavings > 0 && (
-              <p className="text-[11px] font-semibold text-emerald-700">
-                Ahorras {formatPrice(curveSavings)}
+              <p className="text-xs font-bold text-red-700 sm:text-sm">
+                ahorro {formatPrice(curveSavings)}
               </p>
             )}
           </div>
         ) : canBuyCurve && curveUnitsPerSet > 1 ? (
           <div className="mt-2">
-            <p className="text-sm font-bold text-black sm:text-base">
+            <p className="text-sm font-semibold text-black sm:text-base">
               {formatPrice(unitReferencePrice)}
             </p>
           </div>
         ) : (
           <div className="mt-2">
-            <p className="text-sm font-bold text-black sm:text-base">
+            <p className="text-sm font-semibold text-black sm:text-base">
               {formatPrice(product.price)}
             </p>
           </div>
         )}
 
-        <div className="mt-1.5 flex items-center gap-1.5 sm:gap-2">
-          {visibleVariants.map((variant) => (
-            <div
-              key={variant.color}
-              title={variant.color}
-              className="h-3 w-3 rounded-full border border-zinc-400"
-              style={{
-                backgroundColor: variant.hex,
-              }}
-            />
-          ))}
+        {product.variants.length > 1 && (
+          <div className="mt-1.5 flex items-center gap-1.5 sm:gap-2">
+            {visibleVariants.map((variant) => (
+              <div
+                key={variant.color}
+                title={variant.color}
+                className="h-3 w-3 rounded-full border border-zinc-400"
+                style={{
+                  backgroundColor: variant.hex,
+                }}
+              />
+            ))}
 
-          {hiddenVariantsCount > 0 && (
-            <div className="text-[10px] font-semibold text-zinc-500 sm:text-xs">
-              +{hiddenVariantsCount}
-            </div>
-          )}
-        </div>
+            {hiddenVariantsCount > 0 && (
+              <div className="text-[10px] font-semibold text-zinc-500 sm:text-xs">
+                +{hiddenVariantsCount}
+              </div>
+            )}
+          </div>
+        )}
 
         <div className="mt-1.5 flex flex-wrap gap-1.5 sm:gap-2">
           {visibleSizes.map((size) => (

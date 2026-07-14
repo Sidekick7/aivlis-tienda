@@ -23,6 +23,7 @@ import {
   updateLocalSaleStatus,
 } from "@/lib/localSales";
 import {
+  getWebOrderChargeBreakdown,
   printLocalSaleReceipt,
   printWebOrderReceipt,
 } from "@/lib/localSaleReceipt";
@@ -33,6 +34,7 @@ import {
 } from "@/lib/orders";
 import { formatOrderNumber } from "@/lib/orderNumber";
 import { formatPrice } from "@/lib/pricing";
+import { groupSaleItems } from "@/lib/saleItemGroups";
 import { supabase } from "@/lib/supabase";
 import type { AdminOrder, OrderStatus } from "@/types/order";
 import type { LocalSale } from "@/types/localSale";
@@ -211,15 +213,117 @@ function getWebPaymentLabel(order: AdminOrder) {
     .join("\n")
     .toLowerCase();
 
-  if (text.includes("forma de pago: transferencia")) {
+  if (
+    text.includes("forma de pago: transferencia") ||
+    text.includes("pago: transferencia") ||
+    text.includes("pago\ntransferencia")
+  ) {
     return "Transferencia";
   }
 
-  if (text.includes("forma de pago: efectivo")) {
+  if (
+    text.includes("forma de pago: efectivo") ||
+    text.includes("pago: efectivo") ||
+    text.includes("pago\nefectivo")
+  ) {
     return "Efectivo";
   }
 
   return "Transferencia";
+}
+
+type SaleDetailItem =
+  | AdminOrder["items"][number]
+  | LocalSale["items"][number];
+
+function SaleItemsDetailTable({ items }: { items: SaleDetailItem[] }) {
+  const groups = groupSaleItems(items);
+
+  return (
+    <div className="overflow-hidden rounded-2xl border border-zinc-800">
+      <div className="grid grid-cols-[92px_minmax(0,1fr)_150px_90px_130px_110px] gap-3 bg-zinc-900 px-3 py-2 text-xs font-bold uppercase text-zinc-500">
+        <span>SKU</span>
+        <span>Producto</span>
+        <span>Variante</span>
+        <span>Cantidad</span>
+        <span>Precio</span>
+        <span className="text-right">Subtotal</span>
+      </div>
+
+      <div className="divide-y divide-zinc-800">
+        {groups.map((group) => {
+          const firstItem = group.items[0];
+          const colors = Array.from(
+            new Set(group.items.map((item) => item.variantColor || "-"))
+          );
+          const unitPrices = new Set(
+            group.items.map((item) => item.unitPrice)
+          );
+
+          return (
+            <article key={group.key} className="px-3 py-2">
+              <div className="grid grid-cols-[92px_minmax(0,1fr)_150px_90px_130px_110px] items-center gap-3 text-sm">
+                <span className="w-fit rounded-lg bg-zinc-800 px-2 py-1 text-xs font-bold text-zinc-300">
+                  {group.productSku?.startsWith("AIV-")
+                    ? group.productSku.slice(4)
+                    : group.productSku || "-"}
+                </span>
+                <div className="min-w-0">
+                  <p className="truncate font-semibold text-white">
+                    {group.productName}
+                  </p>
+                  {group.saleMode === "curve" && (
+                    <p className="mt-0.5 text-xs text-zinc-400">
+                      {group.bundleQuantity}{" "}
+                      {group.bundleQuantity === 1 ? "curva" : "curvas"} ·{" "}
+                      {group.bundleQuantity * group.unitsPerBundle} prendas
+                    </p>
+                  )}
+                </div>
+                <span className="truncate text-xs font-semibold text-zinc-400">
+                  {colors.join(", ")}
+                </span>
+                <span className="font-bold text-zinc-200">
+                  x{group.bundleQuantity}
+                </span>
+                <span className="text-zinc-300">
+                  {group.saleMode === "curve"
+                    ? `Curva ${formatPrice(group.bundlePrice)}`
+                    : unitPrices.size === 1
+                      ? formatPrice(firstItem.unitPrice)
+                      : "Variable"}
+                </span>
+                <span className="text-right font-bold text-white">
+                  {formatPrice(group.subtotal)}
+                </span>
+              </div>
+
+              {(group.saleMode === "curve" || group.items.length > 1) && (
+                <div className="ml-[104px] mt-2 grid gap-1 border-l border-zinc-800 pl-3">
+                  {group.items.map((item) => (
+                    <div
+                      key={item.id || `${item.variantColor}-${item.size}`}
+                      className="grid grid-cols-[minmax(0,1fr)_70px_110px] items-center gap-3 text-xs"
+                    >
+                      <span className="text-zinc-400">
+                        {item.variantColor || "-"} / Talle {item.size || "-"}
+                      </span>
+                      <span className="font-bold text-zinc-300">
+                        x{item.quantity}
+                      </span>
+                      <span className="text-right font-semibold text-zinc-300">
+                        {formatPrice(item.subtotal)}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </article>
+          );
+        })}
+      </div>
+    </div>
+  );
 }
 
 function formatSaleTableDate(value: string) {
@@ -604,8 +708,14 @@ export default function GestionVentasPage() {
       .map((line) => line.trim())
       .filter(Boolean);
     const deliveryIndex = lines.findIndex((line) => line === "ENTREGA");
-    const deliveryLine =
-      deliveryIndex >= 0 ? lines[deliveryIndex + 1]?.replace(": sin costo", "") : "";
+    const compactDeliveryLine = lines.find((line) =>
+      line.toLowerCase().startsWith("entrega:")
+    );
+    const deliveryLine = compactDeliveryLine
+      ? compactDeliveryLine.slice(compactDeliveryLine.indexOf(":") + 1).trim()
+      : deliveryIndex >= 0
+        ? lines[deliveryIndex + 1]?.replace(": sin costo", "")
+        : "";
 
     if (deliveryLine) {
       return deliveryLine.toLowerCase().includes("retiro")
@@ -719,6 +829,9 @@ export default function GestionVentasPage() {
     detailSale?.source === "local"
       ? localSales.find((sale) => sale.id === detailSale.id) ?? null
       : null;
+  const detailOrderCharges = detailOrder
+    ? getWebOrderChargeBreakdown(detailOrder)
+    : null;
 
   if (isAuthLoading || isCheckingAccess) {
     return (
@@ -1346,89 +1459,51 @@ export default function GestionVentasPage() {
               )}
 
               {detailLocalSale && (
-                <div className="overflow-hidden rounded-2xl border border-zinc-800">
-                  <div className="grid grid-cols-[92px_minmax(0,1fr)_150px_70px_110px_110px] gap-3 bg-zinc-900 px-3 py-2 text-xs font-bold uppercase text-zinc-500">
-                    <span>SKU</span>
-                    <span>Producto</span>
-                    <span>Variante</span>
-                    <span>Cant.</span>
-                    <span>Unitario</span>
-                    <span className="text-right">Subtotal</span>
-                  </div>
-
-                  <div className="divide-y divide-zinc-800">
-                    {detailLocalSale.items.map((item) => (
-                      <div
-                        key={item.id}
-                        className="grid grid-cols-[92px_minmax(0,1fr)_150px_70px_110px_110px] items-center gap-3 px-3 py-2 text-sm"
-                      >
-                        <span className="w-fit rounded-lg bg-zinc-800 px-2 py-1 text-xs font-bold text-zinc-300">
-                          {item.productSku?.startsWith("AIV-")
-                            ? item.productSku.slice(4)
-                            : item.productSku || "-"}
-                        </span>
-                        <span className="truncate font-semibold text-white">
-                          {item.productName}
-                        </span>
-                        <span className="text-xs font-semibold text-zinc-400">
-                          {item.variantColor || "-"} / Talle {item.size || "-"}
-                        </span>
-                        <span className="font-bold text-zinc-200">
-                          x{item.quantity}
-                        </span>
-                        <span className="text-zinc-300">
-                          {formatPrice(item.unitPrice)}
-                        </span>
-                        <span className="text-right font-bold text-white">
-                          {formatPrice(item.subtotal)}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
+                <SaleItemsDetailTable items={detailLocalSale.items} />
               )}
 
-              {detailOrder && (
-                <div className="overflow-hidden rounded-2xl border border-zinc-800">
-                  <div className="grid grid-cols-[92px_minmax(0,1fr)_150px_70px_110px_110px] gap-3 bg-zinc-900 px-3 py-2 text-xs font-bold uppercase text-zinc-500">
-                    <span>SKU</span>
-                    <span>Producto</span>
-                    <span>Variante</span>
-                    <span>Cant.</span>
-                    <span>Unitario</span>
-                    <span className="text-right">Subtotal</span>
-                  </div>
+              {detailOrder && detailOrderCharges && (
+                <>
+                  <SaleItemsDetailTable items={detailOrder.items} />
 
-                  <div className="divide-y divide-zinc-800">
-                    {detailOrder.items.map((item) => (
-                      <div
-                        key={item.id}
-                        className="grid grid-cols-[92px_minmax(0,1fr)_150px_70px_110px_110px] items-center gap-3 px-3 py-2 text-sm"
-                      >
-                        <span className="w-fit rounded-lg bg-zinc-800 px-2 py-1 text-xs font-bold text-zinc-300">
-                          {item.productSku?.startsWith("AIV-")
-                            ? item.productSku.slice(4)
-                            : item.productSku || "-"}
-                        </span>
-                        <span className="truncate font-semibold text-white">
-                          {item.productName}
-                        </span>
-                        <span className="text-xs font-semibold text-zinc-400">
-                          {item.variantColor || "-"} / Talle {item.size || "-"}
-                        </span>
-                        <span className="font-bold text-zinc-200">
-                          x{item.quantity}
-                        </span>
-                        <span className="text-zinc-300">
-                          {formatPrice(item.unitPrice)}
-                        </span>
-                        <span className="text-right font-bold text-white">
-                          {formatPrice(item.subtotal)}
-                        </span>
+                  <div className="ml-auto mt-3 w-full max-w-sm rounded-2xl border border-zinc-800 bg-zinc-900 p-3">
+                    <div className="flex items-center justify-between gap-4 text-sm text-zinc-400">
+                      <span>Subtotal productos</span>
+                      <strong className="text-zinc-200">
+                        {formatPrice(detailOrderCharges.productsSubtotal)}
+                      </strong>
+                    </div>
+
+                    {detailOrderCharges.logisticsFee > 0 && (
+                      <div className="mt-2 flex items-center justify-between gap-4 text-sm text-zinc-400">
+                        <span>Embalaje y cadeteria</span>
+                        <strong className="text-zinc-200">
+                          {formatPrice(detailOrderCharges.logisticsFee)}
+                        </strong>
                       </div>
-                    ))}
+                    )}
+
+                    {detailOrderCharges.transferSurcharge > 0 && (
+                      <div className="mt-2 flex items-center justify-between gap-4 text-sm text-zinc-400">
+                        <span>Transferencia 5%</span>
+                        <strong className="text-zinc-200">
+                          {formatPrice(
+                            detailOrderCharges.transferSurcharge
+                          )}
+                        </strong>
+                      </div>
+                    )}
+
+                    <div className="mt-3 flex items-center justify-between gap-4 border-t border-zinc-700 pt-3">
+                      <span className="text-sm font-black uppercase text-white">
+                        Total
+                      </span>
+                      <strong className="text-lg font-black text-white">
+                        {formatPrice(detailOrder.total)}
+                      </strong>
+                    </div>
                   </div>
-                </div>
+                </>
               )}
             </div>
           </div>

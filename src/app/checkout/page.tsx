@@ -301,6 +301,7 @@ export default function CheckoutPage() {
 
       return {
         ...item,
+        slug: currentProduct?.slug || item.slug,
         sku: currentProduct?.sku || item.sku,
         price: isCurveProduct(item)
           ? currentProduct?.curvePrice ?? item.price
@@ -380,7 +381,7 @@ export default function CheckoutPage() {
             label:
               fulfillmentOption === "pickup"
                 ? "Retiro presencial"
-                : "Despacho a transporte, correo, expreso",
+                : "Envio",
             description:
               fulfillmentOption === "pickup"
                 ? "Yerbal 3160, Flores. Retiro una vez confirmado el pedido abonado y armado."

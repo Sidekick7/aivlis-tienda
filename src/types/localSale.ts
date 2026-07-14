@@ -1,3 +1,5 @@
+import type { SaleItemMode } from "@/lib/saleItemGroups";
+
 export type LocalSalePaymentMethod =
   | "cash"
   | "transfer"
@@ -15,6 +17,11 @@ export type LocalSaleItemInput = {
   unitCost?: number;
   subtotal: number;
   imageUrl?: string;
+  lineGroupId?: string;
+  saleMode?: SaleItemMode;
+  bundleQuantity?: number;
+  unitsPerBundle?: number;
+  bundlePrice?: number;
 };
 
 export type CreateLocalSaleInput = {
@@ -58,6 +65,11 @@ export type SupabaseLocalSaleItemRow = {
   unit_cost?: number | string | null;
   subtotal: number | string;
   image_url?: string | null;
+  line_group_id?: string | null;
+  sale_mode?: SaleItemMode | null;
+  bundle_quantity?: number | string | null;
+  units_per_bundle?: number | string | null;
+  bundle_price?: number | string | null;
 };
 
 export type SupabaseLocalSaleRow = {

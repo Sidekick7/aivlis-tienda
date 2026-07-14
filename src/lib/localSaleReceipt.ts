@@ -1,4 +1,5 @@
 import { formatPrice } from "@/lib/pricing";
+import { groupSaleItems } from "@/lib/saleItemGroups";
 import type { AdminOrder, AdminOrderItem } from "@/types/order";
 import type {
   LocalSaleItem,
@@ -29,6 +30,21 @@ function getShortSaleNumber(saleNumber: string) {
   return saleNumber.split("-").at(-1) || saleNumber;
 }
 
+function getMessageAmount(message: string, label: string) {
+  const line = message
+    .split("\n")
+    .find((messageLine) =>
+      messageLine.trim().toLowerCase().startsWith(label.toLowerCase())
+    );
+  const rawAmount = line
+    ?.slice(line.indexOf(":") + 1)
+    .match(/\$?\s*([\d.]+(?:,\d{1,2})?)/)?.[1];
+
+  if (!rawAmount) return 0;
+
+  return Number(rawAmount.replaceAll(".", "").replace(",", ".")) || 0;
+}
+
 type ReceiptItem = LocalSaleItemInput | LocalSaleItem | AdminOrderItem;
 
 function printSaleReceipt({
@@ -41,6 +57,8 @@ function printSaleReceipt({
   createdAt = new Date().toISOString(),
   customerName,
   deliveryLabel,
+  subtotal,
+  charges = [],
 }: {
   printWindow: Window | null;
   numberLabel: string;
@@ -51,6 +69,8 @@ function printSaleReceipt({
   createdAt?: string;
   customerName?: string;
   deliveryLabel?: string;
+  subtotal?: number;
+  charges?: Array<{ label: string; amount: number }>;
 }) {
   if (!printWindow) return;
 
@@ -59,56 +79,92 @@ function printSaleReceipt({
     dateStyle: "short",
     timeStyle: "short",
   }).format(new Date(createdAt));
-  const groupedItems = new Map<
-    string,
-    {
-      productName: string;
-      productSku?: string | null;
-      variants: ReceiptItem[];
-    }
-  >();
-
-  for (const item of items) {
-    const groupKey = `${item.productId ?? item.productSlug}-${item.productSku ?? ""}-${item.productName}`;
-    const currentGroup = groupedItems.get(groupKey);
-
-    if (currentGroup) {
-      currentGroup.variants.push(item);
-    } else {
-      groupedItems.set(groupKey, {
-        productName: item.productName,
-        productSku: item.productSku,
-        variants: [item],
-      });
-    }
-  }
-
-  const itemsHtml = Array.from(groupedItems.values())
+  const visibleCharges = charges.filter((charge) => charge.amount > 0);
+  const breakdownHtml =
+    visibleCharges.length > 0 && subtotal !== undefined
+      ? `
+          <section class="summary">
+            <div class="row">
+              <span>Subtotal productos</span>
+              <strong>${escapeReceiptText(formatPrice(subtotal))}</strong>
+            </div>
+            ${visibleCharges
+              .map(
+                (charge) => `
+                  <div class="row">
+                    <span>${escapeReceiptText(charge.label)}</span>
+                    <strong>${escapeReceiptText(formatPrice(charge.amount))}</strong>
+                  </div>
+                `
+              )
+              .join("")}
+          </section>
+        `
+      : "";
+  const itemsHtml = groupSaleItems(items)
     .map((group) => {
       const skuText = getShortSku(group.productSku);
-      const variantRows = group.variants
-        .map(
-          (item) => `
-            <tr>
-              <td>
-                <span class="variant-name">${escapeReceiptText(item.variantColor || "-")} / Talle ${escapeReceiptText(item.size || "-")}</span>
+      const isCurveGroup = group.saleMode === "curve";
+      const curveUnitPrice = group.items[0]?.unitPrice ?? 0;
+      const curveSizes = Array.from(
+        new Set(
+          group.items
+            .map((item) => item.size)
+            .filter((size): size is string => Boolean(size))
+        )
+      );
+      const curveColors = Array.from(
+        new Set(
+          group.items
+            .map((item) => item.variantColor)
+            .filter((color): color is string => Boolean(color))
+        )
+      );
+      const totalGarments = group.items.reduce(
+        (total, item) => total + item.quantity,
+        0
+      );
+      const detailRows = isCurveGroup
+        ? `
+            <tr class="details-row">
+              <td colspan="3">
+                ${curveColors.length > 0 ? `<span>${escapeReceiptText(curveColors.join(", "))}</span>` : ""}
+                <span>Talles: ${curveSizes.map((size) => escapeReceiptText(size)).join(" &middot; ")}</span>
+                <span>${escapeReceiptText(totalGarments)} prendas &middot; ${escapeReceiptText(group.bundleQuantity)} de cada talle</span>
+                <span>${escapeReceiptText(formatPrice(curveUnitPrice))} por prenda</span>
               </td>
-              <td>${escapeReceiptText(item.quantity)}</td>
-              <td>${escapeReceiptText(formatPrice(item.unitPrice))}</td>
-              <td>${escapeReceiptText(formatPrice(item.subtotal))}</td>
+            </tr>
+            <tr class="amount-row">
+              <td>${escapeReceiptText(group.bundleQuantity)} ${group.bundleQuantity === 1 ? "curva" : "curvas"}</td>
+              <td>${escapeReceiptText(formatPrice(group.bundlePrice))}</td>
+              <td>${escapeReceiptText(formatPrice(group.subtotal))}</td>
             </tr>
           `
-        )
-        .join("");
+        : group.items
+            .map(
+              (item) => `
+                <tr class="details-row">
+                  <td colspan="3">
+                    <span>${escapeReceiptText(item.variantColor || "-")} / Talle ${escapeReceiptText(item.size || "-")}</span>
+                  </td>
+                </tr>
+                <tr class="amount-row">
+                  <td>${escapeReceiptText(item.quantity)} ${item.quantity === 1 ? "prenda" : "prendas"}</td>
+                  <td>${escapeReceiptText(formatPrice(item.unitPrice))}</td>
+                  <td>${escapeReceiptText(formatPrice(item.subtotal))}</td>
+                </tr>
+              `
+            )
+            .join("");
 
       return `
         <tr class="product-row">
-          <td colspan="4">
+          <td colspan="3">
             <strong>${escapeReceiptText(group.productName)}</strong>
             ${skuText ? `<span>SKU ${escapeReceiptText(skuText)}</span>` : ""}
           </td>
         </tr>
-        ${variantRows}
+        ${detailRows}
       `;
     })
     .join("");
@@ -163,6 +219,7 @@ function printSaleReceipt({
           }
           table {
             width: 100%;
+            table-layout: fixed;
             border-collapse: collapse;
           }
           th {
@@ -176,6 +233,9 @@ function printSaleReceipt({
           td:first-child {
             text-align: left;
           }
+          th:nth-child(1), td:nth-child(1) { width: 32%; }
+          th:nth-child(2), td:nth-child(2) { width: 31%; }
+          th:nth-child(3), td:nth-child(3) { width: 37%; }
           td {
             border-bottom: 1px solid #eee;
             padding: 7px 0;
@@ -196,9 +256,29 @@ function printSaleReceipt({
             display: block;
             font-size: 12px;
           }
-          .variant-name {
+          .details-row td {
+            border-bottom: 0;
+            padding: 2px 0;
+            text-align: left;
+          }
+          .details-row span {
             color: #111;
             font-size: 11px;
+          }
+          .amount-row td {
+            padding: 5px 0 9px;
+            font-weight: 700;
+          }
+          .amount-row td:nth-child(2),
+          .amount-row td:nth-child(3) {
+            text-align: right;
+          }
+          .summary {
+            display: grid;
+            gap: 5px;
+            margin-top: 10px;
+            padding-top: 8px;
+            border-top: 1px dashed #999;
           }
           .total {
             display: flex;
@@ -255,14 +335,15 @@ function printSaleReceipt({
           <table>
             <thead>
               <tr>
-                <th>Producto</th>
                 <th>Cant.</th>
-                <th>Unit.</th>
-                <th>Subt.</th>
+                <th>Valor</th>
+                <th>Subtotal</th>
               </tr>
             </thead>
             <tbody>${itemsHtml}</tbody>
           </table>
+
+          ${breakdownHtml}
 
           <section class="total">
             <span>Total</span>
@@ -309,6 +390,29 @@ export function printLocalSaleReceipt({
   });
 }
 
+export function getWebOrderChargeBreakdown(order: AdminOrder) {
+  return {
+    productsSubtotal: order.items.reduce(
+      (subtotal, item) => subtotal + item.subtotal,
+      0
+    ),
+    logisticsFee: getMessageAmount(
+      order.whatsappMessage,
+      "Logistica y embalaje:"
+    ) ||
+      getMessageAmount(
+        order.whatsappMessage,
+        "Embalaje y cadeteria:"
+      ),
+    transferSurcharge:
+      getMessageAmount(
+        order.whatsappMessage,
+        "Recargo transferencia 5%:"
+      ) ||
+      getMessageAmount(order.whatsappMessage, "Transferencia 5%:"),
+  };
+}
+
 export function printWebOrderReceipt({
   printWindow,
   order,
@@ -318,6 +422,9 @@ export function printWebOrderReceipt({
   order: AdminOrder;
   deliveryLabel: string;
 }) {
+  const { productsSubtotal, logisticsFee, transferSurcharge } =
+    getWebOrderChargeBreakdown(order);
+
   printSaleReceipt({
     printWindow,
     numberLabel: "Pedido",
@@ -329,5 +436,10 @@ export function printWebOrderReceipt({
     createdAt: order.createdAt,
     customerName: order.customerName,
     deliveryLabel,
+    subtotal: productsSubtotal,
+    charges: [
+      { label: "Embalaje y cadeteria", amount: logisticsFee },
+      { label: "Transferencia 5%", amount: transferSurcharge },
+    ],
   });
 }

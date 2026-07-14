@@ -9,6 +9,7 @@ import {
   formatPrice,
 } from "@/lib/pricing";
 import { getVariantSizeStock } from "@/lib/stock";
+import { buildDirectWhatsAppUrl } from "@/lib/whatsapp";
 import type { CustomerInfo } from "@/types/order";
 import type { Product } from "@/types/product";
 
@@ -17,13 +18,15 @@ export function getCartTotal(cart: CartItem[]) {
 }
 
 export function getCartItemLabel(item: CartItem) {
+  if (isCurveProduct(item)) {
+    return item.name.startsWith("Curva - ")
+      ? item.name
+      : `Curva - ${item.name}`;
+  }
+
   const details = [
     item.selectedColor,
-    item.size
-      ? isCurveProduct(item)
-        ? item.size
-        : `Talle ${item.size}`
-      : null,
+    item.size ? `Talle ${item.size}` : null,
   ].filter(Boolean);
 
   return details.length > 0
@@ -49,17 +52,40 @@ export function formatCartItemsForWhatsApp(cart: CartItem[]) {
         cartPricing.isWholesale
       );
       const units = getCartItemUnits(item);
-      const quantityLabel = isCurveProduct(item)
-        ? `${item.quantity} ${
+      const curveVariant = isCurveProduct(item)
+        ? item.variants?.find(
+            (variant) => variant.color === item.selectedColor
+          )
+        : undefined;
+      const curveSizesLabel = curveVariant?.sizes
+        .map((size) => size.size)
+        .join(" · ");
+      const curveValue =
+        unitPrice * (curveVariant?.sizes.length ?? 0);
+
+      if (isCurveProduct(item)) {
+        return [
+          getCartItemLabel(item),
+          item.sku ? `SKU ${getShortSku(item.sku)}` : null,
+          `${item.quantity} ${
             item.quantity === 1 ? "curva" : "curvas"
-          } (${units} prendas) x ${formatPrice(unitPrice)}`
-        : `${item.quantity} x ${formatPrice(unitPrice)}`;
+          } · ${units} prendas`,
+          item.selectedColor ? `Color: ${item.selectedColor}` : null,
+          curveSizesLabel ? `Talles: ${curveSizesLabel}` : null,
+          `Cantidad: ${item.quantity} de cada talle`,
+          `${item.quantity} x ${formatPrice(curveValue)} = ${formatPrice(subtotal)}`,
+        ]
+          .filter(Boolean)
+          .join("\n");
+      }
 
       return [
-        `- ${getCartItemLabel(item)}`,
-        item.sku ? `  SKU: ${getShortSku(item.sku)}` : null,
-        `  Cantidad: ${quantityLabel}`,
-        `  Subtotal: ${formatPrice(subtotal)}`,
+        item.name,
+        item.sku ? `SKU ${getShortSku(item.sku)}` : null,
+        [item.selectedColor, item.size ? `Talle ${item.size}` : null]
+          .filter(Boolean)
+          .join(" · "),
+        `${item.quantity} x ${formatPrice(unitPrice)} = ${formatPrice(subtotal)}`,
       ]
         .filter(Boolean)
         .join("\n");
@@ -72,9 +98,16 @@ export function buildWhatsAppUrl(message: string) {
     throw new Error("Falta configurar NEXT_PUBLIC_WHATSAPP_NUMBER.");
   }
 
-  return `https://wa.me/${storeConfig.whatsappNumber}?text=${encodeURIComponent(
-    message
-  )}`;
+  const whatsappUrl = buildDirectWhatsAppUrl({
+    number: storeConfig.whatsappNumber,
+    message,
+  });
+
+  if (whatsappUrl === "#") {
+    throw new Error("El numero de WhatsApp configurado no es valido.");
+  }
+
+  return whatsappUrl;
 }
 
 export function buildOrderWhatsAppMessage({
@@ -99,73 +132,49 @@ export function buildOrderWhatsAppMessage({
   };
   total: number;
 }) {
-  const addressBlock =
-    !fulfillment || fulfillment.fee > 0
-      ? `Direccion:
-${customer.address}
-
-Localidad / Ciudad:
-${customer.city}
-
-Provincia:
-${customer.province}
-
-Codigo Postal:
-${customer.zip}
-
-`
-      : "";
   const fulfillmentBlock = fulfillment
-    ? fulfillment.fee > 0
-      ? `ENTREGA
-${fulfillment.label}
-Logistica y embalaje: ${formatPrice(fulfillment.fee)}
-${fulfillment.description}
-
-`
-      : `ENTREGA
-${fulfillment.label}: sin costo
-${fulfillment.description}
-
-`
+    ? `ENTREGA: ${fulfillment.label}`
     : "";
   const paymentBlock = payment
-    ? `PAGO
-Forma de pago: ${payment.label}${
-        payment.surcharge > 0
-          ? `\nRecargo transferencia 5%: ${formatPrice(payment.surcharge)}`
-          : ""
-      }
-
-`
+    ? `PAGO: ${payment.label}`
     : "";
+  const productsSubtotal = getCartTotal(cart);
+  const summaryBlock = `RESUMEN
+Subtotal productos: ${formatPrice(productsSubtotal)}${
+    fulfillment?.fee
+      ? `\nEmbalaje y cadeteria: ${formatPrice(fulfillment.fee)}`
+      : ""
+  }${
+    payment?.surcharge
+      ? `\nTransferencia 5%: ${formatPrice(payment.surcharge)}`
+      : ""
+  }
+TOTAL: ${formatPrice(total)}`;
 
   return `Hola! Quiero realizar este pedido:
 
-Pedido ${formatOrderNumber(orderNumber)}
+PEDIDO ${formatOrderNumber(orderNumber)}
+
+PRODUCTOS
 
 ${formatCartItemsForWhatsApp(cart)}
 
 ${fulfillmentBlock}
 ${paymentBlock}
-TOTAL: ${formatPrice(total)}
+
+${summaryBlock}
 
 DATOS DEL CLIENTE
 
-Nombre y apellido:
-${customer.name}
-
-DNI o CUIT:
-${customer.dni}
-
-WhatsApp:
-${customer.whatsapp}
-
-${addressBlock}Correo electronico:
-${customer.email || "-"}
-
-Notas adicionales:
-${customer.notes || "-"}`;
+Nombre: ${customer.name}
+DNI/CUIT: ${customer.dni}
+WhatsApp: ${customer.whatsapp}
+Direccion: ${customer.address}
+Localidad: ${customer.city}
+Provincia: ${customer.province}
+Codigo postal: ${customer.zip}
+Correo: ${customer.email || "-"}
+Notas: ${customer.notes || "-"}`;
 }
 
 export function validateCartStock(

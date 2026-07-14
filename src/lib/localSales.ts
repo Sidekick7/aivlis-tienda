@@ -27,6 +27,16 @@ function normalizeLocalSaleItem(
     unitCost: Number(row.unit_cost ?? 0),
     subtotal: Number(row.subtotal),
     imageUrl: row.image_url ?? "",
+    lineGroupId: row.line_group_id ?? undefined,
+    saleMode:
+      row.sale_mode === "curve" ||
+      row.product_name.startsWith("Curva - ") ||
+      /\(Curva\s+/i.test(row.product_name)
+        ? "curve"
+        : "unit",
+    bundleQuantity: Number(row.bundle_quantity ?? row.quantity),
+    unitsPerBundle: Number(row.units_per_bundle ?? 0),
+    bundlePrice: Number(row.bundle_price ?? 0),
   };
 }
 
@@ -217,6 +227,11 @@ export async function createLocalSale({
         unit_cost: item.unitCost,
         subtotal: item.subtotal,
         image_url: item.imageUrl || "",
+        line_group_id: item.lineGroupId || crypto.randomUUID(),
+        sale_mode: item.saleMode || "unit",
+        bundle_quantity: item.bundleQuantity || item.quantity,
+        units_per_bundle: item.unitsPerBundle || 1,
+        bundle_price: item.bundlePrice || item.unitPrice,
       }))
     );
 

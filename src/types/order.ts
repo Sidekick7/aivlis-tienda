@@ -1,4 +1,5 @@
 import type { CartItem } from "@/context/CartContext";
+import type { SaleItemMode } from "@/lib/saleItemGroups";
 
 export type CustomerInfo = {
   name: string;
@@ -49,6 +50,11 @@ export type AdminOrderItem = {
   unitCost: number;
   subtotal: number;
   imageUrl?: string | null;
+  lineGroupId?: string | null;
+  saleMode: SaleItemMode;
+  bundleQuantity: number;
+  unitsPerBundle: number;
+  bundlePrice: number;
 };
 
 export type AdminOrder = {
@@ -89,6 +95,11 @@ export type SupabaseOrderItemRow = {
   unit_cost?: number | string | null;
   subtotal: number | string;
   image_url?: string | null;
+  line_group_id?: string | null;
+  sale_mode?: SaleItemMode | null;
+  bundle_quantity?: number | string | null;
+  units_per_bundle?: number | string | null;
+  bundle_price?: number | string | null;
 };
 
 export type SupabaseOrderRow = {
