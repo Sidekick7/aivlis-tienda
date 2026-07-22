@@ -8,6 +8,7 @@ import {
   ClipboardList,
   Copy,
   CreditCard,
+  Download,
   Images,
   LogOut,
   Printer,
@@ -23,6 +24,8 @@ import {
   updateLocalSaleStatus,
 } from "@/lib/localSales";
 import {
+  downloadLocalSaleReceiptPdf,
+  getLocalSaleChargeBreakdown,
   getWebOrderChargeBreakdown,
   printLocalSaleReceipt,
   printWebOrderReceipt,
@@ -411,6 +414,16 @@ export default function GestionVentasPage() {
   const [searchQuery, setSearchQuery] = useState("");
 
   useEffect(() => {
+    if (!salesNotice) return;
+
+    const timeoutId = window.setTimeout(() => {
+      setSalesNotice("");
+    }, 5000);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [salesNotice]);
+
+  useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
       setSession(data.session);
       setIsAuthLoading(false);
@@ -673,6 +686,26 @@ export default function GestionVentasPage() {
     });
   };
 
+  const handleDownloadLocalSale = async (sale: LocalSale) => {
+    setSalesError("");
+
+    try {
+      await downloadLocalSaleReceiptPdf({
+        saleNumber: sale.saleNumber,
+        paymentMethod: sale.paymentMethod,
+        total: sale.total,
+        items: sale.items,
+        createdAt: sale.createdAt,
+      });
+    } catch (error) {
+      setSalesError(
+        error instanceof Error
+          ? error.message
+          : "No se pudo descargar el comprobante."
+      );
+    }
+  };
+
   const handlePrintWebOrder = (order: AdminOrder) => {
     const receiptWindow = window.open("", "_blank", "width=420,height=720");
 
@@ -832,6 +865,9 @@ export default function GestionVentasPage() {
   const detailOrderCharges = detailOrder
     ? getWebOrderChargeBreakdown(detailOrder)
     : null;
+  const detailLocalSaleCharges = detailLocalSale
+    ? getLocalSaleChargeBreakdown(detailLocalSale)
+    : null;
 
   if (isAuthLoading || isCheckingAccess) {
     return (
@@ -900,6 +936,10 @@ export default function GestionVentasPage() {
   }
 
   const modalSale = saleActionModal?.sale ?? null;
+  const webDeleteRestoresStock =
+    saleActionModal?.action === "delete-web" &&
+    modalSale?.source === "web" &&
+    modalSale.status !== "cancelled";
   const modalTitle =
     saleActionModal?.action === "cancel-local"
       ? modalSale?.source === "local" && modalSale.status === "reserved"
@@ -907,7 +947,11 @@ export default function GestionVentasPage() {
         : "No se puede eliminar una venta confirmada"
       : saleActionModal?.action === "delete-local"
         ? "Eliminar venta anulada"
-        : "Eliminar venta web";
+        : modalSale?.status === "pending_payment"
+          ? "Eliminar pedido pendiente"
+          : modalSale?.status === "confirmed"
+            ? "Eliminar venta confirmada"
+            : "Eliminar venta anulada";
   const modalBody =
     saleActionModal?.action === "cancel-local"
       ? modalSale?.source === "local" && modalSale.status === "reserved"
@@ -915,14 +959,27 @@ export default function GestionVentasPage() {
         : "Primero hay que anular la venta para devolver el stock. Despues vas a poder eliminarla del historial si hace falta."
       : saleActionModal?.action === "delete-local"
         ? "Esto solo borra el registro del historial. No modifica stock porque la venta ya esta anulada."
-        : "Si esta venta web tiene stock reservado, al eliminarla se devuelve segun su estado actual.";
+        : webDeleteRestoresStock
+          ? "Se eliminara el registro y se devolvera al inventario todo el stock reservado por esta venta. Esta accion no se puede deshacer."
+          : "La venta ya esta anulada y su stock fue devuelto. Esto solo elimina el registro del historial.";
   const modalConfirmLabel =
     saleActionModal?.action === "cancel-local"
       ? "Anular venta"
-      : "Eliminar";
+      : webDeleteRestoresStock
+        ? "Eliminar y devolver stock"
+        : "Eliminar";
 
   return (
     <main className="h-screen overflow-hidden bg-[#090909] text-white">
+      {salesNotice && (
+        <div
+          role="status"
+          className="pointer-events-none fixed left-1/2 top-4 z-[80] w-[min(92vw,520px)] -translate-x-1/2 rounded-xl border border-emerald-400/30 bg-emerald-950/95 px-4 py-3 text-center text-sm font-semibold text-emerald-100 shadow-2xl shadow-black/50"
+        >
+          {salesNotice}
+        </div>
+      )}
+
       <div className="grid h-full min-h-0 lg:grid-cols-[190px_minmax(0,1fr)]">
         <aside className="border-b border-zinc-800 bg-zinc-950 px-2 py-3 lg:border-b-0 lg:border-r lg:overflow-y-auto">
           <div className="flex items-center justify-between gap-3 lg:block">
@@ -1095,12 +1152,6 @@ export default function GestionVentasPage() {
               {salesError && (
                 <p className="m-3 rounded-xl bg-red-500/15 px-3 py-2 text-sm font-semibold text-red-200">
                   {salesError}
-                </p>
-              )}
-
-              {salesNotice && (
-                <p className="m-3 rounded-xl bg-emerald-500/15 px-3 py-2 text-sm font-semibold text-emerald-200">
-                  {salesNotice}
                 </p>
               )}
 
@@ -1289,14 +1340,27 @@ export default function GestionVentasPage() {
                 )}
 
                 {detailLocalSale && (
-                  <button
-                    type="button"
-                    onClick={() => handleReprintLocalSale(detailLocalSale)}
-                    className="inline-flex h-9 cursor-pointer items-center gap-2 rounded-xl bg-white px-3 text-xs font-black text-black transition hover:bg-zinc-200"
-                  >
-                    <Printer size={15} />
-                    Reimprimir
-                  </button>
+                  <>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        void handleDownloadLocalSale(detailLocalSale)
+                      }
+                      className="inline-flex h-9 cursor-pointer items-center gap-2 rounded-xl bg-emerald-400 px-3 text-xs font-black text-black transition hover:bg-emerald-300"
+                    >
+                      <Download size={15} />
+                      Descargar PDF
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => handleReprintLocalSale(detailLocalSale)}
+                      className="inline-flex h-9 cursor-pointer items-center gap-2 rounded-xl bg-white px-3 text-xs font-black text-black transition hover:bg-zinc-200"
+                    >
+                      <Printer size={15} />
+                      Reimprimir
+                    </button>
+                  </>
                 )}
 
                 <button
@@ -1458,8 +1522,41 @@ export default function GestionVentasPage() {
                 </div>
               )}
 
-              {detailLocalSale && (
-                <SaleItemsDetailTable items={detailLocalSale.items} />
+              {detailLocalSale && detailLocalSaleCharges && (
+                <>
+                  <SaleItemsDetailTable items={detailLocalSale.items} />
+
+                  <div className="ml-auto mt-3 w-full max-w-sm rounded-2xl border border-zinc-800 bg-zinc-900 p-3">
+                    <div className="flex items-center justify-between gap-4 text-sm text-zinc-400">
+                      <span>Subtotal productos</span>
+                      <strong className="text-zinc-200">
+                        {formatPrice(
+                          detailLocalSaleCharges.productsSubtotal
+                        )}
+                      </strong>
+                    </div>
+
+                    {detailLocalSaleCharges.transferSurcharge > 0 && (
+                      <div className="mt-2 flex items-center justify-between gap-4 text-sm text-zinc-400">
+                        <span>Transferencia 5%</span>
+                        <strong className="text-zinc-200">
+                          {formatPrice(
+                            detailLocalSaleCharges.transferSurcharge
+                          )}
+                        </strong>
+                      </div>
+                    )}
+
+                    <div className="mt-3 flex items-center justify-between gap-4 border-t border-zinc-700 pt-3">
+                      <span className="text-sm font-black uppercase text-white">
+                        Total
+                      </span>
+                      <strong className="text-lg font-black text-white">
+                        {formatPrice(detailLocalSale.total)}
+                      </strong>
+                    </div>
+                  </div>
+                </>
               )}
 
               {detailOrder && detailOrderCharges && (

@@ -133,6 +133,79 @@ function cloneProductVariants(product: Product) {
   }));
 }
 
+function normalizeInventoryLabel(value?: string | null) {
+  return (value || "").trim().toLocaleLowerCase("es-AR");
+}
+
+function getComparableImageUrl(value?: string | null) {
+  return (value || "").trim().split("?")[0];
+}
+
+function findOrderItemVariantSize({
+  variants,
+  item,
+}: {
+  variants: Product["variants"];
+  item: AdminOrderItem;
+}) {
+  const directMatch = findVariantSize({
+    variants,
+    color: item.variantColor,
+    size: item.size,
+  });
+
+  if (directMatch) return directMatch;
+
+  const normalizedColor = normalizeInventoryLabel(item.variantColor);
+  const normalizedSize = normalizeInventoryLabel(item.size);
+  const matchingSizeForVariant = (variantIndex: number) =>
+    variants[variantIndex]?.sizes.find(
+      (sizeItem) => normalizeInventoryLabel(sizeItem.size) === normalizedSize
+    );
+  const buildMatch = (variantIndex: number) => {
+    const matchingSize = matchingSizeForVariant(variantIndex);
+
+    if (!matchingSize) return null;
+
+    return findVariantSize({
+      variants,
+      color: variants[variantIndex].color,
+      size: matchingSize.size,
+    });
+  };
+
+  const normalizedColorIndex = variants.findIndex(
+    (variant) => normalizeInventoryLabel(variant.color) === normalizedColor
+  );
+  const normalizedMatch =
+    normalizedColorIndex >= 0 ? buildMatch(normalizedColorIndex) : null;
+
+  if (normalizedMatch) return normalizedMatch;
+
+  const orderImage = getComparableImageUrl(item.imageUrl);
+  const imageCandidateIndexes = orderImage
+    ? variants.flatMap((variant, variantIndex) => {
+        const hasSameImage = variant.images.some(
+          (image) => getComparableImageUrl(image) === orderImage
+        );
+
+        return hasSameImage && matchingSizeForVariant(variantIndex)
+          ? [variantIndex]
+          : [];
+      })
+    : [];
+
+  if (imageCandidateIndexes.length === 1) {
+    return buildMatch(imageCandidateIndexes[0]);
+  }
+
+  if (variants.length === 1) {
+    return buildMatch(0);
+  }
+
+  return null;
+}
+
 async function adjustStockForOrder(
   order: AdminOrder,
   direction: -1 | 1
@@ -177,15 +250,14 @@ async function adjustStockForOrder(
     );
 
     for (const item of orderItems) {
-      const selectedStock = findVariantSize({
+      const selectedStock = findOrderItemVariantSize({
         variants,
-        color: item.variantColor,
-        size: item.size,
+        item,
       });
 
       if (!selectedStock) {
         throw new Error(
-          `No se encontro stock para ${item.productName}.`
+          `No se pudo identificar el stock de ${item.productName} (${item.variantColor || "sin color"} / ${item.size || "sin talle"}).`
         );
       }
 

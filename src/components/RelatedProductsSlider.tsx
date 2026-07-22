@@ -66,8 +66,6 @@ export default function RelatedProductsSlider({ products }: Props) {
       return;
     }
 
-    event.currentTarget.setPointerCapture(event.pointerId);
-    setIsDragging(true);
     setRubberBandX(0);
     dragRef.current = {
       active: true,
@@ -91,9 +89,20 @@ export default function RelatedProductsSlider({ products }: Props) {
       return;
     }
 
+    const deltaX = event.clientX - dragState.startX;
+
+    if (!dragState.moved && Math.abs(deltaX) <= 7) {
+      return;
+    }
+
+    if (!dragState.moved) {
+      dragState.moved = true;
+      event.currentTarget.setPointerCapture(event.pointerId);
+      setIsDragging(true);
+    }
+
     event.preventDefault();
 
-    const deltaX = event.clientX - dragState.startX;
     const maxScrollLeft = Math.max(
       0,
       sliderRef.current.scrollWidth - sliderRef.current.clientWidth
@@ -104,10 +113,6 @@ export default function RelatedProductsSlider({ products }: Props) {
       maxScrollLeft
     );
     const overflowX = nextScrollLeft - clampedScrollLeft;
-
-    if (Math.abs(deltaX) > 3) {
-      dragState.moved = true;
-    }
 
     sliderRef.current.scrollLeft = clampedScrollLeft;
     setRubberBandX(Math.max(Math.min(-overflowX * 0.25, 22), -22));
@@ -156,7 +161,7 @@ export default function RelatedProductsSlider({ products }: Props) {
           event.preventDefault();
           event.stopPropagation();
         }}
-        className={`flex touch-pan-y select-none gap-4 overflow-x-auto pb-4 pl-1 pr-1 [-ms-overflow-style:none] [scrollbar-width:none] sm:gap-5 [&_*]:select-none [&_a]:cursor-grab [&_img]:pointer-events-none [&::-webkit-scrollbar]:hidden ${
+        className={`flex touch-pan-y select-none gap-4 overflow-x-auto pb-4 pl-1 pr-1 [-ms-overflow-style:none] [scrollbar-width:none] sm:gap-5 [&_*]:select-none [&_a]:cursor-pointer [&_img]:pointer-events-none [&::-webkit-scrollbar]:hidden ${
           isDragging
             ? "cursor-grabbing [&_a]:cursor-grabbing"
             : "cursor-grab"

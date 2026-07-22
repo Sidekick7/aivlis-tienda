@@ -9,6 +9,7 @@ import {
 } from "@/lib/publicProducts";
 import type { StoreCategory } from "@/types/category";
 import type { Product } from "@/types/product";
+import { ChevronDown } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useMemo, useState } from "react";
 
@@ -76,6 +77,22 @@ function ShopPageContent() {
     fetchShopContent();
   }, []);
 
+  useEffect(() => {
+    const categoryTitle =
+      categoryFilter === "all"
+        ? "Catalogo"
+        : categoryFilter === "featured"
+          ? "Destacados"
+          : categories.find(
+              (category) => category.value === categoryFilter
+            )?.label ??
+            categoryFilter
+              .replaceAll("-", " ")
+              .replace(/^./, (letter) => letter.toUpperCase());
+
+    document.title = `${categoryTitle} | AIVLIS`;
+  }, [categories, categoryFilter]);
+
   const visibleProducts = useMemo(() => {
     const filteredProducts = products.filter((product) => {
       if (categoryFilter === "all") return true;
@@ -122,17 +139,17 @@ function ShopPageContent() {
               </h1>
             </div>
 
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
-              <div className="flex flex-col gap-2">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
+              <div className="flex flex-col gap-1.5">
                 <span className="font-brand text-base uppercase text-zinc-500">
                   Filtro
                 </span>
 
-                <div className="flex h-11 items-center gap-2">
+                <div className="flex h-10 items-center gap-1.5">
                   <button
                     type="button"
                     onClick={() => updateCategory("all")}
-                    className={`font-brand h-11 rounded-full px-4 text-base transition ${
+                    className={`font-brand h-10 rounded-full px-3.5 text-base transition ${
                       categoryFilter === "all"
                         ? "bg-black text-white"
                         : "border border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-200"
@@ -144,7 +161,7 @@ function ShopPageContent() {
                   <button
                     type="button"
                     onClick={() => updateCategory("featured")}
-                    className={`font-brand h-11 rounded-full px-4 text-base transition ${
+                    className={`font-brand h-10 rounded-full px-3.5 text-base transition ${
                       categoryFilter === "featured"
                         ? "bg-black text-white"
                         : "border border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-200"
@@ -155,7 +172,7 @@ function ShopPageContent() {
                 </div>
               </div>
 
-              <div className="flex flex-col gap-2">
+              <div className="flex flex-col gap-1.5">
                 <label
                   htmlFor="shop-category"
                   className="font-brand text-base uppercase text-zinc-500"
@@ -163,27 +180,34 @@ function ShopPageContent() {
                   Categoria
                 </label>
 
-                <select
-                  id="shop-category"
-                  value={categoryFilter}
-                  onChange={(event) =>
-                    updateCategory(event.target.value)
-                  }
-                  className="font-brand h-11 min-w-48 rounded-full border border-zinc-300 bg-white px-4 text-base outline-none"
-                >
-                  <option value="all">Categorias</option>
-                  {categories.map((category) => (
-                    <option
-                      key={category.value}
-                      value={category.value}
-                    >
-                      {category.label}
-                    </option>
-                  ))}
-                </select>
+                <div className="relative w-full sm:w-auto">
+                  <select
+                    id="shop-category"
+                    value={categoryFilter}
+                    onChange={(event) =>
+                      updateCategory(event.target.value)
+                    }
+                    className="font-brand h-10 w-full appearance-none rounded-full border border-zinc-300 bg-white py-0 pl-3 pr-8 text-base outline-none sm:w-auto sm:min-w-[140px] sm:max-w-[180px] sm:[field-sizing:content]"
+                  >
+                    <option value="all">Categorias</option>
+                    {categories.map((category) => (
+                      <option
+                        key={category.value}
+                        value={category.value}
+                      >
+                        {category.label}
+                      </option>
+                    ))}
+                  </select>
+                  <ChevronDown
+                    size={16}
+                    strokeWidth={2.5}
+                    className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-black"
+                  />
+                </div>
               </div>
 
-              <div className="flex flex-col gap-2">
+              <div className="flex flex-col gap-1.5">
                 <label
                   htmlFor="shop-sort"
                   className="font-brand text-base uppercase text-zinc-500"
@@ -191,23 +215,30 @@ function ShopPageContent() {
                   Ordenar
                 </label>
 
-                <select
-                  id="shop-sort"
-                  value={sortBy}
-                  onChange={(event) =>
-                    setSortBy(event.target.value as ShopSort)
-                  }
-                  className="font-brand h-11 min-w-44 rounded-full border border-zinc-300 bg-white px-4 text-base outline-none"
-                >
-                  {sortOptions.map((option) => (
-                    <option
-                      key={option.value}
-                      value={option.value}
-                    >
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
+                <div className="relative w-full sm:w-auto">
+                  <select
+                    id="shop-sort"
+                    value={sortBy}
+                    onChange={(event) =>
+                      setSortBy(event.target.value as ShopSort)
+                    }
+                    className="font-brand h-10 w-full appearance-none rounded-full border border-zinc-300 bg-white py-0 pl-3 pr-8 text-base outline-none sm:w-auto sm:min-w-[140px] sm:max-w-[170px] sm:[field-sizing:content]"
+                  >
+                    {sortOptions.map((option) => (
+                      <option
+                        key={option.value}
+                        value={option.value}
+                      >
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                  <ChevronDown
+                    size={16}
+                    strokeWidth={2.5}
+                    className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-black"
+                  />
+                </div>
               </div>
             </div>
           </div>

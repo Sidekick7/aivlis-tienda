@@ -17,6 +17,7 @@ import {
 } from "@/lib/localSales";
 import { isCurveProduct } from "@/lib/curve";
 import { groupSaleItems } from "@/lib/saleItemGroups";
+import { getLocalSaleChargeBreakdown } from "@/lib/localSaleReceipt";
 import { getProductImage } from "@/lib/productDisplay";
 import { formatPrice, getRetailPrice } from "@/lib/pricing";
 import { getVariantSizeStock } from "@/lib/stock";
@@ -184,6 +185,24 @@ function printLocalSaleReceipt({
   items: LocalSaleItemInput[];
 }) {
   if (!printWindow) return;
+
+  const { productsSubtotal, transferSurcharge } =
+    getLocalSaleChargeBreakdown({ paymentMethod, total, items });
+  const breakdownHtml =
+    transferSurcharge > 0
+      ? `
+          <section class="summary">
+            <div class="row">
+              <span>Subtotal productos</span>
+              <strong>${escapeReceiptText(formatPrice(productsSubtotal))}</strong>
+            </div>
+            <div class="row">
+              <span>Transferencia 5%</span>
+              <strong>${escapeReceiptText(formatPrice(transferSurcharge))}</strong>
+            </div>
+          </section>
+        `
+      : "";
 
   const shortSaleNumber = getShortSaleNumber(saleNumber);
   const createdAt = new Intl.DateTimeFormat("es-AR", {
@@ -366,6 +385,13 @@ function printLocalSaleReceipt({
           .amount-row td:nth-child(3) {
             text-align: right;
           }
+          .summary {
+            display: grid;
+            gap: 5px;
+            margin-top: 10px;
+            padding-top: 9px;
+            border-top: 1px dashed #999;
+          }
           .total {
             display: flex;
             justify-content: space-between;
@@ -418,6 +444,8 @@ function printLocalSaleReceipt({
             </thead>
             <tbody>${itemsHtml}</tbody>
           </table>
+
+          ${breakdownHtml}
 
           <section class="total">
             <span>Total</span>
@@ -1383,16 +1411,14 @@ export default function PointOfSalePanel({
 
     if (
       operationType === "sale" &&
-      paymentMethod === "cash" &&
-      cashAmount.trim().length === 0
+      paymentMethod === "cash"
     ) {
       setCashAmount(getMoneyInputValue(totalToCharge));
     }
 
     if (
       operationType === "sale" &&
-      paymentMethod === "transfer" &&
-      transferAmount.trim().length === 0
+      paymentMethod === "transfer"
     ) {
       setTransferAmount(getMoneyInputValue(totalToCharge));
     }

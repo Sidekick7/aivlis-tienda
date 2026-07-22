@@ -8,7 +8,7 @@ import {
   getProductImage,
   getProductTotalStock,
 } from "@/app/admin/adminUtils";
-import { getRetailPrice } from "@/lib/pricing";
+import { isCurveProduct } from "@/lib/curve";
 import type { ProductFilter } from "@/app/admin/adminTypes";
 import type { StoreCategory } from "@/types/category";
 import type { Product } from "@/types/product";
@@ -299,7 +299,7 @@ export default function AdminProductsSection({
           <span>Producto</span>
           <span className="text-center">Categoria</span>
           <span className="text-center">Mayorista</span>
-          <span className="text-center">Minorista</span>
+          <span className="text-center">Curva</span>
           <span className="text-center">Stock</span>
           <span className="text-center">Estado</span>
           <span className="text-center">Acciones</span>
@@ -384,9 +384,15 @@ export default function AdminProductsSection({
                 {currencyFormatter.format(product.price)}
               </span>
 
-              <span className="flex h-full items-center justify-center text-center text-sm font-black text-zinc-200 tabular-nums">
-                {currencyFormatter.format(getRetailPrice(product))}
-              </span>
+              <div className="hidden h-full flex-col items-center justify-center gap-0.5 xl:flex">
+                {isCurveProduct(product) ? (
+                  <span className="text-sm font-black text-white tabular-nums">
+                    {currencyFormatter.format(product.curvePrice)}
+                  </span>
+                ) : (
+                  <span className="text-sm font-semibold text-zinc-600">-</span>
+                )}
+              </div>
 
               <span
                 className={`mx-auto flex h-7 min-w-8 items-center justify-center rounded-lg px-2 text-sm font-black ${

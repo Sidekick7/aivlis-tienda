@@ -47,6 +47,195 @@ function getMessageAmount(message: string, label: string) {
 
 type ReceiptItem = LocalSaleItemInput | LocalSaleItem | AdminOrderItem;
 
+export function getLocalSaleChargeBreakdown(sale: {
+  paymentMethod: LocalSalePaymentMethod;
+  total: number;
+  items: Array<{ subtotal: number }>;
+}) {
+  const productsSubtotal = sale.items.reduce(
+    (subtotal, item) => subtotal + item.subtotal,
+    0
+  );
+  const transferSurcharge =
+    sale.paymentMethod === "transfer" || sale.paymentMethod === "mixed"
+      ? Math.max(sale.total - productsSubtotal, 0)
+      : 0;
+
+  return {
+    productsSubtotal,
+    transferSurcharge,
+  };
+}
+
+export async function downloadLocalSaleReceiptPdf({
+  saleNumber,
+  paymentMethod,
+  total,
+  items,
+  createdAt = new Date().toISOString(),
+}: {
+  saleNumber: string;
+  paymentMethod: LocalSalePaymentMethod;
+  total: number;
+  items: LocalSaleItemInput[];
+  createdAt?: string;
+}) {
+  const { jsPDF } = await import("jspdf");
+  const groups = groupSaleItems(items);
+  const { productsSubtotal, transferSurcharge } =
+    getLocalSaleChargeBreakdown({ paymentMethod, total, items });
+  const estimatedRows = groups.reduce(
+    (rows, group) =>
+      rows + (group.saleMode === "curve" ? 8 : 3 + group.items.length * 3),
+    0
+  );
+  const pageHeight = Math.max(
+    95,
+    45 + estimatedRows * 4.5 + (transferSurcharge > 0 ? 10 : 0)
+  );
+  const pdf = new jsPDF({
+    orientation: "portrait",
+    unit: "mm",
+    format: [80, pageHeight],
+  });
+  const pageWidth = 80;
+  const margin = 6;
+  const contentWidth = pageWidth - margin * 2;
+  let y = 9;
+
+  const setText = (
+    size: number,
+    style: "normal" | "bold" = "normal",
+    color = 25
+  ) => {
+    pdf.setFont("helvetica", style);
+    pdf.setFontSize(size);
+    pdf.setTextColor(color);
+  };
+  const addWrappedText = (
+    value: string,
+    {
+      size = 8,
+      style = "normal",
+      color = 25,
+      gap = 1.2,
+    }: {
+      size?: number;
+      style?: "normal" | "bold";
+      color?: number;
+      gap?: number;
+    } = {}
+  ) => {
+    setText(size, style, color);
+    const lines = pdf.splitTextToSize(value, contentWidth) as string[];
+    pdf.text(lines, margin, y);
+    y += lines.length * (size * 0.38) + gap;
+  };
+  const addRow = (
+    label: string,
+    value: string,
+    bold = false
+  ) => {
+    setText(bold ? 9 : 8, bold ? "bold" : "normal", bold ? 10 : 45);
+    pdf.text(label, margin, y);
+    pdf.text(value, pageWidth - margin, y, { align: "right" });
+    y += bold ? 5 : 4.2;
+  };
+  const addRule = (strong = false) => {
+    pdf.setDrawColor(strong ? 25 : 175);
+    pdf.setLineWidth(strong ? 0.45 : 0.2);
+    pdf.line(margin, y, pageWidth - margin, y);
+    y += 4;
+  };
+
+  setText(18, "bold", 10);
+  pdf.text("AIVLIS", pageWidth / 2, y, { align: "center" });
+  y += 5;
+  setText(8, "normal", 80);
+  pdf.text("DETALLE DE COMPRA", pageWidth / 2, y, { align: "center" });
+  y += 5;
+  addRule();
+
+  const formattedDate = new Intl.DateTimeFormat("es-AR", {
+    dateStyle: "short",
+    timeStyle: "short",
+  }).format(new Date(createdAt));
+  addRow("Venta", `#${getShortSaleNumber(saleNumber)}`);
+  addRow("Fecha", formattedDate);
+  addRow("Pago", paymentLabels[paymentMethod]);
+  addRule();
+
+  groups.forEach((group, groupIndex) => {
+    addWrappedText(group.productName, { size: 9, style: "bold", gap: 0.8 });
+    const skuText = getShortSku(group.productSku);
+
+    if (skuText) {
+      addWrappedText(`SKU ${skuText}`, { size: 7, color: 95, gap: 0.8 });
+    }
+
+    if (group.saleMode === "curve") {
+      const sizes = Array.from(
+        new Set(group.items.map((item) => item.size).filter(Boolean))
+      );
+      const colors = Array.from(
+        new Set(group.items.map((item) => item.variantColor).filter(Boolean))
+      );
+      const garmentCount = group.items.reduce(
+        (count, item) => count + item.quantity,
+        0
+      );
+
+      if (colors.length > 0) {
+        addWrappedText(colors.join(", "), { size: 8, gap: 0.8 });
+      }
+
+      addWrappedText(`Talles: ${sizes.join(" - ")}`, { size: 8, gap: 0.8 });
+      addWrappedText(
+        `${garmentCount} prendas - ${group.bundleQuantity} de cada talle`,
+        { size: 8, gap: 0.8 }
+      );
+      addRow(
+        `${group.bundleQuantity} ${group.bundleQuantity === 1 ? "curva" : "curvas"} x ${formatPrice(group.bundlePrice)}`,
+        formatPrice(group.subtotal)
+      );
+    } else {
+      group.items.forEach((item) => {
+        addWrappedText(
+          `${item.variantColor || "-"} / Talle ${item.size || "-"}`,
+          { size: 8, gap: 0.5 }
+        );
+        addRow(
+          `${item.quantity} x ${formatPrice(item.unitPrice)}`,
+          formatPrice(item.subtotal)
+        );
+      });
+    }
+
+    if (groupIndex < groups.length - 1) {
+      addRule();
+    }
+  });
+
+  addRule(true);
+
+  if (transferSurcharge > 0) {
+    addRow("Subtotal productos", formatPrice(productsSubtotal));
+    addRow("Transferencia 5%", formatPrice(transferSurcharge));
+    addRule();
+  }
+
+  addRow("TOTAL", formatPrice(total), true);
+  y += 3;
+  setText(7, "normal", 95);
+  pdf.text("Gracias por tu compra.", pageWidth / 2, y, { align: "center" });
+
+  const safeSaleNumber = getShortSaleNumber(saleNumber).replace(
+    /[^a-zA-Z0-9_-]/g,
+    ""
+  );
+  pdf.save(`AIVLIS-venta-${safeSaleNumber}.pdf`);
+}
+
 function printSaleReceipt({
   printWindow,
   numberLabel,
@@ -379,6 +568,9 @@ export function printLocalSaleReceipt({
   items: LocalSaleItemInput[];
   createdAt?: string;
 }) {
+  const { productsSubtotal, transferSurcharge } =
+    getLocalSaleChargeBreakdown({ paymentMethod, total, items });
+
   printSaleReceipt({
     printWindow,
     numberLabel: "Venta",
@@ -387,6 +579,10 @@ export function printLocalSaleReceipt({
     total,
     items,
     createdAt,
+    subtotal: productsSubtotal,
+    charges: [
+      { label: "Transferencia 5%", amount: transferSurcharge },
+    ],
   });
 }
 

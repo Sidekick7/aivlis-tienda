@@ -1,6 +1,8 @@
 
 import ProductInfo from "@/components/ProductInfo";
 import RelatedProductsSlider from "@/components/RelatedProductsSlider";
+import type { Metadata } from "next";
+import { cache } from "react";
 
 import {
   curveCategoryLabel,
@@ -8,6 +10,21 @@ import {
   getPublicProductName,
   getPublicProducts,
 } from "@/lib/publicProducts";
+
+const getProduct = cache(getPublicProductBySlug);
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ slug: string }>;
+}): Promise<Metadata> {
+  const { slug } = await params;
+  const product = await getProduct(slug);
+
+  return {
+    title: product ? getPublicProductName(product) : "Producto no encontrado",
+  };
+}
 
 export default async function ProductPage({
 
@@ -18,7 +35,7 @@ export default async function ProductPage({
 
   const { slug } = await params;
 
-  const product = await getPublicProductBySlug(slug);
+  const product = await getProduct(slug);
 
   if (!product) {
     

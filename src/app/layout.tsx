@@ -6,7 +6,10 @@ import SiteChrome from "@/components/SiteChrome";
 import NumberInputWheelGuard from "@/components/NumberInputWheelGuard";
 
 export const metadata: Metadata = {
-  title: "A I V L I S",
+  title: {
+    default: "AIVLIS",
+    template: "%s | AIVLIS",
+  },
   description: "AIVLIS STORE",
 };
 
@@ -18,7 +21,7 @@ export default function RootLayout({
 
   return (
     <html
-      lang="en"
+      lang="es"
       className="h-full antialiased"
     >
 
