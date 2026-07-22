@@ -50,7 +50,7 @@ export default function Cart({
       onClick={onClose}
     >
       <aside
-        className={`ml-auto flex h-full w-[calc(100%-3rem)] max-w-[360px] flex-col bg-white text-black shadow-2xl transition-transform duration-300 ease-out ${
+        className={`ml-auto flex h-full w-[82vw] min-w-[260px] max-w-[360px] flex-col bg-white text-black shadow-2xl transition-transform duration-300 ease-out ${
           isOpen ? "translate-x-0" : "translate-x-full"
         }`}
         onClick={(event) => event.stopPropagation()}
