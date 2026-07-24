@@ -11,6 +11,8 @@ import {
   ChevronUp,
   Barcode,
   CheckCircle,
+  Minus,
+  Plus,
   Tag,
 } from "lucide-react";
 import { fallbackProductImage } from "@/config/store";
@@ -23,7 +25,12 @@ import {
   getCurveUnitsPerSet,
   isCurveProduct,
 } from "@/lib/curve";
-import { formatPrice } from "@/lib/pricing";
+import {
+  formatPrice,
+  getEffectiveWebUnitPrice,
+  getRegularWebUnitPrice,
+  isProductSaleActive,
+} from "@/lib/pricing";
 import type { Product, ProductVariant } from "@/types/product";
 
 type ProductWithPublicSource = Product & {
@@ -111,6 +118,9 @@ export default function ProductInfo({
     getDefaultSize(firstVariant)
   );
   const [quantity, setQuantity] = useState(1);
+  const [sizeQuantities, setSizeQuantities] = useState<
+    Record<string, Record<string, number>>
+  >({});
   const [selectedColor, setSelectedColor] = useState(
     firstVariant?.color || ""
   );
@@ -176,20 +186,23 @@ export default function ProductInfo({
   const curveUnitsPerSet = canBuyCurve
     ? getCurveUnitsPerSet(selectedVariant)
     : 1;
-  const unitReferencePrice = product.price;
-  const curveUnitPrice =
-    canBuyCurve && product.curvePrice > 0
-      ? product.curvePrice
-      : product.price;
+  const regularUnitPrice = getRegularWebUnitPrice(product, "unit");
+  const unitPrice = getEffectiveWebUnitPrice(product, "unit");
+  const regularCurveUnitPrice = getRegularWebUnitPrice(product, "curve");
+  const curveUnitPrice = getEffectiveWebUnitPrice(product, "curve");
+  const isUnitOnSale = isProductSaleActive(product, "unit");
+  const isCurveOnSale = isProductSaleActive(product, "curve");
   const curveSetPrice = curveUnitPrice * curveUnitsPerSet;
-  const curveReferenceTotal = unitReferencePrice * curveUnitsPerSet;
+  const curveReferenceTotal =
+    (isCurveOnSale ? regularCurveUnitPrice : regularUnitPrice) *
+    curveUnitsPerSet;
   const curveSavings = Math.max(
     curveReferenceTotal - curveSetPrice,
     0
   );
   const visiblePrice = isCurveSale
     ? curveSetPrice
-    : unitReferencePrice;
+    : unitPrice;
   const curveLabel = canBuyCurve ? getCurveLabel(selectedVariant) : "";
   const curveSizes = getCurveSizesFromVariant(selectedVariant);
   const sortedCurveSizes = sortSizes(curveSizes);
@@ -205,6 +218,55 @@ export default function ProductInfo({
       )
     )
   );
+  const getUnitQuantityAlreadyInCart = (
+    color: string,
+    size: string
+  ) =>
+    cart
+      .filter(
+        (item) =>
+          item.id === product.id &&
+          item.saleMode === "unit" &&
+          item.size === size &&
+          item.selectedColor === color
+      )
+      .reduce((total, item) => total + item.quantity, 0);
+  const selectedUnitEntries = product.variants.flatMap((variant) =>
+    variant.sizes.flatMap((sizeItem) => {
+      const requestedQuantity =
+        sizeQuantities[variant.color]?.[sizeItem.size] ?? 0;
+      const availableQuantity = Math.max(
+        sizeItem.stock -
+          getUnitQuantityAlreadyInCart(
+            variant.color,
+            sizeItem.size
+          ),
+        0
+      );
+      const safeQuantity = Math.min(
+        requestedQuantity,
+        availableQuantity
+      );
+
+      return safeQuantity > 0
+        ? [
+            {
+              color: variant.color,
+              size: sizeItem.size,
+              quantity: safeQuantity,
+              variant,
+            },
+          ]
+        : [];
+    })
+  );
+  const selectedUnitCount = selectedUnitEntries.reduce(
+    (total, entry) => total + entry.quantity,
+    0
+  );
+  const selectedUnitTotal = selectedUnitCount * unitPrice;
+  const regularSelectedUnitTotal =
+    selectedUnitCount * regularUnitPrice;
 
   const selectedSizeData =
     selectedVariant?.sizes.find(
@@ -237,6 +299,77 @@ export default function ProductInfo({
     setCartMessage("");
     setCartError("");
     setQuantity(1);
+  };
+  const changeSizeQuantity = (
+    color: string,
+    size: string,
+    change: -1 | 1
+  ) => {
+    const variant = product.variants.find(
+      (item) => item.color === color
+    );
+    const stock =
+      variant?.sizes.find((item) => item.size === size)?.stock ?? 0;
+    const availableQuantity = Math.max(
+      stock - getUnitQuantityAlreadyInCart(color, size),
+      0
+    );
+
+    setCartMessage("");
+    setCartError("");
+    setSizeQuantities((currentQuantities) => {
+      const currentQuantity =
+        currentQuantities[color]?.[size] ?? 0;
+      const nextQuantity = Math.min(
+        Math.max(currentQuantity + change, 0),
+        availableQuantity
+      );
+
+      return {
+        ...currentQuantities,
+        [color]: {
+          ...currentQuantities[color],
+          [size]: nextQuantity,
+        },
+      };
+    });
+  };
+
+  const handleAddSizeSelectionToCart = () => {
+    setCartMessage("");
+    setCartError("");
+
+    if (selectedUnitEntries.length === 0) {
+      setCartError("Selecciona al menos una prenda.");
+      return;
+    }
+
+    selectedUnitEntries.forEach((entry) => {
+      addToCart(
+        {
+          ...product,
+          saleMode: "unit",
+          price: unitPrice,
+          retailPrice: unitPrice,
+          selectedImage:
+            entry.variant.images[0] ||
+            product.images[0] ||
+            fallbackProductImage,
+          selectedColor: entry.color,
+        },
+        entry.size,
+        entry.quantity
+      );
+    });
+
+    setSizeQuantities({});
+    setCartMessage(
+      `${selectedUnitCount} ${
+        selectedUnitCount === 1
+          ? "unidad agregada"
+          : "unidades agregadas"
+      } al carrito.`
+    );
   };
 
   const selectThumbnail = (index: number) => {
@@ -460,8 +593,8 @@ export default function ProductInfo({
       {
         ...product,
         saleMode: "unit",
-        price: unitReferencePrice,
-        retailPrice: unitReferencePrice,
+        price: unitPrice,
+        retailPrice: unitPrice,
         selectedImage: selectedImage || fallbackProductImage,
         selectedColor,
       },
@@ -644,15 +777,30 @@ export default function ProductInfo({
               {formatPrice(curveReferenceTotal)}
             </span>
 
-            <span className="flex h-9 items-center text-xl font-semibold leading-none text-black sm:text-2xl">
+            <span
+              className={`flex h-9 items-center font-semibold leading-none ${
+                isCurveOnSale
+                  ? "text-2xl text-red-700 sm:text-3xl"
+                  : "text-xl text-black sm:text-2xl"
+              }`}
+            >
               {formatPrice(curveSetPrice)}
             </span>
 
-            {curveSavings > 0 && (
+            {curveSavings > 0 && !isCurveOnSale && (
               <span className="inline-flex h-9 w-fit items-center bg-red-700 px-2.5 text-xs font-black leading-none text-white sm:px-3 sm:text-sm">
                 ahorro {formatPrice(curveSavings)}
               </span>
             )}
+          </div>
+        ) : isUnitOnSale ? (
+          <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+            <span className="text-xl font-semibold text-zinc-500 line-through sm:text-2xl">
+              {formatPrice(regularUnitPrice)}
+            </span>
+            <span className="text-2xl font-semibold text-red-700 sm:text-3xl">
+              {formatPrice(visiblePrice)}
+            </span>
           </div>
         ) : (
           <p className="text-2xl font-bold">
@@ -682,13 +830,6 @@ export default function ProductInfo({
           </div>
         )}
       </div>
-      {(!isCurveSale && (!selectedSizeData ||
-        selectedSizeData.stock <= 0) && (
-          <div className="mt-4 inline-flex items-center gap-2 rounded-full bg-zinc-200 px-3 py-2 text-sm font-semibold text-zinc-600">
-            <AlertCircle size={16} />
-            Agotado
-          </div>
-        ))}
       {isCurveSale && curveStockLimit <= 0 && (
         <div className="mt-4 inline-flex items-center gap-2 rounded-full bg-zinc-200 px-3 py-2 text-sm font-semibold text-zinc-600">
           <AlertCircle size={16} />
@@ -815,75 +956,103 @@ export default function ProductInfo({
 
           </div>
         ) : (
-        <div>
-          <div className="mb-2 flex items-center gap-3">
-            <p className="font-brand text-sm uppercase text-zinc-500">
-              Talle
-            </p>
+          <div className="w-full max-w-[370px] overflow-hidden border-y border-zinc-200">
+            <div className="grid grid-cols-[minmax(72px,1fr)_145px] items-center bg-zinc-50 px-3 py-2">
+              <p className="font-brand text-sm uppercase text-zinc-600">
+                Talle
+              </p>
+              <p className="font-brand text-center text-sm uppercase text-zinc-600">
+                Cantidad
+              </p>
+            </div>
 
-            {selectedSizeData &&
-              selectedSizeData.stock > 0 &&
-              selectedSizeData.stock <= 5 && (
-                <span className="inline-flex items-center gap-1.5 rounded-full bg-red-50 px-2.5 py-1 text-xs font-semibold text-red-600">
-                  <AlertCircle size={13} />
-                  Ultimas unidades
-                </span>
-              )}
-          </div>
-
-          <div className="flex flex-wrap gap-2">
             {allProductSizes.map((size) => {
               const sizeItem = selectedVariant?.sizes.find(
                 (item) => item.size === size
               );
-              const isAvailable = Boolean(
-                sizeItem && sizeItem.stock > 0
+              const stockQuantity = sizeItem?.stock ?? 0;
+              const quantityInCart =
+                getUnitQuantityAlreadyInCart(
+                  selectedColor,
+                  size
+                );
+              const availableQuantity = Math.max(
+                stockQuantity - quantityInCart,
+                0
               );
-              const isSelected = selectedSize === size;
+              const isAvailable = availableQuantity > 0;
+              const sizeQuantity =
+                sizeQuantities[selectedColor]?.[size] ?? 0;
 
               return (
-                <span
+                <div
                   key={size}
-                  className="group relative inline-flex"
+                  className={`grid min-h-12 grid-cols-[minmax(72px,1fr)_145px] items-center border-t border-zinc-200 px-3 ${
+                    isAvailable ? "bg-white" : "bg-zinc-100 text-zinc-400"
+                  }`}
                 >
-                  <button
-                    type="button"
-                    title={isAvailable ? `Talle ${size}` : undefined}
-                    aria-label={
-                      isAvailable ? `Talle ${size}` : `Talle ${size} agotado`
-                    }
-                    onClick={() => {
-                      resetCartFeedback();
-                      setSelectedSize(size);
-                    }}
-                    disabled={!isAvailable}
-                    className={`h-10 min-w-10 rounded-xl border px-3 text-sm font-semibold transition ${
-                      isAvailable && isSelected
-                        ? "border-black bg-black text-white"
-                        : "border-zinc-200 bg-zinc-50 hover:border-black"
-                    } ${
-                      isAvailable
-                        ? "cursor-pointer"
-                        : "cursor-not-allowed text-zinc-400 line-through opacity-60"
+                  <span
+                    className={`text-sm font-semibold ${
+                      isAvailable ? "" : "line-through"
                     }`}
                   >
                     {size}
-                  </button>
+                  </span>
 
-                  {!isAvailable && (
-                    <span className="pointer-events-none absolute -top-8 left-1/2 z-10 -translate-x-1/2 rounded-full bg-black px-2.5 py-1 text-[11px] font-semibold text-white opacity-0 shadow-lg transition group-hover:opacity-100">
-                      Agotado
+                  {isAvailable ? (
+                    <div className="mx-auto grid h-9 w-[118px] grid-cols-[34px_1fr_34px] overflow-hidden rounded-lg border border-zinc-300 bg-white">
+                      <button
+                        type="button"
+                        aria-label={`Quitar talle ${size}`}
+                        onClick={() =>
+                          changeSizeQuantity(
+                            selectedColor,
+                            size,
+                            -1
+                          )
+                        }
+                        disabled={sizeQuantity <= 0}
+                        className="flex cursor-pointer items-center justify-center border-r border-zinc-300 bg-zinc-100 text-black transition hover:bg-zinc-200 disabled:cursor-not-allowed disabled:text-zinc-300 disabled:hover:bg-zinc-100"
+                      >
+                        <Minus size={16} strokeWidth={2.5} />
+                      </button>
+                      <span className="flex items-center justify-center text-sm font-semibold">
+                        {sizeQuantity}
+                      </span>
+                      <button
+                        type="button"
+                        aria-label={`Agregar talle ${size}`}
+                        onClick={() =>
+                          changeSizeQuantity(
+                            selectedColor,
+                            size,
+                            1
+                          )
+                        }
+                        disabled={
+                          sizeQuantity >= availableQuantity
+                        }
+                        className="flex cursor-pointer items-center justify-center border-l border-zinc-300 bg-zinc-100 text-black transition hover:bg-zinc-200 disabled:cursor-not-allowed disabled:text-zinc-300 disabled:hover:bg-zinc-100"
+                      >
+                        <Plus size={16} strokeWidth={2.5} />
+                      </button>
+                    </div>
+                  ) : (
+                    <span className="text-center text-xs font-semibold uppercase">
+                      {stockQuantity > 0
+                        ? "En carrito"
+                        : "Agotado"}
                     </span>
                   )}
-                </span>
+                </div>
               );
             })}
           </div>
-        </div>
         )}
 
       </div>
 
+      {isCurveSale ? (
       <div className="mt-5 w-full max-w-[350px] sm:max-w-[360px]">
         <div className="grid grid-cols-[112px_210px] items-center gap-2">
           <div className="flex h-11 items-center rounded-xl border border-zinc-200 bg-zinc-50">
@@ -1010,6 +1179,53 @@ export default function ProductInfo({
           ) : null}
         </div>
       </div>
+      ) : (
+        <div className="mt-4 w-full max-w-[370px]">
+          <div className="mb-3 flex items-center justify-between border-b border-zinc-200 pb-3">
+            <span className="text-sm font-semibold text-zinc-600">
+              {selectedUnitCount}{" "}
+              {selectedUnitCount === 1 ? "prenda" : "prendas"}
+            </span>
+            {isUnitOnSale ? (
+              <span className="flex items-baseline gap-2">
+                <span className="text-sm font-semibold text-zinc-500 line-through">
+                  {formatPrice(regularSelectedUnitTotal)}
+                </span>
+                <span className="text-lg font-semibold text-red-700">
+                  {formatPrice(selectedUnitTotal)}
+                </span>
+              </span>
+            ) : (
+              <span className="text-lg font-semibold text-black">
+                {formatPrice(selectedUnitTotal)}
+              </span>
+            )}
+          </div>
+
+          <button
+            type="button"
+            onClick={handleAddSizeSelectionToCart}
+            disabled={selectedUnitCount <= 0}
+            className="h-11 w-fit whitespace-nowrap rounded-xl bg-black px-4 text-xs font-semibold tracking-wide text-white transition hover:bg-zinc-800 disabled:cursor-not-allowed disabled:bg-zinc-300 disabled:text-zinc-500"
+          >
+            AGREGAR AL CARRITO ({selectedUnitCount})
+          </button>
+
+          <div className="mt-2 min-h-9">
+            {cartError ? (
+              <div className="flex min-h-9 items-center gap-2 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-xs font-semibold text-red-600">
+                <AlertCircle size={14} className="shrink-0" />
+                <span>{cartError}</span>
+              </div>
+            ) : cartMessage ? (
+              <div className="flex min-h-9 items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-700">
+                <CheckCircle size={14} className="shrink-0" />
+                <span>{cartMessage}</span>
+              </div>
+            ) : null}
+          </div>
+        </div>
+      )}
 
 
           <div className="mt-6">

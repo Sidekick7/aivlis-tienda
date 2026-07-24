@@ -124,6 +124,7 @@ export default function AdminProductsSection({
     if (!matchesCategory) return false;
     if (productFilter === "active") return product.active;
     if (productFilter === "inactive") return !product.active;
+    if (productFilter === "sale") return product.saleActive;
 
     return true;
   });
@@ -220,6 +221,7 @@ export default function AdminProductsSection({
               ["all", "Todos"],
               ["active", "Publicados"],
               ["inactive", "Ocultos"],
+              ["sale", "SALE"],
             ] as [ProductFilter, string][]).map(([value, label]) => (
               <button
                 key={value}
@@ -380,15 +382,40 @@ export default function AdminProductsSection({
                 {getCategoryLabel(product.category)}
               </span>
 
-              <span className="flex h-full items-center justify-center text-center text-sm font-black text-white tabular-nums">
-                {currencyFormatter.format(product.price)}
-              </span>
+              <div className="flex h-full flex-col items-center justify-center gap-0.5 text-center tabular-nums">
+                {product.saleActive && Number(product.salePrice) > 0 ? (
+                  <>
+                    <span className="text-[11px] font-semibold text-zinc-500 line-through">
+                      {currencyFormatter.format(product.price)}
+                    </span>
+                    <span className="text-sm font-black text-red-300">
+                      {currencyFormatter.format(product.salePrice)}
+                    </span>
+                  </>
+                ) : (
+                  <span className="text-sm font-black text-white">
+                    {currencyFormatter.format(product.price)}
+                  </span>
+                )}
+              </div>
 
               <div className="hidden h-full flex-col items-center justify-center gap-0.5 xl:flex">
                 {isCurveProduct(product) ? (
-                  <span className="text-sm font-black text-white tabular-nums">
-                    {currencyFormatter.format(product.curvePrice)}
-                  </span>
+                  product.saleActive &&
+                  Number(product.saleCurvePrice) > 0 ? (
+                    <>
+                      <span className="text-[11px] font-semibold text-zinc-500 line-through tabular-nums">
+                        {currencyFormatter.format(product.curvePrice)}
+                      </span>
+                      <span className="text-sm font-black text-red-300 tabular-nums">
+                        {currencyFormatter.format(product.saleCurvePrice)}
+                      </span>
+                    </>
+                  ) : (
+                    <span className="text-sm font-black text-white tabular-nums">
+                      {currencyFormatter.format(product.curvePrice)}
+                    </span>
+                  )
                 ) : (
                   <span className="text-sm font-semibold text-zinc-600">-</span>
                 )}

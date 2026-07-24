@@ -18,6 +18,7 @@ import {
   formatPrice,
   getCartItemSubtotal,
   getCartPricing,
+  getEffectiveWebUnitPrice,
   wholesaleMinimum,
 } from "@/lib/pricing";
 import {
@@ -303,10 +304,15 @@ export default function CheckoutPage() {
         ...item,
         slug: currentProduct?.slug || item.slug,
         sku: currentProduct?.sku || item.sku,
-        price: isCurveProduct(item)
-          ? currentProduct?.curvePrice ?? item.price
-          : currentProduct?.price ?? item.price,
-        curvePrice: currentProduct?.curvePrice ?? item.curvePrice,
+        price: currentProduct
+          ? getEffectiveWebUnitPrice(
+              currentProduct,
+              isCurveProduct(item) ? "curve" : "unit"
+            )
+          : item.price,
+        curvePrice: currentProduct
+          ? getEffectiveWebUnitPrice(currentProduct, "curve")
+          : item.curvePrice,
         retailPrice: currentProduct?.retailPrice ?? item.retailPrice,
         images: currentProduct?.images ?? item.images,
         variants: currentProduct?.variants ?? item.variants,
@@ -350,27 +356,6 @@ export default function CheckoutPage() {
       zip,
       email,
       notes: notes.trim(),
-    };
-    const fulfillmentLabel =
-      fulfillmentOption === "pickup"
-        ? "Retiro presencial"
-        : "Despacho a transporte, correo, expreso";
-    const ticketNotes = [
-      selectedFulfillment ? `Entrega: ${fulfillmentLabel}` : "",
-      selectedPaymentLabel
-        ? `Pago: ${selectedPaymentLabel}${
-            enrichedPaymentSurcharge > 0
-              ? ` (+5% ${formatPrice(enrichedPaymentSurcharge)})`
-              : ""
-          }`
-        : "",
-      notes.trim(),
-    ]
-      .filter(Boolean)
-      .join("\n");
-    const ticketCustomer = {
-      ...customer,
-      notes: ticketNotes,
     };
     const message = buildOrderWhatsAppMessage({
       orderNumber,
@@ -416,7 +401,7 @@ export default function CheckoutPage() {
       await createOrderTicket({
         orderNumber,
         cart: enrichedCart,
-        customer: ticketCustomer,
+        customer,
         total: enrichedFinalTotal,
         whatsappMessage: message,
       });
@@ -659,6 +644,9 @@ export default function CheckoutPage() {
                         {isCurveItem
                           ? `${item.name} (CURVA)`
                           : getCartItemLabel(item)}
+                        {item.quantity > 1
+                          ? ` x ${item.quantity}`
+                          : ""}
                       </p>
 
                       {isCurveItem && item.selectedColor && (

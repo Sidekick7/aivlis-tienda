@@ -40,9 +40,39 @@ function getShortSku(sku?: string) {
 
 export function formatCartItemsForWhatsApp(cart: CartItem[]) {
   const cartPricing = getCartPricing(cart);
+  const groupedItems: CartItem[][] = [];
+  const unitGroupIndexes = new Map<string, number>();
 
-  return cart
-    .map((item) => {
+  cart.forEach((item) => {
+    if (isCurveProduct(item)) {
+      groupedItems.push([item]);
+      return;
+    }
+
+    const unitPrice = getCartItemUnitPrice(
+      item,
+      cartPricing.isWholesale
+    );
+    const groupKey = [
+      item.id,
+      item.selectedColor || "",
+      item.sku || "",
+      unitPrice,
+    ].join("|");
+    const existingGroupIndex = unitGroupIndexes.get(groupKey);
+
+    if (existingGroupIndex !== undefined) {
+      groupedItems[existingGroupIndex].push(item);
+      return;
+    }
+
+    unitGroupIndexes.set(groupKey, groupedItems.length);
+    groupedItems.push([item]);
+  });
+
+  return groupedItems
+    .map((items) => {
+      const item = items[0];
       const unitPrice = getCartItemUnitPrice(
         item,
         cartPricing.isWholesale
@@ -79,13 +109,33 @@ export function formatCartItemsForWhatsApp(cart: CartItem[]) {
           .join("\n");
       }
 
-      return [
+      const productHeading = [
         item.name,
+        item.selectedColor,
+      ]
+        .filter(Boolean)
+        .join(" · ");
+
+      return [
+        productHeading,
         item.sku ? `SKU ${getShortSku(item.sku)}` : null,
-        [item.selectedColor, item.size ? `Talle ${item.size}` : null]
-          .filter(Boolean)
-          .join(" · "),
-        `${item.quantity} x ${formatPrice(unitPrice)} = ${formatPrice(subtotal)}`,
+        ...items.map((groupedItem) => {
+          const groupedUnitPrice = getCartItemUnitPrice(
+            groupedItem,
+            cartPricing.isWholesale
+          );
+          const groupedSubtotal = getCartItemSubtotal(
+            groupedItem,
+            cartPricing.isWholesale
+          );
+          const sizeLabel = groupedItem.size
+            ? `Talle ${groupedItem.size}: `
+            : "";
+
+          return `${sizeLabel}${groupedItem.quantity} x ${formatPrice(
+            groupedUnitPrice
+          )} = ${formatPrice(groupedSubtotal)}`;
+        }),
       ]
         .filter(Boolean)
         .join("\n");

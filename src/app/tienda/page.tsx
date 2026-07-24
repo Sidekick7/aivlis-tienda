@@ -5,6 +5,8 @@ import { getCategories, getFallbackCategories } from "@/lib/categories";
 import {
   getPublicProducts,
   getPublicProductSortPrice,
+  isPublicProductOnSale,
+  saleCategoryValue,
   withCurveCategory,
 } from "@/lib/publicProducts";
 import type { StoreCategory } from "@/types/category";
@@ -83,6 +85,8 @@ function ShopPageContent() {
         ? "Catalogo"
         : categoryFilter === "featured"
           ? "Destacados"
+          : categoryFilter === saleCategoryValue
+            ? "SALE"
           : categories.find(
               (category) => category.value === categoryFilter
             )?.label ??
@@ -97,6 +101,9 @@ function ShopPageContent() {
     const filteredProducts = products.filter((product) => {
       if (categoryFilter === "all") return true;
       if (categoryFilter === "featured") return product.featured;
+      if (categoryFilter === saleCategoryValue) {
+        return isPublicProductOnSale(product);
+      }
       return product.category === categoryFilter;
     });
 
@@ -169,6 +176,18 @@ function ShopPageContent() {
                   >
                     Destacados
                   </button>
+
+                  <button
+                    type="button"
+                    onClick={() => updateCategory(saleCategoryValue)}
+                    className={`font-brand h-10 rounded-full px-3.5 text-base uppercase transition ${
+                      categoryFilter === saleCategoryValue
+                        ? "bg-red-700 text-white"
+                        : "border border-red-700 bg-white text-red-700 hover:bg-red-50"
+                    }`}
+                  >
+                    Sale
+                  </button>
                 </div>
               </div>
 
@@ -190,6 +209,7 @@ function ShopPageContent() {
                     className="font-brand h-10 w-full appearance-none rounded-full border border-zinc-300 bg-white py-0 pl-3 pr-8 text-base outline-none sm:w-auto sm:min-w-[140px] sm:max-w-[180px] sm:[field-sizing:content]"
                   >
                     <option value="all">Categorias</option>
+                    <option value={saleCategoryValue}>SALE</option>
                     {categories.map((category) => (
                       <option
                         key={category.value}

@@ -12,6 +12,7 @@ import {
   getPublicProductSortPrice,
   getPublicProducts,
   withCurveCategory,
+  withSaleCategory,
 } from "@/lib/publicProducts";
 import { formatPrice, getCartPricing } from "@/lib/pricing";
 import type { StoreCategory } from "@/types/category";
@@ -61,7 +62,12 @@ export default function Navbar() {
           getPublicProducts(),
         ]);
 
-        setNavCategories(withCurveCategory(categories, products));
+        setNavCategories(
+          withSaleCategory(
+            withCurveCategory(categories, products),
+            products
+          )
+        );
         setSearchProducts(products);
       } catch {
         setSearchProducts([]);

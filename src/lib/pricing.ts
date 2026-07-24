@@ -12,6 +12,74 @@ export function formatPrice(value: number) {
   return `$${priceFormatter.format(value)}`;
 }
 
+export type WebPriceMode = "unit" | "curve";
+
+type SalePricedProduct = Pick<
+  Product,
+  | "price"
+  | "curvePrice"
+  | "saleActive"
+  | "salePrice"
+  | "saleCurvePrice"
+  | "saleStartsAt"
+  | "saleEndsAt"
+>;
+
+export function getRegularWebUnitPrice(
+  product: Pick<Product, "price" | "curvePrice">,
+  mode: WebPriceMode
+) {
+  if (mode === "curve" && Number(product.curvePrice || 0) > 0) {
+    return Number(product.curvePrice);
+  }
+
+  return Number(product.price || 0);
+}
+
+export function isProductSaleActive(
+  product: SalePricedProduct,
+  mode: WebPriceMode,
+  now = new Date()
+) {
+  if (!product.saleActive) return false;
+
+  const startsAt = product.saleStartsAt
+    ? new Date(product.saleStartsAt)
+    : null;
+  const endsAt = product.saleEndsAt
+    ? new Date(product.saleEndsAt)
+    : null;
+
+  if (startsAt && Number.isFinite(startsAt.getTime()) && now < startsAt) {
+    return false;
+  }
+
+  if (endsAt && Number.isFinite(endsAt.getTime()) && now >= endsAt) {
+    return false;
+  }
+
+  const regularPrice = getRegularWebUnitPrice(product, mode);
+  const salePrice =
+    mode === "curve"
+      ? Number(product.saleCurvePrice || 0)
+      : Number(product.salePrice || 0);
+
+  return salePrice > 0 && salePrice < regularPrice;
+}
+
+export function getEffectiveWebUnitPrice(
+  product: SalePricedProduct,
+  mode: WebPriceMode
+) {
+  if (!isProductSaleActive(product, mode)) {
+    return getRegularWebUnitPrice(product, mode);
+  }
+
+  return mode === "curve"
+    ? Number(product.saleCurvePrice)
+    : Number(product.salePrice);
+}
+
 export function getWholesalePrice(
   item: Pick<Product, "price">
 ) {

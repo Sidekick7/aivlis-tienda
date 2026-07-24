@@ -11,7 +11,12 @@ import {
   getPublicProductName,
   isPublicCurveProduct,
 } from "@/lib/publicProducts";
-import { formatPrice } from "@/lib/pricing";
+import {
+  formatPrice,
+  getEffectiveWebUnitPrice,
+  getRegularWebUnitPrice,
+  isProductSaleActive,
+} from "@/lib/pricing";
 import type { Product } from "@/types/product";
 
 type Props = {
@@ -42,15 +47,23 @@ export default function ProductCard({ product }: Props) {
   );
   const canBuyCurve = isCurveProduct(product);
   const isCurvePublication = isPublicCurveProduct(product);
+  const priceMode = isCurvePublication ? "curve" : "unit";
+  const isOnSale = isProductSaleActive(product, priceMode);
   const curveUnitsPerSet = getCurveUnitsPerSet(product.variants[0]);
   const unitReferencePrice = product.price;
-  const curveUnitPrice =
-    canBuyCurve && product.curvePrice > 0
-      ? product.curvePrice
-      : product.price;
+  const regularPublishedUnitPrice = getRegularWebUnitPrice(
+    product,
+    priceMode
+  );
+  const publishedUnitPrice = getEffectiveWebUnitPrice(product, priceMode);
+  const curveUnitPrice = getEffectiveWebUnitPrice(product, "curve");
   const curveSetPrice = curveUnitPrice * curveUnitsPerSet;
+  const regularCurveSetPrice =
+    getRegularWebUnitPrice(product, "curve") * curveUnitsPerSet;
   const curveSavings = Math.max(
-    unitReferencePrice * curveUnitsPerSet - curveSetPrice,
+    (isOnSale
+      ? regularCurveSetPrice
+      : unitReferencePrice * curveUnitsPerSet) - curveSetPrice,
     0
   );
 
@@ -86,6 +99,12 @@ export default function ProductCard({ product }: Props) {
             </span>
           </div>
         )}
+
+        {isOnSale && (
+          <span className="absolute right-2 top-2 z-10 bg-red-700 px-2.5 py-1 text-[11px] font-black uppercase leading-none text-white sm:right-3 sm:top-3 sm:text-xs">
+            Sale
+          </span>
+        )}
       </Link>
 
       <div className="flex min-h-[115px] flex-1 flex-col p-3 sm:min-h-[145px] sm:p-4">
@@ -99,15 +118,25 @@ export default function ProductCard({ product }: Props) {
           <div className="mt-2 space-y-1">
             <div className="flex flex-wrap items-baseline gap-2">
               <span className="text-sm font-semibold text-zinc-500 line-through sm:text-base">
-                {formatPrice(unitReferencePrice * curveUnitsPerSet)}
+                {formatPrice(
+                  isOnSale
+                    ? regularCurveSetPrice
+                    : unitReferencePrice * curveUnitsPerSet
+                )}
               </span>
 
-              <span className="text-base font-semibold text-black sm:text-lg">
+              <span
+                className={
+                  isOnSale
+                    ? "text-lg font-semibold text-red-700 sm:text-xl"
+                    : "text-base font-semibold text-black sm:text-lg"
+                }
+              >
                 {formatPrice(curveSetPrice)}
               </span>
             </div>
 
-            {curveSavings > 0 && (
+            {curveSavings > 0 && !isOnSale && (
               <p className="text-xs font-bold text-red-700 sm:text-sm">
                 ahorro {formatPrice(curveSavings)}
               </p>
@@ -115,15 +144,41 @@ export default function ProductCard({ product }: Props) {
           </div>
         ) : canBuyCurve && curveUnitsPerSet > 1 ? (
           <div className="mt-2">
-            <p className="text-sm font-semibold text-black sm:text-base">
-              {formatPrice(unitReferencePrice)}
-            </p>
+            {isOnSale ? (
+              <>
+                <div className="flex flex-wrap items-baseline gap-2">
+                  <span className="text-sm font-semibold text-zinc-500 line-through sm:text-base">
+                    {formatPrice(regularPublishedUnitPrice)}
+                  </span>
+                  <span className="text-lg font-semibold text-red-700 sm:text-xl">
+                    {formatPrice(publishedUnitPrice)}
+                  </span>
+                </div>
+              </>
+            ) : (
+              <p className="text-sm font-semibold text-black sm:text-base">
+                {formatPrice(unitReferencePrice)}
+              </p>
+            )}
           </div>
         ) : (
           <div className="mt-2">
-            <p className="text-sm font-semibold text-black sm:text-base">
-              {formatPrice(product.price)}
-            </p>
+            {isOnSale ? (
+              <>
+                <div className="flex flex-wrap items-baseline gap-2">
+                  <span className="text-sm font-semibold text-zinc-500 line-through sm:text-base">
+                    {formatPrice(regularPublishedUnitPrice)}
+                  </span>
+                  <span className="text-lg font-semibold text-red-700 sm:text-xl">
+                    {formatPrice(publishedUnitPrice)}
+                  </span>
+                </div>
+              </>
+            ) : (
+              <p className="text-sm font-semibold text-black sm:text-base">
+                {formatPrice(product.price)}
+              </p>
+            )}
           </div>
         )}
 

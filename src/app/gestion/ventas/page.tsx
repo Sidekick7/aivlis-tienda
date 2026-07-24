@@ -235,6 +235,19 @@ function getWebPaymentLabel(order: AdminOrder) {
   return "Transferencia";
 }
 
+function getWebCustomerNotes(order: Pick<AdminOrder, "notes">) {
+  return (order.notes || "")
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(
+      (line) =>
+        line &&
+        !line.toLowerCase().startsWith("entrega:") &&
+        !line.toLowerCase().startsWith("pago:")
+    )
+    .join("\n");
+}
+
 type SaleDetailItem =
   | AdminOrder["items"][number]
   | LocalSale["items"][number];
@@ -283,9 +296,21 @@ function SaleItemsDetailTable({ items }: { items: SaleDetailItem[] }) {
                     </p>
                   )}
                 </div>
-                <span className="truncate text-xs font-semibold text-zinc-400">
-                  {colors.join(", ")}
-                </span>
+                {group.saleMode === "unit" && group.items.length === 1 ? (
+                  <div className="flex min-w-0 flex-wrap items-center gap-1.5 text-xs">
+                    <span className="truncate font-semibold text-zinc-400">
+                      {firstItem.variantColor || "-"}
+                    </span>
+                    <span className="text-zinc-600">Talle</span>
+                    <span className="rounded-md bg-zinc-800 px-2 py-1 font-black text-white">
+                      {firstItem.size || "-"}
+                    </span>
+                  </div>
+                ) : (
+                  <span className="truncate text-xs font-semibold text-zinc-400">
+                    {colors.join(", ")}
+                  </span>
+                )}
                 <span className="font-bold text-zinc-200">
                   x{group.bundleQuantity}
                 </span>
@@ -308,9 +333,15 @@ function SaleItemsDetailTable({ items }: { items: SaleDetailItem[] }) {
                       key={item.id || `${item.variantColor}-${item.size}`}
                       className="grid grid-cols-[minmax(0,1fr)_70px_110px] items-center gap-3 text-xs"
                     >
-                      <span className="text-zinc-400">
-                        {item.variantColor || "-"} / Talle {item.size || "-"}
-                      </span>
+                      <div className="flex min-w-0 flex-wrap items-center gap-1.5 text-zinc-400">
+                        <span className="truncate">
+                          {item.variantColor || "-"}
+                        </span>
+                        <span className="text-zinc-600">Talle</span>
+                        <span className="rounded-md bg-zinc-800 px-2 py-1 font-black text-white">
+                          {item.size || "-"}
+                        </span>
+                      </div>
                       <span className="font-bold text-zinc-300">
                         x{item.quantity}
                       </span>
@@ -732,7 +763,9 @@ export default function GestionVentasPage() {
       `Provincia: ${order.customerProvince}`,
       `Codigo Postal: ${order.customerZip}`,
       `Email: ${order.customerEmail || "-"}`,
-      `Notas: ${order.notes || "-"}`,
+      `Entrega: ${getWebDeliveryType(order)}`,
+      `Pago: ${getWebPaymentLabel(order)}`,
+      `Notas: ${getWebCustomerNotes(order) || "-"}`,
     ].join("\n");
 
   const getWebDeliveryType = (order: AdminOrder) => {
@@ -1477,6 +1510,12 @@ export default function GestionVentasPage() {
                         </div>
                         <div className="grid gap-1 sm:grid-cols-[130px_1fr]">
                           <span className="font-bold text-zinc-500">
+                            Pago
+                          </span>
+                          <span>{getWebPaymentLabel(detailOrder)}</span>
+                        </div>
+                        <div className="grid gap-1 sm:grid-cols-[130px_1fr]">
+                          <span className="font-bold text-zinc-500">
                             Direccion
                           </span>
                           <span>{detailOrder.customerAddress || "-"}</span>
@@ -1491,12 +1530,14 @@ export default function GestionVentasPage() {
                             {detailOrder.customerZip || ""}
                           </span>
                         </div>
-                        {detailOrder.notes && (
+                        {getWebCustomerNotes(detailOrder) && (
                           <div className="grid gap-1 sm:grid-cols-[130px_1fr]">
                             <span className="font-bold text-zinc-500">
                               Notas
                             </span>
-                            <span>{detailOrder.notes}</span>
+                            <span className="whitespace-pre-wrap">
+                              {getWebCustomerNotes(detailOrder)}
+                            </span>
                           </div>
                         )}
                       </div>

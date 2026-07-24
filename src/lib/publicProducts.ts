@@ -6,11 +6,17 @@ import {
   getCurveUnitsPerSet,
   isCurveProduct,
 } from "@/lib/curve";
+import {
+  getEffectiveWebUnitPrice,
+  isProductSaleActive,
+} from "@/lib/pricing";
 import type { StoreCategory } from "@/types/category";
 import type { Product } from "@/types/product";
 
 export const curveCategoryValue = "curvas";
 export const curveCategoryLabel = "Curvas";
+export const saleCategoryValue = "sale";
+export const saleCategoryLabel = "Sale";
 
 export type PublicProductMode = "unit" | "curve";
 
@@ -60,14 +66,28 @@ export function getPublicProductName(product: Product) {
     : product.name;
 }
 
+export function getPublicProductPriceMode(
+  product: Product
+): PublicProductMode {
+  return isPublicCurveProduct(product) ? "curve" : "unit";
+}
+
+export function isPublicProductOnSale(product: Product) {
+  return isProductSaleActive(
+    product,
+    getPublicProductPriceMode(product)
+  );
+}
+
 export function getPublicProductSortPrice(product: Product) {
-  if (!isPublicCurveProduct(product)) return product.price;
+  const mode = getPublicProductPriceMode(product);
+  const unitPrice = getEffectiveWebUnitPrice(product, mode);
+
+  if (mode === "unit") return unitPrice;
 
   const curveUnits = getCurveUnitsPerSet(product.variants[0]);
-  const curveUnitPrice =
-    product.curvePrice > 0 ? product.curvePrice : product.price;
 
-  return curveUnitPrice * Math.max(curveUnits, 1);
+  return unitPrice * Math.max(curveUnits, 1);
 }
 
 export function expandPublicProducts(
@@ -131,6 +151,38 @@ export function withCurveCategory(
     {
       label: curveCategoryLabel,
       value: curveCategoryValue,
+      sortOrder: maxSortOrder + 1,
+      active: true,
+    },
+  ];
+}
+
+export function withSaleCategory(
+  categories: StoreCategory[],
+  products: Product[]
+) {
+  if (!products.some(isPublicProductOnSale)) {
+    return categories;
+  }
+
+  if (
+    categories.some(
+      (category) => category.value === saleCategoryValue
+    )
+  ) {
+    return categories;
+  }
+
+  const maxSortOrder = Math.max(
+    0,
+    ...categories.map((category) => category.sortOrder)
+  );
+
+  return [
+    ...categories,
+    {
+      label: saleCategoryLabel,
+      value: saleCategoryValue,
       sortOrder: maxSortOrder + 1,
       active: true,
     },

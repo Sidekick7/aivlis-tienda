@@ -126,7 +126,7 @@ const {
       <div className="mx-auto mt-6 max-w-7xl md:mt-8">
 
       <div className="grid grid-cols-1 lg:grid-cols-[1fr_380px] gap-10 items-start">
-      <div className="flex flex-col gap-5">
+      <div className="flex flex-col">
 
         {!isCartReady && (
           <div className="flex flex-col items-center justify-center rounded-3xl border border-zinc-200 bg-white px-6 py-24 text-center">
@@ -168,7 +168,7 @@ const {
 
         )}
         
-        <div className="hidden grid-cols-[minmax(320px,1fr)_120px_120px_120px_48px] items-center rounded-2xl border border-zinc-200 bg-white px-5 py-3 text-xs font-bold uppercase tracking-wide text-zinc-500 shadow-sm lg:grid">
+        <div className="hidden grid-cols-[minmax(320px,1fr)_120px_120px_120px_48px] items-center border-b border-zinc-300 px-2 py-3 text-sm font-bold uppercase tracking-wide text-black lg:grid">
 
             <p className="text-left">Producto</p>
 
@@ -219,7 +219,7 @@ const {
 
           <div
             key={`${item.id}-${item.selectedColor}-${item.size}`}
-            className="relative grid grid-cols-1 items-center gap-4 rounded-3xl border border-zinc-200 bg-white p-4 shadow-sm transition hover:shadow-md lg:grid-cols-[minmax(320px,1fr)_120px_120px_120px_48px] lg:gap-0 lg:px-5"
+            className="relative grid grid-cols-1 items-center gap-4 border-b border-zinc-300 px-2 py-5 transition hover:bg-white/60 lg:grid-cols-[minmax(320px,1fr)_120px_120px_120px_48px] lg:gap-0"
           >
 
             <div className="flex flex-col gap-3">
@@ -286,7 +286,7 @@ const {
               )}
             </div>
 
-            <div className="flex items-center justify-between gap-3 rounded-2xl bg-zinc-50 px-3 py-3 lg:justify-center lg:bg-transparent lg:px-0 lg:py-0">
+            <div className="flex items-center justify-between gap-3 border-t border-zinc-200 pt-3 lg:justify-center lg:border-0 lg:pt-0">
               <span className="text-sm font-semibold uppercase text-zinc-500 lg:hidden">
                 Precio
               </span>
@@ -302,7 +302,7 @@ const {
 
             </div>
 
-            <div className="flex items-center justify-between gap-3 lg:flex-col lg:justify-center">
+            <div className="flex items-center justify-between gap-3 border-t border-zinc-200 pt-3 lg:flex-col lg:justify-center lg:border-0 lg:pt-0">
               <span className="text-sm font-semibold uppercase text-zinc-500 lg:hidden">
                 Cantidad
               </span>
@@ -318,7 +318,7 @@ const {
                         item.selectedColor
                       )
                     }
-                    className="flex h-8 w-8 items-center justify-center rounded-lg border border-zinc-900 bg-white text-zinc-950 transition hover:bg-zinc-100 cursor-pointer"
+                    className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-lg border border-zinc-300 bg-zinc-200 text-zinc-950 transition hover:bg-zinc-300"
                 >
                     <Minus size={16} />
                 </button>
@@ -337,7 +337,7 @@ const {
                       )
                     }
                     disabled={!canIncrease}
-                    className="flex h-8 w-8 items-center justify-center rounded-lg border border-zinc-900 bg-white text-zinc-950 transition hover:bg-zinc-100 cursor-pointer disabled:cursor-not-allowed disabled:border-zinc-300 disabled:text-zinc-400"
+                    className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-lg border border-zinc-300 bg-zinc-200 text-zinc-950 transition hover:bg-zinc-300 disabled:cursor-not-allowed disabled:bg-zinc-100 disabled:text-zinc-400"
                 >
                     <Plus size={16} />
                 </button>
@@ -356,7 +356,7 @@ const {
 
             </div>
 
-            <div className="flex items-center justify-between gap-3 rounded-2xl bg-zinc-50 px-3 py-3 lg:justify-center lg:bg-transparent lg:px-0 lg:py-0">
+            <div className="flex items-center justify-between gap-3 border-t border-zinc-200 pt-3 lg:justify-center lg:border-0 lg:pt-0">
               <span className="text-sm font-semibold uppercase text-zinc-500 lg:hidden">
                 Subtotal
               </span>
@@ -385,7 +385,7 @@ const {
                   item.selectedColor
                 )
               }
-              className="ml-auto flex h-11 w-11 items-center justify-center rounded-full bg-red-50 text-red-500 transition hover:bg-red-100 hover:text-red-700 cursor-pointer lg:mx-auto"
+              className="ml-auto flex h-10 w-10 cursor-pointer items-center justify-center text-red-500 transition hover:text-red-700 lg:mx-auto"
             >
               <Trash2 size={18} />
             </button>

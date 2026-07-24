@@ -43,6 +43,28 @@ function getImageUrl(image: string | File) {
     : URL.createObjectURL(image);
 }
 
+function toDateTimeLocal(value?: string | null) {
+  if (!value) return "";
+
+  const date = new Date(value);
+
+  if (!Number.isFinite(date.getTime())) return "";
+
+  const offsetDate = new Date(
+    date.getTime() - date.getTimezoneOffset() * 60_000
+  );
+
+  return offsetDate.toISOString().slice(0, 16);
+}
+
+function fromDateTimeLocal(value: string) {
+  if (!value) return null;
+
+  const date = new Date(value);
+
+  return Number.isFinite(date.getTime()) ? date.toISOString() : null;
+}
+
 export default function EditProductModal({
   product,
   setProduct,
@@ -58,6 +80,22 @@ export default function EditProductModal({
 }: Props) {
   const editingVariant =
     product.variants[editingVariantIndex] || product.variants[0];
+  const unitSaleDiscount =
+    Number(product.salePrice) > 0 && Number(product.price) > 0
+      ? Math.round(
+          (1 - Number(product.salePrice) / Number(product.price)) * 100
+        )
+      : 0;
+  const curveSaleDiscount =
+    Number(product.saleCurvePrice) > 0 &&
+    Number(product.curvePrice) > 0
+      ? Math.round(
+          (1 -
+            Number(product.saleCurvePrice) /
+              Number(product.curvePrice)) *
+            100
+        )
+      : 0;
 
   const updateProduct = (updates: Partial<EditableProduct>) => {
     setProduct({
@@ -340,6 +378,126 @@ export default function EditProductModal({
                     />
                   </label>
 
+                </div>
+
+                <div className="grid max-w-[520px] gap-3 border-t border-zinc-800 pt-3">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div>
+                      <h4 className="text-sm font-black uppercase text-red-300">
+                        SALE web
+                      </h4>
+                      <p className="mt-0.5 text-xs text-zinc-500">
+                        No modifica costo ni precio minorista.
+                      </p>
+                    </div>
+
+                    <label className="inline-flex cursor-pointer items-center gap-2 rounded-xl bg-zinc-900 px-3 py-2 text-xs font-bold text-zinc-300">
+                      <input
+                        type="checkbox"
+                        checked={product.saleActive}
+                        onChange={(event) =>
+                          updateProduct({
+                            saleActive: event.target.checked,
+                          })
+                        }
+                        className="h-4 w-4 accent-red-600"
+                      />
+                      {product.saleActive ? "Activa" : "Inactiva"}
+                    </label>
+                  </div>
+
+                  {product.saleActive && (
+                    <>
+                      <div className="grid gap-2 sm:grid-cols-2">
+                        <label className="grid min-w-0 gap-1.5">
+                          <span className="text-xs font-semibold uppercase text-zinc-500">
+                            SALE unidad
+                          </span>
+                          <div className="flex h-9 min-w-0 overflow-hidden rounded-xl bg-zinc-800">
+                            <input
+                              type="number"
+                              min="0"
+                              value={product.salePrice}
+                              onChange={(event) =>
+                                updateProduct({
+                                  salePrice: event.target.value,
+                                })
+                              }
+                              className="min-w-0 flex-1 bg-transparent px-3 text-sm font-bold outline-none"
+                            />
+                            {unitSaleDiscount > 0 && (
+                              <span className="flex items-center bg-red-700 px-2.5 text-xs font-black text-white">
+                                -{unitSaleDiscount}%
+                              </span>
+                            )}
+                          </div>
+                        </label>
+
+                        <label className="grid min-w-0 gap-1.5">
+                          <span className="text-xs font-semibold uppercase text-zinc-500">
+                            SALE curva
+                          </span>
+                          <div className="flex h-9 min-w-0 overflow-hidden rounded-xl bg-zinc-800">
+                            <input
+                              type="number"
+                              min="0"
+                              value={product.saleCurvePrice}
+                              disabled={product.saleMode !== "curve"}
+                              onChange={(event) =>
+                                updateProduct({
+                                  saleCurvePrice: event.target.value,
+                                })
+                              }
+                              className="min-w-0 flex-1 bg-transparent px-3 text-sm font-bold outline-none disabled:cursor-not-allowed disabled:opacity-35"
+                            />
+                            {curveSaleDiscount > 0 && (
+                              <span className="flex items-center bg-red-700 px-2.5 text-xs font-black text-white">
+                                -{curveSaleDiscount}%
+                              </span>
+                            )}
+                          </div>
+                        </label>
+                      </div>
+
+                      <div className="grid gap-2 sm:grid-cols-2">
+                        <label className="grid min-w-0 gap-1.5">
+                          <span className="text-xs font-semibold uppercase text-zinc-500">
+                            Comienza
+                          </span>
+                          <input
+                            type="datetime-local"
+                            value={toDateTimeLocal(product.saleStartsAt)}
+                            onChange={(event) =>
+                              updateProduct({
+                                saleStartsAt: fromDateTimeLocal(
+                                  event.target.value
+                                ),
+                              })
+                            }
+                            className="h-9 min-w-0 rounded-xl bg-zinc-800 px-3 text-xs font-semibold outline-none ring-1 ring-transparent transition focus:ring-white"
+                          />
+                        </label>
+
+                        <label className="grid min-w-0 gap-1.5">
+                          <span className="text-xs font-semibold uppercase text-zinc-500">
+                            Finaliza
+                          </span>
+                          <input
+                            type="datetime-local"
+                            value={toDateTimeLocal(product.saleEndsAt)}
+                            onChange={(event) =>
+                              updateProduct({
+                                saleEndsAt: fromDateTimeLocal(
+                                  event.target.value
+                                ),
+                              })
+                            }
+                            className="h-9 min-w-0 rounded-xl bg-zinc-800 px-3 text-xs font-semibold outline-none ring-1 ring-transparent transition focus:ring-white"
+                          />
+                        </label>
+                      </div>
+                    </>
+                  )}
                 </div>
 
               </section>

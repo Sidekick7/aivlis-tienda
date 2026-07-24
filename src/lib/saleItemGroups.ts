@@ -6,6 +6,7 @@ export type GroupableSaleItem = {
   productSlug: string;
   productSku?: string | null;
   productName: string;
+  variantColor?: string | null;
   quantity: number;
   unitPrice: number;
   subtotal: number;
@@ -48,11 +49,27 @@ function getLegacyGroupKey(item: GroupableSaleItem) {
   ].join("|");
 }
 
+function getUnitGroupKey(item: GroupableSaleItem) {
+  return [
+    "unit",
+    item.productId ?? item.productSlug,
+    item.productSku ?? "",
+    getSaleItemDisplayName(item.productName),
+    item.variantColor ?? "",
+    item.unitPrice,
+  ].join("|");
+}
+
 export function groupSaleItems<T extends GroupableSaleItem>(items: T[]) {
   const groupedItems = new Map<string, T[]>();
 
   for (const item of items) {
-    const key = item.lineGroupId || getLegacyGroupKey(item);
+    const displayName = getSaleItemDisplayName(item.productName);
+    const isCurveItem =
+      item.saleMode === "curve" || displayName.startsWith("Curva - ");
+    const key = isCurveItem
+      ? item.lineGroupId || getLegacyGroupKey(item)
+      : getUnitGroupKey(item);
     const currentItems = groupedItems.get(key) ?? [];
 
     currentItems.push(item);

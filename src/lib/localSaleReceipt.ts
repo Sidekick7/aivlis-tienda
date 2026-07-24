@@ -313,10 +313,16 @@ function printSaleReceipt({
         (total, item) => total + item.quantity,
         0
       );
+      const unitColor = !isCurveGroup
+        ? group.items[0]?.variantColor
+        : null;
+      const headerPrice = isCurveGroup
+        ? `${formatPrice(group.bundlePrice)} por curva`
+        : `${formatPrice(group.items[0]?.unitPrice ?? 0)} c/u`;
       const detailRows = isCurveGroup
         ? `
             <tr class="details-row">
-              <td colspan="3">
+              <td colspan="2">
                 ${curveColors.length > 0 ? `<span>${escapeReceiptText(curveColors.join(", "))}</span>` : ""}
                 <span>Talles: ${curveSizes.map((size) => escapeReceiptText(size)).join(" &middot; ")}</span>
                 <span>${escapeReceiptText(totalGarments)} prendas &middot; ${escapeReceiptText(group.bundleQuantity)} de cada talle</span>
@@ -325,21 +331,14 @@ function printSaleReceipt({
             </tr>
             <tr class="amount-row">
               <td>${escapeReceiptText(group.bundleQuantity)} ${group.bundleQuantity === 1 ? "curva" : "curvas"}</td>
-              <td>${escapeReceiptText(formatPrice(group.bundlePrice))}</td>
               <td>${escapeReceiptText(formatPrice(group.subtotal))}</td>
             </tr>
           `
         : group.items
             .map(
               (item) => `
-                <tr class="details-row">
-                  <td colspan="3">
-                    <span>${escapeReceiptText(item.variantColor || "-")} / Talle ${escapeReceiptText(item.size || "-")}</span>
-                  </td>
-                </tr>
                 <tr class="amount-row">
-                  <td>${escapeReceiptText(item.quantity)} ${item.quantity === 1 ? "prenda" : "prendas"}</td>
-                  <td>${escapeReceiptText(formatPrice(item.unitPrice))}</td>
+                  <td>Talle ${escapeReceiptText(item.size || "-")} x ${escapeReceiptText(item.quantity)}</td>
                   <td>${escapeReceiptText(formatPrice(item.subtotal))}</td>
                 </tr>
               `
@@ -348,8 +347,11 @@ function printSaleReceipt({
 
       return `
         <tr class="product-row">
-          <td colspan="3">
-            <strong>${escapeReceiptText(group.productName)}</strong>
+          <td colspan="2">
+            <div class="product-title">
+              <strong>${escapeReceiptText(group.productName)}${unitColor ? ` &middot; ${escapeReceiptText(unitColor)}` : ""}</strong>
+              <b>${escapeReceiptText(headerPrice)}</b>
+            </div>
             ${skuText ? `<span>SKU ${escapeReceiptText(skuText)}</span>` : ""}
           </td>
         </tr>
@@ -422,9 +424,8 @@ function printSaleReceipt({
           td:first-child {
             text-align: left;
           }
-          th:nth-child(1), td:nth-child(1) { width: 32%; }
-          th:nth-child(2), td:nth-child(2) { width: 31%; }
-          th:nth-child(3), td:nth-child(3) { width: 37%; }
+          th:nth-child(1), td:nth-child(1) { width: 58%; }
+          th:nth-child(2), td:nth-child(2) { width: 42%; }
           td {
             border-bottom: 1px solid #eee;
             padding: 7px 0;
@@ -442,8 +443,17 @@ function printSaleReceipt({
             padding: 9px 0 3px;
           }
           .product-row strong {
-            display: block;
             font-size: 12px;
+          }
+          .product-title {
+            display: flex;
+            align-items: baseline;
+            justify-content: space-between;
+            gap: 8px;
+          }
+          .product-title b {
+            flex: 0 0 auto;
+            font-size: 10px;
           }
           .details-row td {
             border-bottom: 0;
@@ -458,8 +468,7 @@ function printSaleReceipt({
             padding: 5px 0 9px;
             font-weight: 700;
           }
-          .amount-row td:nth-child(2),
-          .amount-row td:nth-child(3) {
+          .amount-row td:nth-child(2) {
             text-align: right;
           }
           .summary {
@@ -524,8 +533,7 @@ function printSaleReceipt({
           <table>
             <thead>
               <tr>
-                <th>Cant.</th>
-                <th>Valor</th>
+                <th>Detalle</th>
                 <th>Subtotal</th>
               </tr>
             </thead>

@@ -38,6 +38,11 @@ export function getProductFormError({
   productCurvePrice,
   productRetailPrice,
   productCost,
+  productSaleActive = false,
+  productSalePrice = 0,
+  productSaleCurvePrice = 0,
+  productSaleStartsAt,
+  productSaleEndsAt,
   productCategory,
   productVariants,
   productSaleMode = "unit",
@@ -49,6 +54,11 @@ export function getProductFormError({
   productCurvePrice?: string | number;
   productRetailPrice: string | number;
   productCost: string | number;
+  productSaleActive?: boolean;
+  productSalePrice?: string | number;
+  productSaleCurvePrice?: string | number;
+  productSaleStartsAt?: string | null;
+  productSaleEndsAt?: string | null;
   productCategory: string;
   productVariants: ProductFormVariant[];
   productSaleMode?: Product["saleMode"];
@@ -91,6 +101,43 @@ export function getProductFormError({
     Number(productCost) < 0
   ) {
     return "El costo debe ser 0 o mayor.";
+  }
+  if (productSaleActive) {
+    const salePrice = Number(productSalePrice || 0);
+    const saleCurvePrice = Number(productSaleCurvePrice || 0);
+    const hasUnitSale = salePrice > 0;
+    const hasCurveSale =
+      productSaleMode === "curve" && saleCurvePrice > 0;
+
+    if (!hasUnitSale && !hasCurveSale) {
+      return "Ingresa al menos un precio SALE.";
+    }
+
+    if (hasUnitSale && salePrice >= Number(productPrice)) {
+      return "El precio SALE debe ser menor al precio mayorista.";
+    }
+
+    if (
+      hasCurveSale &&
+      saleCurvePrice >= Number(effectiveCurvePrice)
+    ) {
+      return "El precio SALE curva debe ser menor al precio curva.";
+    }
+
+    const startsAt = productSaleStartsAt
+      ? new Date(productSaleStartsAt)
+      : null;
+    const endsAt = productSaleEndsAt
+      ? new Date(productSaleEndsAt)
+      : null;
+
+    if (
+      startsAt &&
+      endsAt &&
+      startsAt.getTime() >= endsAt.getTime()
+    ) {
+      return "La fecha de fin de SALE debe ser posterior al inicio.";
+    }
   }
   if (!productCategory.trim()) return "La categoria es obligatoria.";
   if (productVariants.length === 0) {
@@ -271,6 +318,11 @@ export async function updateAdminProduct({
       price: Number(product.price),
       curve_price: Number(product.curvePrice || product.price),
       retail_price: Number(product.retailPrice || product.price),
+      sale_active: product.saleActive,
+      sale_price: Number(product.salePrice || 0),
+      sale_curve_price: Number(product.saleCurvePrice || 0),
+      sale_starts_at: product.saleStartsAt || null,
+      sale_ends_at: product.saleEndsAt || null,
       cost: Number(product.cost),
       sale_mode: product.saleMode,
       category: product.category,
