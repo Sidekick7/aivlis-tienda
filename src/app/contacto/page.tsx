@@ -1,4 +1,4 @@
-import { MapPin } from "lucide-react";
+import { ArrowUpRight, Clock, MapPin } from "lucide-react";
 import Link from "next/link";
 import { getHomeContent } from "@/lib/homeContent";
 import {
@@ -118,72 +118,94 @@ export default async function ContactPage() {
 
   return (
     <main className="home-main-offset min-h-screen bg-zinc-100 text-black">
-      <section className="mx-auto flex max-w-6xl flex-col gap-6 px-6 pb-10 pt-5 md:px-10 lg:pb-12 lg:pt-7">
-        <h1 className="font-brand text-5xl leading-none md:text-6xl">
-          Contacto
-        </h1>
+      <section className="mx-auto max-w-6xl px-5 pb-10 pt-6 md:px-8 md:pt-8">
+        <header className="mb-6 border-b border-zinc-300 pb-4">
+          <p className="font-brand text-base uppercase text-zinc-500">
+            Canales
+          </p>
+          <h1 className="font-brand mt-1 text-4xl leading-none md:text-5xl">
+            Contacto
+          </h1>
+        </header>
 
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
-          {contactOptions.map((option) => {
-            const Icon = option.icon;
-            const cardContent = (
-              <>
-                <span className="flex h-16 w-16 items-center justify-center rounded-full bg-black text-white">
-                  <Icon />
-                </span>
+        <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_320px] lg:gap-12">
+          <section>
+            <h2 className="text-xs font-bold uppercase text-zinc-500">
+              Contacto directo
+            </h2>
 
-                <div className="mt-4 min-w-0">
-                  <p className="truncate text-base font-semibold text-zinc-500">
-                    {option.detail || "-"}
-                  </p>
-                </div>
+            <div className="mt-3 divide-y divide-zinc-300 border-y border-zinc-300">
+              {contactOptions.map((option) => {
+                const Icon = option.icon;
+                const rowContent = (
+                  <>
+                    <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-black text-white">
+                      <Icon />
+                    </span>
 
-                <span className="font-brand mt-5 inline-flex h-12 w-full items-center justify-center rounded-xl bg-zinc-100 px-5 text-lg text-zinc-800 transition group-hover:bg-black group-hover:text-white">
-                  {option.buttonLabel}
-                </span>
-              </>
-            );
+                    <span className="min-w-0 flex-1">
+                      <span className="block text-base font-bold">
+                        {option.title}
+                      </span>
+                      <span className="mt-0.5 block truncate text-sm text-zinc-600">
+                        {option.detail || "-"}
+                      </span>
+                    </span>
 
-            if (option.external) {
-              return (
-                <a
-                  key={option.title}
-                  href={option.href || "#"}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="group flex h-full flex-col rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm transition hover:border-zinc-400"
-                >
-                  {cardContent}
-                </a>
-              );
-            }
+                    <span className="hidden text-sm font-bold sm:block">
+                      {option.buttonLabel}
+                    </span>
+                    <ArrowUpRight
+                      size={18}
+                      className="shrink-0 text-zinc-500 transition group-hover:text-black"
+                    />
+                  </>
+                );
 
-            return (
-              <Link
-                key={option.title}
-                href={option.href}
-                className="group flex h-full flex-col rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm transition hover:border-zinc-400"
-              >
-                {cardContent}
-              </Link>
-            );
-          })}
-        </div>
+                if (option.external) {
+                  return (
+                    <a
+                      key={option.title}
+                      href={option.href || "#"}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="group flex min-h-20 cursor-pointer items-center gap-4 py-3.5"
+                    >
+                      {rowContent}
+                    </a>
+                  );
+                }
 
-        <div className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm">
-          <h2 className="font-brand text-3xl leading-none">
-            Horarios
-          </h2>
+                return (
+                  <Link
+                    key={option.title}
+                    href={option.href}
+                    className="group flex min-h-20 cursor-pointer items-center gap-4 py-3.5"
+                  >
+                    {rowContent}
+                  </Link>
+                );
+              })}
+            </div>
+          </section>
 
-          <div className="mt-4 grid gap-3 text-lg font-semibold text-zinc-700 sm:grid-cols-2">
-            <p className="rounded-xl bg-zinc-100 px-4 py-3">
-              Lunes a viernes: 08:00 a 17:00 hs.
-            </p>
+          <aside className="border-y border-zinc-300 py-5 lg:border-l lg:border-y-0 lg:py-0 lg:pl-8">
+            <div className="flex items-center gap-2.5">
+              <Clock size={19} className="text-zinc-500" />
+              <h2 className="text-lg font-bold">Horarios</h2>
+            </div>
 
-            <p className="rounded-xl bg-zinc-100 px-4 py-3">
-              Sabados: 08:00 a 13:00 hs.
-            </p>
-          </div>
+            <div className="mt-4 divide-y divide-zinc-300 text-sm leading-6 text-zinc-600">
+              <p className="pb-3">
+                <span className="block font-bold text-black">Lunes a viernes</span>
+                08:00 a 17:00 hs.
+              </p>
+              <p className="pt-3">
+                <span className="block font-bold text-black">Sabados</span>
+                08:00 a 13:00 hs.
+              </p>
+            </div>
+          </aside>
         </div>
       </section>
     </main>

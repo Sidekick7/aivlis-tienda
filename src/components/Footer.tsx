@@ -3,6 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { MapPin } from "lucide-react";
 import {
   fallbackHomeContent,
   getHomeContent,
@@ -122,6 +123,16 @@ export default function Footer() {
               );
             })}
           </div>
+
+          {socialLinks.showroomAddress && (
+            <Link
+              href="/local"
+              className="mt-1 inline-flex items-center gap-1.5 text-sm text-zinc-300 transition hover:text-white"
+            >
+              <MapPin size={16} aria-hidden="true" />
+              <span>{socialLinks.showroomAddress}</span>
+            </Link>
+          )}
         </div>
       </div>
     </footer>

@@ -28,6 +28,9 @@ create table if not exists public.local_sale_items (
   size text not null,
   quantity integer not null,
   unit_price numeric(12, 2) not null,
+  base_unit_price numeric(12, 2) not null,
+  adjustment_type text not null default 'none',
+  adjustment_value numeric(12, 2) not null default 0,
   subtotal numeric(12, 2) not null,
   image_url text,
   line_group_id uuid,
@@ -35,7 +38,22 @@ create table if not exists public.local_sale_items (
   bundle_quantity integer,
   units_per_bundle integer,
   bundle_price numeric(12, 2),
-  created_at timestamptz not null default now()
+  created_at timestamptz not null default now(),
+  constraint local_sale_items_adjustment_type_check check (
+    adjustment_type in (
+      'none',
+      'discount-percent',
+      'discount-amount',
+      'surcharge-percent',
+      'surcharge-amount'
+    )
+  ),
+  constraint local_sale_items_adjustment_value_non_negative check (
+    adjustment_value >= 0
+  ),
+  constraint local_sale_items_base_unit_price_non_negative check (
+    base_unit_price >= 0
+  )
 );
 
 create index if not exists local_sale_items_sale_id_idx

@@ -52,39 +52,39 @@ export default async function QuestionsPage() {
 
   return (
     <main className="home-main-offset min-h-screen bg-zinc-100 text-black">
-      <section className="mx-auto flex max-w-6xl flex-col gap-8 px-6 pb-10 pt-5 md:px-10 lg:pb-12 lg:pt-7">
-        <div className="max-w-3xl">
-          <p className="font-brand mb-3 text-base uppercase text-zinc-500">
+      <section className="mx-auto max-w-6xl px-5 pb-10 pt-6 md:px-8 md:pt-8">
+        <header className="mb-6 border-b border-zinc-300 pb-5">
+          <p className="font-brand text-base uppercase text-zinc-500">
             Ayuda
           </p>
 
-          <h1 className="font-brand text-5xl md:text-6xl">
+          <h1 className="font-brand mt-1 text-4xl leading-none md:text-5xl">
             Preguntas
           </h1>
 
-          <p className="mt-5 max-w-2xl text-zinc-600">
+          <p className="mt-3 max-w-2xl text-sm leading-6 text-zinc-600">
             Resolvemos las dudas mas comunes antes de comprar: minimo
             de compra, envios, retiro, pruebas, cambios, pagos y stock.
           </p>
-        </div>
+        </header>
 
-        <div className="grid gap-4 md:grid-cols-2">
+        <div className="grid border-t border-zinc-300 md:grid-cols-2">
           {questions.map((question, index) => (
             <article
               key={question.title}
-              className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm"
+              className="border-b border-zinc-300 py-5 md:px-6 md:odd:border-r md:odd:pl-0"
             >
-              <div className="flex items-start gap-4">
-                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-zinc-100 text-sm font-bold text-zinc-500">
-                  {index + 1}
+              <div className="flex items-start gap-3">
+                <span className="font-brand mt-0.5 w-7 shrink-0 text-base text-zinc-400">
+                  {String(index + 1).padStart(2, "0")}
                 </span>
 
-                <div>
-                  <h2 className="font-brand text-2xl">
+                <div className="min-w-0">
+                  <h2 className="font-brand text-xl leading-tight md:text-2xl">
                     {question.title}
                   </h2>
 
-                  <p className="mt-3 whitespace-pre-line text-sm leading-6 text-zinc-600">
+                  <p className="mt-2 whitespace-pre-line text-sm leading-6 text-zinc-600">
                     {question.body}
                   </p>
                 </div>
@@ -93,13 +93,13 @@ export default async function QuestionsPage() {
           ))}
         </div>
 
-        <div className="flex flex-col gap-3 rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm sm:flex-row sm:items-center sm:justify-between">
+        <div className="mt-7 flex flex-col gap-4 border-y border-zinc-300 py-5 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h2 className="font-brand text-2xl">
+            <h2 className="font-brand text-2xl leading-none">
               Tenes otra duda?
             </h2>
 
-            <p className="mt-2 text-sm leading-6 text-zinc-600">
+            <p className="mt-1.5 text-sm leading-6 text-zinc-600">
               Podes escribirnos por WhatsApp o mirar el catalogo para armar tu
               pedido.
             </p>
@@ -108,14 +108,14 @@ export default async function QuestionsPage() {
           <div className="flex flex-wrap gap-3">
             <Link
               href="/contacto"
-              className="font-brand inline-flex h-11 items-center justify-center rounded-full bg-zinc-100 px-5 text-base text-zinc-800 transition hover:bg-zinc-200"
+              className="font-brand inline-flex h-10 items-center justify-center border border-zinc-300 px-5 text-base text-zinc-800 transition hover:bg-white"
             >
               Contacto
             </Link>
 
             <Link
               href="/tienda"
-              className="font-brand inline-flex h-11 items-center justify-center rounded-full bg-black px-5 text-base text-white transition hover:bg-zinc-800"
+              className="font-brand inline-flex h-10 items-center justify-center bg-black px-5 text-base text-white transition hover:bg-zinc-800"
             >
               Ver catalogo
             </Link>

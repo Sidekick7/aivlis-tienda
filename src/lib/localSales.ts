@@ -24,6 +24,9 @@ function normalizeLocalSaleItem(
     size: row.size,
     quantity: Number(row.quantity),
     unitPrice: Number(row.unit_price),
+    baseUnitPrice: Number(row.base_unit_price ?? row.unit_price),
+    adjustmentType: row.adjustment_type ?? "none",
+    adjustmentValue: Number(row.adjustment_value ?? 0),
     unitCost: Number(row.unit_cost ?? 0),
     subtotal: Number(row.subtotal),
     imageUrl: row.image_url ?? "",
@@ -186,63 +189,89 @@ export async function createLocalSale({
   }
 
   const itemsWithCosts = await attachUnitCostsToLocalSaleItems(items);
+  let stockWasAdjusted = false;
+  let createdSaleId: string | null = null;
 
-  await adjustStockForLocalSale(itemsWithCosts, -1);
+  try {
+    await adjustStockForLocalSale(itemsWithCosts, -1);
+    stockWasAdjusted = true;
 
-  const { data: sale, error: saleError } = await supabase
-    .from("local_sales")
-    .insert({
-      sale_number: saleNumber,
-      payment_method: paymentMethod,
-      status,
-      total,
-      internal_notes: internalNotes?.trim() || null,
-    })
-    .select("id")
-    .single();
+    const { data: sale, error: saleError } = await supabase
+      .from("local_sales")
+      .insert({
+        sale_number: saleNumber,
+        payment_method: paymentMethod,
+        status,
+        total,
+        internal_notes: internalNotes?.trim() || null,
+      })
+      .select("id")
+      .single();
 
-  if (saleError) {
-    throw saleError;
+    if (saleError) {
+      throw saleError;
+    }
+
+    const saleId = sale?.id as string | undefined;
+
+    if (!saleId) {
+      throw new Error("No se pudo crear la venta local.");
+    }
+
+    createdSaleId = saleId;
+
+    const { error: itemsError } = await supabase
+      .from("local_sale_items")
+      .insert(
+        itemsWithCosts.map((item) => ({
+          sale_id: saleId,
+          product_id: item.productId,
+          product_slug: item.productSlug,
+          product_sku: item.productSku || "",
+          product_name: item.productName,
+          variant_color: item.variantColor,
+          size: item.size,
+          quantity: item.quantity,
+          unit_price: item.unitPrice,
+          base_unit_price: item.baseUnitPrice ?? item.unitPrice,
+          adjustment_type: item.adjustmentType ?? "none",
+          adjustment_value: item.adjustmentValue ?? 0,
+          unit_cost: item.unitCost,
+          subtotal: item.subtotal,
+          image_url: item.imageUrl || "",
+          line_group_id: item.lineGroupId || crypto.randomUUID(),
+          sale_mode: item.saleMode || "unit",
+          bundle_quantity: item.bundleQuantity || item.quantity,
+          units_per_bundle: item.unitsPerBundle || 1,
+          bundle_price: item.bundlePrice || item.unitPrice,
+        }))
+      );
+
+    if (itemsError) {
+      throw itemsError;
+    }
+
+    return {
+      id: saleId,
+      saleNumber,
+    };
+  } catch (error) {
+    if (createdSaleId) {
+      await supabase.from("local_sales").delete().eq("id", createdSaleId);
+    }
+
+    if (stockWasAdjusted) {
+      try {
+        await adjustStockForLocalSale(itemsWithCosts, 1);
+      } catch {
+        throw new Error(
+          "La venta fallo y no se pudo restaurar el stock automaticamente. Revisa Inventario."
+        );
+      }
+    }
+
+    throw error;
   }
-
-  const saleId = sale?.id as string | undefined;
-
-  if (!saleId) {
-    throw new Error("No se pudo crear la venta local.");
-  }
-
-  const { error: itemsError } = await supabase
-    .from("local_sale_items")
-    .insert(
-      itemsWithCosts.map((item) => ({
-        sale_id: saleId,
-        product_id: item.productId,
-        product_slug: item.productSlug,
-        product_sku: item.productSku || "",
-        product_name: item.productName,
-        variant_color: item.variantColor,
-        size: item.size,
-        quantity: item.quantity,
-        unit_price: item.unitPrice,
-        unit_cost: item.unitCost,
-        subtotal: item.subtotal,
-        image_url: item.imageUrl || "",
-        line_group_id: item.lineGroupId || crypto.randomUUID(),
-        sale_mode: item.saleMode || "unit",
-        bundle_quantity: item.bundleQuantity || item.quantity,
-        units_per_bundle: item.unitsPerBundle || 1,
-        bundle_price: item.bundlePrice || item.unitPrice,
-      }))
-    );
-
-  if (itemsError) {
-    throw itemsError;
-  }
-
-  return {
-    id: saleId,
-    saleNumber,
-  };
 }
 
 export async function getLocalSales(): Promise<LocalSale[]> {

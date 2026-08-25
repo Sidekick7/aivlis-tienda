@@ -86,13 +86,16 @@ export function normalizeProduct(row: SupabaseProductRow): Product {
     (total, variant) => total + (variant.stock ?? 0),
     0
   );
+  const curvePrice = Number(row.curve_price ?? row.price ?? 0);
+  const price = Number(row.price ?? 0);
 
   return {
     id: row.id,
     slug: row.slug ?? "",
     name: row.name ?? "",
-    price: Number(row.price ?? 0),
-    curvePrice: Number(row.curve_price ?? row.price ?? 0),
+    price,
+    curvePrice,
+    curveEnabled: Boolean(row.curve_enabled),
     retailPrice: Number(row.retail_price ?? row.price ?? 0),
     saleActive: Boolean(row.sale_active),
     salePrice: Number(row.sale_price ?? 0),
@@ -107,6 +110,7 @@ export function normalizeProduct(row: SupabaseProductRow): Product {
     details: toStringArray(row.details),
     featured: Boolean(row.featured),
     active: row.active ?? true,
+    archivedAt: row.archived_at ?? null,
     images: toStringArray(row.images),
     stock,
     variants,
@@ -131,7 +135,10 @@ export async function getProducts({
     .map((row) =>
       normalizeProduct(row as SupabaseProductRow)
     )
-    .filter((product) => includeInactive || product.active);
+    .filter(
+      (product) =>
+        includeInactive || (product.active && !product.archivedAt)
+    );
 }
 
 export async function getProductsByCategory(
@@ -156,7 +163,10 @@ export async function getProductsByCategory(
     .map((row) =>
       normalizeProduct(row as SupabaseProductRow)
     )
-    .filter((product) => includeInactive || product.active);
+    .filter(
+      (product) =>
+        includeInactive || (product.active && !product.archivedAt)
+    );
 }
 
 export async function getProductBySlug(
@@ -186,7 +196,12 @@ export async function getProductBySlug(
     product as SupabaseProductRow
   );
 
-  if (!includeInactive && !normalizedProduct.active) return null;
+  if (
+    !includeInactive &&
+    (!normalizedProduct.active || normalizedProduct.archivedAt)
+  ) {
+    return null;
+  }
 
   return normalizedProduct;
 }
@@ -217,5 +232,8 @@ export async function getProductsByIds(
     .map((row) =>
       normalizeProduct(row as SupabaseProductRow)
     )
-    .filter((product) => includeInactive || product.active);
+    .filter(
+      (product) =>
+        includeInactive || (product.active && !product.archivedAt)
+    );
 }

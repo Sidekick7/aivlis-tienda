@@ -91,6 +91,7 @@ begin
 
     if not found
       or product_record.active is not true
+      or product_record.archived_at is not null
       or product_record.slug <> order_item ->> 'product_slug'
     then
       raise exception 'El pedido tiene productos sin stock o no publicados.';

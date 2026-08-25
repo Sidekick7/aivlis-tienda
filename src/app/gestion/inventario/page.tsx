@@ -1,8 +1,18 @@
 "use client";
 
-import { type FormEvent, useEffect, useMemo, useState } from "react";
+import {
+  type FormEvent,
+  type UIEvent,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import Image from "next/image";
 import Link from "next/link";
 import {
+  Archive,
+  ArchiveRestore,
   BarChart3,
   Boxes,
   ClipboardList,
@@ -14,7 +24,9 @@ import {
   Search,
   Settings,
   ShoppingBag,
+  Trash2,
   Truck,
+  X,
 } from "lucide-react";
 import {
   formatSku,
@@ -27,7 +39,7 @@ import {
   getCategories,
   getFallbackCategories,
 } from "@/lib/categories";
-import { isCurveProduct } from "@/lib/curve";
+import { getProductImage } from "@/lib/productDisplay";
 import { getProducts } from "@/lib/products";
 import { formatPrice } from "@/lib/pricing";
 import { supabase } from "@/lib/supabase";
@@ -40,7 +52,8 @@ type InventoryTab =
   | "low"
   | "out"
   | "critical"
-  | "inactive";
+  | "inactive"
+  | "archived";
 type QuickProductDraft = {
   name: string;
   skuCode: string;
@@ -58,8 +71,35 @@ type QuickProductDraft = {
     }>;
   }>;
 };
+type InventoryProductEditor = {
+  product: Product;
+  selectedColorIndex: number;
+  curveEnabled: boolean;
+  cost: string;
+  price: string;
+  curvePrice: string;
+  retailPrice: string;
+  variants: Array<{
+    color: string;
+    hex: string;
+    images: string[];
+    sizes: Array<{
+      size: string;
+      stock: string;
+    }>;
+  }>;
+};
 
 const lowStockLimit = 2;
+const inventoryScrollStorageKey = "aivlis:gestion:inventario:scroll-top";
+const inventoryTableColumns =
+  "grid-cols-[76px_minmax(0,1fr)_100px_64px_96px_104px_96px_104px_104px]";
+const criticalStockTableColumns =
+  "grid-cols-[76px_minmax(0,1fr)_120px_100px_90px_90px]";
+const inventoryHeaderCellClass =
+  "flex min-h-9 items-center px-2";
+const inventoryRowCellClass =
+  "flex h-full min-h-10 items-center px-2";
 
 const inventoryViews: Array<{
   label: string;
@@ -69,6 +109,7 @@ const inventoryViews: Array<{
   { label: "Bajo stock", value: "low" },
   { label: "Sin stock", value: "out" },
   { label: "Ocultos", value: "inactive" },
+  { label: "Archivados", value: "archived" },
 ];
 
 const navItems = [
@@ -182,28 +223,16 @@ export default function GestionInventarioPage() {
   const [expandedProductId, setExpandedProductId] = useState<number | null>(
     null
   );
-  const [priceEditor, setPriceEditor] = useState<{
-    product: Product;
-    cost: string;
-    price: string;
-    curvePrice: string;
-    retailPrice: string;
-  } | null>(null);
-  const [stockEditor, setStockEditor] = useState<{
-    product: Product;
-    variants: Array<{
-      color: string;
-      sizes: Array<{
-        size: string;
-        stock: string;
-      }>;
-    }>;
-  } | null>(null);
-  const [isSavingPrice, setIsSavingPrice] = useState(false);
-  const [isSavingStock, setIsSavingStock] = useState(false);
+  const [expandedProductColor, setExpandedProductColor] = useState("");
+  const [productEditor, setProductEditor] =
+    useState<InventoryProductEditor | null>(null);
+  const [isSavingProductEditor, setIsSavingProductEditor] = useState(false);
   const [isSavingQuickProduct, setIsSavingQuickProduct] =
     useState(false);
   const [savingActiveProductId, setSavingActiveProductId] = useState<
+    number | null
+  >(null);
+  const [savingArchivedProductId, setSavingArchivedProductId] = useState<
     number | null
   >(null);
   const [inventoryNotice, setInventoryNotice] = useState("");
@@ -211,6 +240,7 @@ export default function GestionInventarioPage() {
     useState<QuickProductDraft | null>(null);
   const [selectedQuickColorIndex, setSelectedQuickColorIndex] =
     useState(0);
+  const inventoryScrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
@@ -314,6 +344,31 @@ export default function GestionInventarioPage() {
     return () => window.clearTimeout(timeout);
   }, [inventoryNotice]);
 
+  useEffect(() => {
+    if (!isAllowed || isLoadingProducts || products.length === 0) return;
+
+    const storedScrollTop = Number(
+      window.sessionStorage.getItem(inventoryScrollStorageKey) ?? 0
+    );
+
+    if (!Number.isFinite(storedScrollTop) || storedScrollTop <= 0) return;
+
+    const frame = window.requestAnimationFrame(() => {
+      if (inventoryScrollRef.current) {
+        inventoryScrollRef.current.scrollTop = storedScrollTop;
+      }
+    });
+
+    return () => window.cancelAnimationFrame(frame);
+  }, [isAllowed, isLoadingProducts, products.length]);
+
+  const handleInventoryScroll = (event: UIEvent<HTMLDivElement>) => {
+    window.sessionStorage.setItem(
+      inventoryScrollStorageKey,
+      String(event.currentTarget.scrollTop)
+    );
+  };
+
   const handleLogin = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
@@ -341,31 +396,43 @@ export default function GestionInventarioPage() {
     setProducts([]);
   };
 
-  const openPriceEditor = (product: Product) => {
+  const openProductEditor = (product: Product) => {
     setInventoryError("");
     setInventoryNotice("");
-    setPriceEditor({
+    setProductEditor({
       product,
+      selectedColorIndex: 0,
+      curveEnabled: product.curveEnabled,
       cost: formatInventoryPriceInput(product.cost),
       price: formatInventoryPriceInput(product.price),
       curvePrice: formatInventoryPriceInput(product.curvePrice),
       retailPrice: formatInventoryPriceInput(product.retailPrice),
-    });
-  };
-
-  const openStockEditor = (product: Product) => {
-    setInventoryError("");
-    setInventoryNotice("");
-    setStockEditor({
-      product,
       variants: product.variants.map((variant) => ({
         color: variant.color,
+        hex: variant.hex,
+        images: [...variant.images],
         sizes: variant.sizes.map((size) => ({
           size: size.size,
           stock: String(size.stock),
         })),
       })),
     });
+  };
+
+  const toggleExpandedProduct = (product: Product) => {
+    if (expandedProductId === product.id) {
+      setExpandedProductId(null);
+      setExpandedProductColor("");
+      return;
+    }
+
+    const firstAvailableVariant =
+      product.variants.find((variant) =>
+        variant.sizes.some((size) => size.stock > 0)
+      ) ?? product.variants[0];
+
+    setExpandedProductId(product.id);
+    setExpandedProductColor(firstAvailableVariant?.color ?? "");
   };
 
   const openQuickProductCreator = () => {
@@ -397,15 +464,19 @@ export default function GestionInventarioPage() {
     });
   };
 
-  const handleSavePrices = async (event: FormEvent<HTMLFormElement>) => {
+  const handleSaveProductEditor = async (
+    event: FormEvent<HTMLFormElement>
+  ) => {
     event.preventDefault();
 
-    if (!priceEditor || isSavingPrice) return;
+    if (!productEditor || isSavingProductEditor) return;
 
-    const nextPrice = parseInventoryPriceInput(priceEditor.price);
-    const nextCurvePrice = parseInventoryPriceInput(priceEditor.curvePrice);
-    const nextRetailPrice = parseInventoryPriceInput(priceEditor.retailPrice);
-    const nextCost = parseInventoryPriceInput(priceEditor.cost);
+    const nextPrice = parseInventoryPriceInput(productEditor.price);
+    const nextCurvePrice = parseInventoryPriceInput(productEditor.curvePrice);
+    const nextRetailPrice = parseInventoryPriceInput(
+      productEditor.retailPrice
+    );
+    const nextCost = parseInventoryPriceInput(productEditor.cost);
 
     if (
       !Number.isFinite(nextCost) ||
@@ -426,19 +497,92 @@ export default function GestionInventarioPage() {
       return;
     }
 
-    setIsSavingPrice(true);
+    if (productEditor.curveEnabled && nextCurvePrice <= 0) {
+      setInventoryError("Carga un precio curva mayor a 0 para habilitarla.");
+      return;
+    }
+
+    const normalizedColorNames = productEditor.variants.map((variant) =>
+      variant.color.trim().toLowerCase()
+    );
+
+    if (
+      productEditor.variants.length === 0 ||
+      normalizedColorNames.some((color) => !color)
+    ) {
+      setInventoryError("Cada producto necesita al menos un color con nombre.");
+      return;
+    }
+
+    if (new Set(normalizedColorNames).size !== normalizedColorNames.length) {
+      setInventoryError("No puede haber colores repetidos.");
+      return;
+    }
+
+    for (const variant of productEditor.variants) {
+      const normalizedSizes = variant.sizes.map((size) =>
+        size.size.trim().toLowerCase()
+      );
+
+      if (normalizedSizes.length === 0 || normalizedSizes.some((size) => !size)) {
+        setInventoryError(`El color ${variant.color.trim()} necesita al menos un talle.`);
+        return;
+      }
+
+      if (new Set(normalizedSizes).size !== normalizedSizes.length) {
+        setInventoryError(`El color ${variant.color.trim()} tiene talles repetidos.`);
+        return;
+      }
+    }
+
+    setIsSavingProductEditor(true);
     setInventoryError("");
 
     try {
+      const nextVariants = productEditor.variants.map((variant) => {
+          const nextSizes = variant.sizes.map((size) => {
+            const nextStock = Number(size.stock || 0);
+
+            if (
+              !Number.isFinite(nextStock) ||
+              nextStock < 0 ||
+              !Number.isInteger(nextStock)
+            ) {
+              throw new Error(
+                "El stock tiene que ser un numero entero positivo."
+              );
+            }
+
+            return {
+              size: size.size.trim(),
+              stock: nextStock,
+            };
+          });
+
+          return {
+            color: variant.color.trim(),
+            hex: variant.hex || "#000000",
+            sizes: nextSizes,
+            stock: nextSizes.reduce((total, size) => total + size.stock, 0),
+            images: [...variant.images],
+          };
+        });
+      const nextTotalStock = nextVariants.reduce(
+        (total, variant) => total + (variant.stock ?? 0),
+        0
+      );
       const { error } = await supabase
         .from("products")
         .update({
           cost: nextCost,
           price: nextPrice,
           curve_price: nextCurvePrice || nextPrice,
+          curve_enabled: productEditor.curveEnabled,
           retail_price: nextRetailPrice,
+          variants: nextVariants,
+          stock: nextTotalStock,
         })
-        .eq("id", priceEditor.product.id);
+        .eq("id", productEditor.product.id);
 
       if (error) {
         throw error;
@@ -446,32 +590,35 @@ export default function GestionInventarioPage() {
 
       setProducts((currentProducts) =>
         currentProducts.map((product) =>
-          product.id === priceEditor.product.id
+          product.id === productEditor.product.id
             ? {
-              ...product,
+                ...product,
                 cost: nextCost,
                 price: nextPrice,
                 curvePrice: nextCurvePrice || nextPrice,
+                curveEnabled: productEditor.curveEnabled,
                 retailPrice: nextRetailPrice,
+                variants: nextVariants,
+                stock: nextTotalStock,
               }
             : product
         )
       );
-      setInventoryNotice(`Precios de ${priceEditor.product.name} actualizados.`);
-      setPriceEditor(null);
+      setInventoryNotice(`${productEditor.product.name}: cambios guardados.`);
+      setProductEditor(null);
     } catch (error) {
       setInventoryError(
         error instanceof Error
           ? error.message
-          : "No se pudieron guardar los precios."
+          : "No se pudieron guardar los cambios."
       );
     } finally {
-      setIsSavingPrice(false);
+      setIsSavingProductEditor(false);
     }
   };
 
   const handleToggleActive = async (product: Product) => {
-    if (savingActiveProductId) return;
+    if (savingActiveProductId || product.archivedAt) return;
 
     const nextActive = !product.active;
 
@@ -514,85 +661,54 @@ export default function GestionInventarioPage() {
     }
   };
 
-  const handleSaveStock = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
+  const handleToggleArchived = async (product: Product) => {
+    if (savingArchivedProductId) return;
 
-    if (!stockEditor || isSavingStock) return;
+    const isRestoring = Boolean(product.archivedAt);
+    const stock = getProductStock(product);
+    const confirmed = window.confirm(
+      isRestoring
+        ? `Restaurar "${product.name}"? Volvera a estar disponible en Inventario y Punto de venta.`
+        : `Archivar "${product.name}"? Se ocultara del catalogo y Punto de venta, pero conservara su historial y sus ${stock} unidades de stock.`
+    );
 
-    setIsSavingStock(true);
+    if (!confirmed) return;
+
+    const nextArchivedAt = isRestoring ? null : new Date().toISOString();
+
+    setSavingArchivedProductId(product.id);
     setInventoryError("");
 
     try {
-      const nextVariants = stockEditor.product.variants.map(
-        (variant, variantIndex) => {
-          const draftVariant = stockEditor.variants[variantIndex];
-          const nextSizes = variant.sizes.map((size, sizeIndex) => {
-            const nextStock = Number(
-              draftVariant?.sizes[sizeIndex]?.stock ?? size.stock
-            );
-
-            if (
-              !Number.isFinite(nextStock) ||
-              nextStock < 0 ||
-              !Number.isInteger(nextStock)
-            ) {
-              throw new Error(
-                "El stock tiene que ser un numero entero positivo."
-              );
-            }
-
-            return {
-              ...size,
-              stock: nextStock,
-            };
-          });
-
-          return {
-            ...variant,
-            sizes: nextSizes,
-            stock: nextSizes.reduce((total, size) => total + size.stock, 0),
-            images: [...variant.images],
-          };
-        }
-      );
-      const nextTotalStock = nextVariants.reduce(
-        (total, variant) => total + (variant.stock ?? 0),
-        0
-      );
-
       const { error } = await supabase
         .from("products")
-        .update({
-          variants: nextVariants,
-          stock: nextTotalStock,
-        })
-        .eq("id", stockEditor.product.id);
+        .update({ archived_at: nextArchivedAt })
+        .eq("id", product.id);
 
       if (error) {
         throw error;
       }
 
       setProducts((currentProducts) =>
-        currentProducts.map((product) =>
-          product.id === stockEditor.product.id
-            ? {
-                ...product,
-                variants: nextVariants,
-                stock: nextTotalStock,
-              }
-            : product
+        currentProducts.map((currentProduct) =>
+          currentProduct.id === product.id
+            ? { ...currentProduct, archivedAt: nextArchivedAt }
+            : currentProduct
         )
       );
-      setInventoryNotice(`${stockEditor.product.name}: stock actualizado.`);
-      setStockEditor(null);
+      setExpandedProductId(null);
+      setExpandedProductColor("");
+      setInventoryNotice(
+        `${product.name}: ${isRestoring ? "restaurado" : "archivado"}.`
+      );
     } catch (error) {
       setInventoryError(
         error instanceof Error
           ? error.message
-          : "No se pudo guardar el stock."
+          : `No se pudo ${isRestoring ? "restaurar" : "archivar"} el producto.`
       );
     } finally {
-      setIsSavingStock(false);
+      setSavingArchivedProductId(null);
     }
   };
 
@@ -906,7 +1022,8 @@ export default function GestionInventarioPage() {
   };
 
   const stockSummary = useMemo(() => {
-    const activeProducts = products.filter((product) => product.active);
+    const availableProducts = products.filter((product) => !product.archivedAt);
+    const activeProducts = availableProducts.filter((product) => product.active);
     const stockTotal = activeProducts.reduce(
       (total, product) => total + getProductStock(product),
       0
@@ -931,7 +1048,8 @@ export default function GestionInventarioPage() {
       outProducts,
       lowProducts,
       totalValue,
-      inactiveProducts: products.filter((product) => !product.active),
+      inactiveProducts: availableProducts.filter((product) => !product.active),
+      archivedProducts: products.filter((product) => product.archivedAt),
     };
   }, [products]);
 
@@ -945,7 +1063,7 @@ export default function GestionInventarioPage() {
     firstCategory.localeCompare(secondCategory, "es")
   );
   const criticalEntries = products
-    .filter((product) => product.active)
+    .filter((product) => product.active && !product.archivedAt)
     .flatMap(getCriticalStockEntries);
   const normalizedSearch = searchQuery.trim().toLowerCase();
   const visibleProducts = products.filter((product) => {
@@ -953,12 +1071,17 @@ export default function GestionInventarioPage() {
     const matchesCategory =
       categoryFilter === "all" || product.category === categoryFilter;
     const matchesTab =
-      activeTab === "all" ||
+      (activeTab === "all" && !product.archivedAt) ||
       (activeTab === "low" &&
         product.active &&
+        !product.archivedAt &&
         getLowStockEntries(product).length > 0) ||
-      (activeTab === "out" && product.active && stock <= 0) ||
-      (activeTab === "inactive" && !product.active);
+      (activeTab === "out" &&
+        product.active &&
+        !product.archivedAt &&
+        stock <= 0) ||
+      (activeTab === "inactive" && !product.active && !product.archivedAt) ||
+      (activeTab === "archived" && Boolean(product.archivedAt));
     const matchesSearch =
       !normalizedSearch ||
       [
@@ -1003,6 +1126,20 @@ export default function GestionInventarioPage() {
         "es"
       );
     });
+  const selectedProductEditorColorIndex = productEditor
+    ? Math.min(
+        productEditor.selectedColorIndex,
+        Math.max(productEditor.variants.length - 1, 0)
+      )
+    : 0;
+  const selectedProductEditorVariant =
+    productEditor?.variants[selectedProductEditorColorIndex] ?? null;
+  const maxProductEditorSizeCount = productEditor
+    ? Math.max(
+        ...productEditor.variants.map((variant) => variant.sizes.length),
+        0
+      )
+    : 0;
 
   if (isAuthLoading || isCheckingAccess) {
     return (
@@ -1254,16 +1391,19 @@ export default function GestionInventarioPage() {
             <div className="min-h-0 flex-1 overflow-hidden rounded-2xl border border-zinc-800 bg-[#070707] shadow-2xl shadow-black/20">
               {activeTab === "critical" ? (
                 <>
-                  <div className="grid grid-cols-[76px_minmax(0,1fr)_120px_100px_90px_90px] gap-3 border-b border-zinc-800 bg-zinc-900/90 px-3 py-1.5 text-xs font-bold uppercase text-zinc-400">
-                    <span>SKU</span>
-                    <span>Producto</span>
-                    <span>Categoria</span>
-                    <span>Color</span>
-                    <span>Talle</span>
-                    <span>Stock</span>
+                  <div
+                    ref={inventoryScrollRef}
+                    onScroll={handleInventoryScroll}
+                    className="h-full overflow-y-auto pb-12 [scrollbar-gutter:stable]"
+                  >
+                  <div className={`sticky top-0 z-10 grid ${criticalStockTableColumns} divide-x divide-zinc-600 border-b border-zinc-700 bg-zinc-900 px-2 text-[13px] font-bold uppercase text-zinc-300`}>
+                    <span className={inventoryHeaderCellClass}>SKU</span>
+                    <span className={inventoryHeaderCellClass}>Producto</span>
+                    <span className={inventoryHeaderCellClass}>Categoria</span>
+                    <span className={inventoryHeaderCellClass}>Color</span>
+                    <span className={`${inventoryHeaderCellClass} justify-center`}>Talle</span>
+                    <span className={`${inventoryHeaderCellClass} justify-center`}>Stock</span>
                   </div>
-
-                  <div className="h-full overflow-y-auto pb-12 [scrollbar-gutter:stable]">
                     {filteredCriticalEntries.length === 0 ? (
                       <p className="px-3 py-6 text-sm text-zinc-500">
                         No hay talles criticos para mostrar.
@@ -1272,33 +1412,39 @@ export default function GestionInventarioPage() {
                       filteredCriticalEntries.map((entry, index) => (
                         <div
                           key={`${entry.product.id}-${entry.color}-${entry.size}`}
-                          className={`grid grid-cols-[76px_minmax(0,1fr)_120px_100px_90px_90px] items-center gap-3 border-b border-zinc-900/80 px-3 py-1.5 text-sm transition hover:bg-zinc-800/45 ${
+                          className={`grid ${criticalStockTableColumns} items-stretch divide-x divide-zinc-700 border-b border-zinc-800 px-2 text-[15px] transition hover:bg-zinc-800/45 ${
                             index % 2 === 0 ? "bg-zinc-950/45" : "bg-zinc-900/20"
                           }`}
                         >
-                          <span className="w-fit rounded-lg bg-zinc-800 px-2 py-1 text-xs font-bold text-zinc-300">
-                            {getShortSku(entry.product.sku)}
+                          <span className={inventoryRowCellClass}>
+                            <span className="w-fit rounded-lg bg-zinc-800 px-2 py-1 text-[13px] font-bold text-zinc-300">
+                              {getShortSku(entry.product.sku)}
+                            </span>
                           </span>
-                          <span className="truncate font-bold text-white">
+                          <span className={`${inventoryRowCellClass} min-w-0 truncate font-bold text-white`}>
                             {entry.product.name}
                           </span>
-                          <span className="truncate text-xs font-semibold text-zinc-400">
+                          <span className={`${inventoryRowCellClass} min-w-0 truncate text-[13px] font-semibold text-zinc-400`}>
                             {entry.product.category || "-"}
                           </span>
-                          <span className="truncate text-xs font-bold text-zinc-200">
+                          <span className={`${inventoryRowCellClass} min-w-0 truncate text-[13px] font-bold text-zinc-200`}>
                             {entry.color}
                           </span>
-                          <span className="w-fit rounded-lg bg-zinc-800 px-2 py-1 text-xs font-black text-zinc-200">
-                            {entry.size}
+                          <span className={`${inventoryRowCellClass} justify-center`}>
+                            <span className="w-fit rounded-lg bg-zinc-800 px-2 py-1 text-xs font-black text-zinc-200">
+                              {entry.size}
+                            </span>
                           </span>
-                          <span
-                            className={`w-fit rounded-lg px-2 py-1 text-xs font-black ${
-                              entry.stock <= 0
-                                ? "bg-red-500/15 text-red-200"
-                                : "bg-yellow-500/15 text-yellow-200"
-                            }`}
-                          >
-                            {entry.stock}
+                          <span className={`${inventoryRowCellClass} justify-center`}>
+                            <span
+                              className={`w-fit rounded-lg px-2 py-1 text-xs font-black ${
+                                entry.stock <= 0
+                                  ? "bg-red-500/15 text-red-200"
+                                  : "bg-yellow-500/15 text-yellow-200"
+                              }`}
+                            >
+                              {entry.stock}
+                            </span>
                           </span>
                         </div>
                       ))
@@ -1307,19 +1453,22 @@ export default function GestionInventarioPage() {
                 </>
               ) : (
                 <>
-                  <div className="grid grid-cols-[76px_minmax(0,1fr)_100px_64px_96px_104px_96px_104px_104px] gap-3 border-b border-zinc-800 bg-zinc-900/90 px-3 py-1.5 text-xs font-bold uppercase text-zinc-400">
-                    <span>SKU</span>
-                    <span>Producto</span>
-                    <span className="text-center">Categoria</span>
-                    <span className="text-center">Stock</span>
-                    <span className="text-center">Costo</span>
-                    <span className="text-center">Mayorista</span>
-                    <span className="text-center">Curva</span>
-                    <span className="text-center">Minorista</span>
-                    <span className="text-center">Estado</span>
+                  <div
+                    ref={inventoryScrollRef}
+                    onScroll={handleInventoryScroll}
+                    className="h-full overflow-y-auto pb-12 [scrollbar-gutter:stable]"
+                  >
+                  <div className={`sticky top-0 z-10 grid ${inventoryTableColumns} divide-x divide-zinc-600 border-b border-zinc-700 bg-zinc-900 px-2 text-[13px] font-bold uppercase text-zinc-300`}>
+                    <span className={inventoryHeaderCellClass}>SKU</span>
+                    <span className={inventoryHeaderCellClass}>Producto</span>
+                    <span className={`${inventoryHeaderCellClass} justify-center`}>Categoria</span>
+                    <span className={`${inventoryHeaderCellClass} justify-center`}>Stock</span>
+                    <span className={`${inventoryHeaderCellClass} justify-center`}>Costo</span>
+                    <span className={`${inventoryHeaderCellClass} justify-center`}>Mayorista</span>
+                    <span className={`${inventoryHeaderCellClass} justify-center`}>Curva</span>
+                    <span className={`${inventoryHeaderCellClass} justify-center`}>Minorista</span>
+                    <span className={`${inventoryHeaderCellClass} justify-center`}>Estado</span>
                   </div>
-
-                  <div className="h-full overflow-y-auto pb-12 [scrollbar-gutter:stable]">
                     {sortedProducts.length === 0 ? (
                       <p className="px-3 py-6 text-sm text-zinc-500">
                         No hay productos para mostrar.
@@ -1327,166 +1476,240 @@ export default function GestionInventarioPage() {
                     ) : (
                       sortedProducts.map((product, index) => {
                     const stock = getProductStock(product);
+                    const selectedInventoryVariant =
+                      product.variants.find(
+                        (variant) => variant.color === expandedProductColor
+                      ) ?? product.variants[0] ?? null;
 
                     return (
                       <article
                         key={product.id}
-                        className={`border-b border-zinc-900/80 px-3 py-1 ${
+                        className={`border-b border-zinc-900/80 ${
                           index % 2 === 0 ? "bg-zinc-950/45" : "bg-zinc-900/20"
                         }`}
                       >
                         <div
                           role="button"
                           tabIndex={0}
-                          onClick={() =>
-                            setExpandedProductId((currentId) =>
-                              currentId === product.id ? null : product.id
-                            )
-                          }
+                          aria-expanded={expandedProductId === product.id}
+                          onClick={() => toggleExpandedProduct(product)}
                           onKeyDown={(event) => {
                             if (event.key === "Enter" || event.key === " ") {
                               event.preventDefault();
-                              setExpandedProductId((currentId) =>
-                                currentId === product.id ? null : product.id
-                              );
+                              toggleExpandedProduct(product);
                             }
                           }}
-                          className="grid h-9 cursor-pointer grid-cols-[76px_minmax(0,1fr)_100px_64px_96px_104px_96px_104px_104px] items-center gap-3 rounded-lg text-sm transition hover:bg-zinc-800/45"
+                          className={`grid ${inventoryTableColumns} cursor-pointer items-stretch divide-x divide-zinc-700 px-2 text-[15px] transition ${
+                            expandedProductId === product.id
+                              ? "bg-emerald-950/35 shadow-[inset_3px_0_0_#34d399] hover:bg-emerald-950/45"
+                              : "hover:bg-zinc-800/45"
+                          }`}
                         >
-                          <span className="w-fit rounded-lg bg-zinc-800 px-2 py-1 text-xs font-bold text-zinc-300">
-                            {getShortSku(product.sku)}
+                          <span className={inventoryRowCellClass}>
+                            <span className="w-fit rounded-lg bg-zinc-800 px-2 py-1 text-[13px] font-bold text-zinc-300">
+                              {getShortSku(product.sku)}
+                            </span>
                           </span>
-                          <div className="min-w-0">
+                          <div className={`${inventoryRowCellClass} min-w-0`}>
                             <p className="truncate font-bold text-white">
                               {product.name}
                             </p>
                           </div>
-                          <span className="flex h-full items-center justify-center truncate text-center text-xs font-semibold text-zinc-400">
+                          <span className={`${inventoryRowCellClass} min-w-0 justify-center truncate text-center text-[13px] font-semibold text-zinc-400`}>
                             {product.category || "-"}
                           </span>
-                          <span className="flex h-full items-center justify-center text-center font-black text-white">
+                          <span className={`${inventoryRowCellClass} justify-center text-center font-black text-white`}>
                             {stock}
                           </span>
-                          <span className="flex h-full items-center justify-center text-center font-black tabular-nums text-zinc-300">
+                          <span className={`${inventoryRowCellClass} justify-center text-center font-black tabular-nums text-zinc-300`}>
                             {product.cost > 0 ? formatPrice(product.cost) : "-"}
                           </span>
-                          <span className="flex h-full items-center justify-center text-center font-black tabular-nums text-white">
+                          <span className={`${inventoryRowCellClass} justify-center text-center font-black tabular-nums text-white`}>
                             {formatPrice(product.price)}
                           </span>
-                          <span className="flex h-full items-center justify-center text-center font-black tabular-nums text-sky-100">
-                            {isCurveProduct(product)
+                          <span className={`${inventoryRowCellClass} justify-center text-center font-black tabular-nums text-sky-100`}>
+                            {product.curveEnabled
                               ? formatPrice(product.curvePrice)
                               : "-"}
                           </span>
-                          <span className="flex h-full items-center justify-center text-center font-black tabular-nums text-zinc-200">
+                          <span className={`${inventoryRowCellClass} justify-center text-center font-black tabular-nums text-zinc-200`}>
                             {formatPrice(product.retailPrice)}
                           </span>
-                          <button
-                            type="button"
-                            onClick={(event) => {
-                              event.stopPropagation();
-                              void handleToggleActive(product);
-                            }}
-                            disabled={savingActiveProductId === product.id}
-                            className={`mx-auto flex h-6 w-fit cursor-pointer items-center rounded-full px-2.5 text-[11px] font-black transition disabled:cursor-not-allowed disabled:opacity-60 ${
-                              product.active
-                                ? "bg-emerald-500/15 text-emerald-200 hover:bg-emerald-500/25"
-                                : "bg-zinc-800 text-zinc-300 hover:bg-zinc-700"
-                            }`}
-                          >
-                            {savingActiveProductId === product.id
-                              ? "..."
-                              : product.active
-                                ? "Publicado"
-                                : "Oculto"}
-                          </button>
+                          <div className={`${inventoryRowCellClass} justify-center`}>
+                            {product.archivedAt ? (
+                              <span className="flex h-7 w-fit items-center rounded-full bg-amber-500/15 px-2.5 text-xs font-black text-amber-200">
+                                Archivado
+                              </span>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  void handleToggleActive(product);
+                                }}
+                                disabled={savingActiveProductId === product.id}
+                                className={`flex h-7 w-fit cursor-pointer items-center rounded-full px-2.5 text-xs font-black transition disabled:cursor-not-allowed disabled:opacity-60 ${
+                                  product.active
+                                    ? "bg-emerald-500/15 text-emerald-200 hover:bg-emerald-500/25"
+                                    : "bg-zinc-800 text-zinc-300 hover:bg-zinc-700"
+                                }`}
+                              >
+                                {savingActiveProductId === product.id
+                                  ? "..."
+                                  : product.active
+                                    ? "Publicado"
+                                    : "Oculto"}
+                              </button>
+                            )}
+                          </div>
                         </div>
 
                         {expandedProductId === product.id && (
-                          <div className="mt-1 border-t border-zinc-800 px-2 pb-0.5 pt-1">
-                            <div className="mb-1 flex items-center justify-between gap-2">
-                              <p className="text-xs font-bold text-zinc-400">
-                                Colores ({product.variants.length})
-                              </p>
-                              <div className="flex items-center gap-1.5">
-                                <button
-                                  type="button"
-                                  onClick={() => openStockEditor(product)}
-                                  className="inline-flex h-7 cursor-pointer items-center gap-1.5 rounded-lg bg-zinc-800 px-2.5 text-[11px] font-black text-zinc-200 transition hover:bg-zinc-700"
-                                >
-                                  <Boxes size={13} />
-                                  Editar stock
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => openPriceEditor(product)}
-                                  className="inline-flex h-7 cursor-pointer items-center gap-1.5 rounded-lg bg-zinc-800 px-2.5 text-[11px] font-black text-zinc-200 transition hover:bg-zinc-700"
-                                >
-                                  <CreditCard size={13} />
-                                  Editar precios
-                                </button>
+                          <div className="border-t border-zinc-700 bg-zinc-900/30 px-4 py-3">
+                            <div className="grid grid-cols-[72px_minmax(0,1fr)] gap-4">
+                              <div className="relative h-24 w-[72px] overflow-hidden rounded-lg bg-zinc-950">
+                                <Image
+                                  src={getProductImage(product)}
+                                  alt={product.name}
+                                  fill
+                                  sizes="72px"
+                                  className="object-contain"
+                                />
                               </div>
-                            </div>
-                            <div className="grid gap-1">
-                            {product.variants.map((variant) => {
-                              const hasVariantStock = variant.sizes.some(
-                                (size) => size.stock > 0
-                              );
 
-                              return (
-                                <div
-                                  key={`${product.id}-${variant.color}`}
-                                  className={`grid gap-1 rounded-lg px-2 py-1 md:grid-cols-[86px_minmax(0,1fr)] md:items-center ${
-                                    hasVariantStock
-                                      ? "bg-zinc-950"
-                                      : "bg-zinc-950/45 opacity-60"
-                                  }`}
-                                >
-                                  <span
-                                    className={`truncate text-xs font-bold ${
-                                      hasVariantStock
-                                        ? "text-white"
-                                        : "text-zinc-500"
-                                    }`}
-                                  >
-                                    {variant.color}
-                                  </span>
-                                  <div className="flex flex-wrap gap-1">
-                                    {variant.sizes.map((size) => {
-                                      const hasStock = size.stock > 0;
+                              <div className="min-w-0">
+                                <div className="flex flex-wrap items-center justify-between gap-2">
+                                  <div className="flex flex-wrap items-center gap-1.5">
+                                    <span className="mr-1 text-xs font-bold uppercase text-zinc-500">
+                                      Colores ({product.variants.length})
+                                    </span>
+                                    {product.variants.map((variant) => {
+                                      const variantStock = variant.sizes.reduce(
+                                        (total, size) => total + size.stock,
+                                        0
+                                      );
+                                      const isSelected =
+                                        selectedInventoryVariant?.color ===
+                                        variant.color;
+                                      const hasVariantStock = variantStock > 0;
 
                                       return (
-                                        <span
-                                          key={`${variant.color}-${size.size}`}
-                                          className={`inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-xs font-semibold ${
-                                            hasStock
-                                              ? "bg-zinc-900 text-zinc-300"
-                                              : "bg-zinc-950 text-zinc-600 ring-1 ring-zinc-900"
+                                        <button
+                                          key={`${product.id}-${variant.color}`}
+                                          type="button"
+                                          onClick={() =>
+                                            setExpandedProductColor(variant.color)
+                                          }
+                                          className={`inline-flex h-8 cursor-pointer items-center gap-2 rounded-lg border px-2.5 text-xs font-bold transition ${
+                                            isSelected
+                                              ? "border-white bg-white text-black"
+                                              : hasVariantStock
+                                                ? "border-zinc-700 bg-zinc-900 text-zinc-300 hover:bg-zinc-800"
+                                                : "border-zinc-800 bg-zinc-950 text-zinc-600 hover:border-zinc-700"
                                           }`}
                                         >
+                                          <span>{variant.color}</span>
                                           <span
                                             className={
-                                              hasStock ? "" : "line-through"
+                                              isSelected
+                                                ? hasVariantStock
+                                                  ? "text-emerald-700"
+                                                  : "text-red-700"
+                                                : hasVariantStock
+                                                  ? "text-emerald-300"
+                                                  : "text-red-300/70"
                                             }
                                           >
-                                            {size.size}
+                                            {variantStock} u.
                                           </span>
-                                          <span
-                                            className={`rounded px-1.5 py-0.5 font-black ${
-                                              hasStock
-                                                ? "bg-emerald-900/80 text-emerald-100"
-                                                : "bg-zinc-900 text-zinc-600"
-                                            }`}
-                                          >
-                                            {size.stock}
-                                          </span>
-                                        </span>
+                                        </button>
                                       );
                                     })}
                                   </div>
+
+                                  <div className="flex flex-wrap items-center gap-1.5">
+                                    <button
+                                      type="button"
+                                      onClick={() => openProductEditor(product)}
+                                      className="inline-flex h-8 cursor-pointer items-center gap-1.5 rounded-lg bg-white px-3 text-[11px] font-black text-black transition hover:bg-zinc-200"
+                                    >
+                                      <Settings size={13} />
+                                      Editar
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() =>
+                                        void handleToggleArchived(product)
+                                      }
+                                      disabled={
+                                        savingArchivedProductId === product.id
+                                      }
+                                      className={`inline-flex h-8 cursor-pointer items-center gap-1.5 rounded-lg px-2.5 text-[11px] font-black transition disabled:cursor-not-allowed disabled:opacity-60 ${
+                                        product.archivedAt
+                                          ? "bg-emerald-500/15 text-emerald-200 hover:bg-emerald-500/25"
+                                          : "bg-amber-500/10 text-amber-200 hover:bg-amber-500/20"
+                                      }`}
+                                    >
+                                      {product.archivedAt ? (
+                                        <ArchiveRestore size={13} />
+                                      ) : (
+                                        <Archive size={13} />
+                                      )}
+                                      {savingArchivedProductId === product.id
+                                        ? "..."
+                                        : product.archivedAt
+                                          ? "Restaurar"
+                                          : "Archivar"}
+                                    </button>
+                                  </div>
                                 </div>
-                              );
-                            })}
+
+                                {selectedInventoryVariant ? (
+                                  <div className="mt-3 max-w-xl overflow-hidden border-y border-zinc-800">
+                                    <div className="grid grid-cols-[120px_120px] justify-center gap-10 border-b border-zinc-800 py-1.5 text-[11px] font-bold uppercase text-zinc-500">
+                                      <span>Talle</span>
+                                      <span className="text-right">Stock</span>
+                                    </div>
+                                    <div className="divide-y divide-zinc-800/80">
+                                      {selectedInventoryVariant.sizes.map(
+                                        (size) => {
+                                          const hasStock = size.stock > 0;
+
+                                          return (
+                                            <div
+                                              key={`${selectedInventoryVariant.color}-${size.size}`}
+                                              className="grid grid-cols-[120px_120px] items-center justify-center gap-10 py-1.5"
+                                            >
+                                              <span
+                                                className={`w-fit min-w-9 rounded-md border px-2 py-1 text-center text-xs font-black ${
+                                                  hasStock
+                                                    ? "border-zinc-700 bg-zinc-900 text-white"
+                                                    : "border-zinc-900 bg-zinc-950 text-zinc-600 line-through"
+                                                }`}
+                                              >
+                                                {size.size}
+                                              </span>
+                                              <span
+                                                className={`text-right text-sm font-black tabular-nums ${
+                                                  hasStock
+                                                    ? "text-emerald-300"
+                                                    : "text-red-300/70"
+                                                }`}
+                                              >
+                                                {size.stock} u.
+                                              </span>
+                                            </div>
+                                          );
+                                        }
+                                      )}
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <p className="mt-3 text-sm text-zinc-500">
+                                    Este producto no tiene colores cargados.
+                                  </p>
+                                )}
+                              </div>
                             </div>
                           </div>
                         )}
@@ -1502,311 +1725,499 @@ export default function GestionInventarioPage() {
         </section>
       </div>
 
-      {stockEditor && (
+      {productEditor && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
           <form
-            onSubmit={handleSaveStock}
-            className="flex max-h-[86vh] w-full max-w-3xl flex-col rounded-2xl border border-zinc-800 bg-zinc-950 p-4 shadow-2xl shadow-black/50"
+            onSubmit={handleSaveProductEditor}
+            className="flex max-h-[88vh] w-full max-w-4xl flex-col overflow-hidden rounded-2xl border border-zinc-700 bg-zinc-950 shadow-2xl shadow-black/50"
           >
-            <div className="flex shrink-0 items-start justify-between gap-4">
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-zinc-500">
-                  Editar stock
-                </p>
-                <h2 className="mt-1 text-lg font-black text-white">
-                  {stockEditor.product.name}
-                </h2>
-                <p className="mt-1 text-sm font-semibold text-zinc-500">
-                  SKU {getShortSku(stockEditor.product.sku)}
-                </p>
+            <header className="flex shrink-0 items-center justify-between gap-4 border-b border-zinc-800 px-4 py-3">
+              <div className="flex min-w-0 items-center gap-3">
+                <div className="relative h-12 w-10 shrink-0 overflow-hidden rounded-lg bg-zinc-900">
+                  <Image
+                    src={getProductImage(productEditor.product)}
+                    alt={productEditor.product.name}
+                    fill
+                    sizes="40px"
+                    className="object-contain"
+                  />
+                </div>
+                <div className="min-w-0">
+                  <h2 className="truncate text-lg font-black text-white">
+                    {productEditor.product.name}
+                  </h2>
+                  <span className="mt-0.5 inline-flex rounded-md bg-zinc-900 px-2 py-0.5 text-[11px] font-bold text-zinc-400">
+                    SKU {getShortSku(productEditor.product.sku)}
+                  </span>
+                </div>
               </div>
 
               <button
                 type="button"
-                onClick={() => setStockEditor(null)}
-                disabled={isSavingStock}
-                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-zinc-900 text-sm font-black text-zinc-300 transition hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-60"
-                aria-label="Cerrar editor de stock"
+                onClick={() => setProductEditor(null)}
+                disabled={isSavingProductEditor}
+                className="flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-lg bg-zinc-900 text-zinc-300 transition hover:bg-zinc-800 hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
+                aria-label="Cerrar editor"
               >
-                x
+                <X size={18} />
               </button>
-            </div>
+            </header>
 
-            <div className="mt-3 min-h-0 flex-1 overflow-y-auto pr-1">
-              <div className="grid gap-1.5">
-                {stockEditor.variants.map((variant, variantIndex) => {
-                  const variantTotal = variant.sizes.reduce(
-                    (total, size) => total + Number(size.stock || 0),
-                    0
-                  );
-                  const hasVariantStock = variantTotal > 0;
+            {inventoryError && (
+              <div className="mx-5 mt-3 shrink-0 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm font-semibold text-red-200">
+                {inventoryError}
+              </div>
+            )}
 
-                  return (
-                    <section
-                      key={`${stockEditor.product.id}-${variant.color}`}
-                      className={`grid gap-1.5 rounded-lg px-2 py-1.5 md:grid-cols-[92px_minmax(0,1fr)] md:items-center ${
-                        hasVariantStock
-                          ? "bg-zinc-900"
-                          : "bg-zinc-900/45"
-                      }`}
+            <div className="grid min-h-0 flex-1 lg:grid-cols-[minmax(0,1fr)_330px]">
+              <section className="min-h-0 overflow-y-auto border-b border-zinc-800 p-4 lg:border-b-0 lg:border-r">
+                <div className="mb-3 flex items-center justify-between gap-3">
+                  <h3 className="text-sm font-black uppercase text-zinc-300">
+                    Talles y stock
+                  </h3>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-semibold text-zinc-500">
+                      {productEditor.variants.length} colores
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setProductEditor((currentEditor) => {
+                          if (!currentEditor) return currentEditor;
+
+                          const nextColorIndex = currentEditor.variants.length;
+
+                          return {
+                            ...currentEditor,
+                            selectedColorIndex: nextColorIndex,
+                            variants: [
+                              ...currentEditor.variants,
+                              {
+                                color: "",
+                                hex: "#000000",
+                                images: [],
+                                sizes: [{ size: "", stock: "" }],
+                              },
+                            ],
+                          };
+                        })
+                      }
+                      className="inline-flex h-8 cursor-pointer items-center gap-1 rounded-lg border border-zinc-700 px-2.5 text-xs font-black text-zinc-200 transition hover:border-zinc-500 hover:bg-zinc-800"
                     >
-                      <div className="flex items-center justify-between gap-2 md:block">
-                        <h3
-                          className={`truncate text-xs font-black ${
-                            hasVariantStock ? "text-white" : "text-zinc-500"
-                          }`}
+                      <Plus size={14} />
+                      Color
+                    </button>
+                  </div>
+                </div>
+
+                <div className="mb-3 flex flex-wrap gap-1.5">
+                  {productEditor.variants.map((variant, variantIndex) => {
+                    const variantTotal = variant.sizes.reduce(
+                      (total, size) => total + Number(size.stock || 0),
+                      0
+                    );
+                    const isSelected =
+                      selectedProductEditorColorIndex === variantIndex;
+
+                    return (
+                      <button
+                        key={`${productEditor.product.id}-${variantIndex}`}
+                        type="button"
+                        onClick={() =>
+                          setProductEditor((currentEditor) =>
+                            currentEditor
+                              ? {
+                                  ...currentEditor,
+                                  selectedColorIndex: variantIndex,
+                                }
+                              : currentEditor
+                          )
+                        }
+                        className={`inline-flex h-8 cursor-pointer items-center gap-2 rounded-lg border px-2.5 text-xs font-bold transition ${
+                          isSelected
+                            ? "border-white bg-white text-black"
+                            : "border-zinc-700 bg-zinc-900 text-zinc-300 hover:bg-zinc-800"
+                        }`}
+                      >
+                        <span>{variant.color.trim() || "Nuevo color"}</span>
+                        <span
+                          className={
+                            isSelected
+                              ? "text-emerald-700"
+                              : variantTotal > 0
+                                ? "text-emerald-300"
+                                : "text-red-300/70"
+                          }
                         >
-                          {variant.color}
-                        </h3>
-                        <span className="mt-0 inline-flex rounded bg-zinc-950 px-1.5 py-0.5 text-xs font-black text-zinc-300 md:mt-1">
-                          {variantTotal}
+                          {variantTotal} u.
                         </span>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {selectedProductEditorVariant ? (
+                  <section
+                    className="overflow-hidden rounded-xl border border-zinc-700 bg-zinc-900/45"
+                    style={{
+                      minHeight: `${Math.max(
+                        170,
+                        72 + maxProductEditorSizeCount * 42
+                      )}px`,
+                    }}
+                  >
+                    <div className="flex flex-wrap items-center justify-between gap-2 border-b border-zinc-800 bg-zinc-900 px-3 py-2">
+                      <div className="flex min-w-0 items-center gap-2">
+                        <input
+                          type="text"
+                          value={selectedProductEditorVariant.color}
+                          placeholder="Nombre del color"
+                          aria-label="Nombre del color"
+                          onChange={(event) => {
+                            const nextColor = event.target.value;
+
+                            setProductEditor((currentEditor) =>
+                              currentEditor
+                                ? {
+                                    ...currentEditor,
+                                    variants: currentEditor.variants.map(
+                                      (variant, variantIndex) =>
+                                        variantIndex ===
+                                        selectedProductEditorColorIndex
+                                          ? { ...variant, color: nextColor }
+                                          : variant
+                                    ),
+                                  }
+                                : currentEditor
+                            );
+                          }}
+                          className="h-9 w-44 min-w-0 rounded-lg border border-zinc-700 bg-zinc-950 px-3 text-sm font-bold text-white outline-none transition focus:border-white"
+                        />
+                        <input
+                          type="color"
+                          value={selectedProductEditorVariant.hex || "#000000"}
+                          aria-label="Color del swatch"
+                          onChange={(event) => {
+                            const nextHex = event.target.value;
+
+                            setProductEditor((currentEditor) =>
+                              currentEditor
+                                ? {
+                                    ...currentEditor,
+                                    variants: currentEditor.variants.map(
+                                      (variant, variantIndex) =>
+                                        variantIndex ===
+                                        selectedProductEditorColorIndex
+                                          ? { ...variant, hex: nextHex }
+                                          : variant
+                                    ),
+                                  }
+                                : currentEditor
+                            );
+                          }}
+                          className="h-9 w-11 cursor-pointer rounded-lg border border-zinc-700 bg-zinc-950 p-1"
+                        />
                       </div>
 
-                      <div className="flex min-w-0 flex-wrap gap-1">
-                        {variant.sizes.map((size, sizeIndex) => {
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setProductEditor((currentEditor) =>
+                              currentEditor
+                                ? {
+                                    ...currentEditor,
+                                    variants: currentEditor.variants.map(
+                                      (variant, variantIndex) =>
+                                        variantIndex ===
+                                        selectedProductEditorColorIndex
+                                          ? {
+                                              ...variant,
+                                              sizes: [
+                                                ...variant.sizes,
+                                                { size: "", stock: "" },
+                                              ],
+                                            }
+                                          : variant
+                                    ),
+                                  }
+                                : currentEditor
+                            )
+                          }
+                          className="inline-flex h-8 cursor-pointer items-center gap-1 rounded-lg border border-zinc-700 px-2.5 text-xs font-black text-zinc-200 transition hover:bg-zinc-800"
+                        >
+                          <Plus size={14} />
+                          Talle
+                        </button>
+                        <button
+                          type="button"
+                          disabled={productEditor.variants.length <= 1}
+                          onClick={() =>
+                            setProductEditor((currentEditor) => {
+                              if (!currentEditor) return currentEditor;
+
+                              return {
+                                ...currentEditor,
+                                selectedColorIndex: Math.max(
+                                  selectedProductEditorColorIndex - 1,
+                                  0
+                                ),
+                                variants: currentEditor.variants.filter(
+                                  (_, variantIndex) =>
+                                    variantIndex !==
+                                    selectedProductEditorColorIndex
+                                ),
+                              };
+                            })
+                          }
+                          className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-lg text-red-300 transition hover:bg-red-500/15 disabled:cursor-not-allowed disabled:opacity-30"
+                          aria-label="Eliminar color"
+                          title="Eliminar color"
+                        >
+                          <Trash2 size={15} />
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="mx-auto w-full max-w-md px-3 pb-2">
+                      <div className="grid grid-cols-[minmax(0,1fr)_110px_36px] border-b border-zinc-800 py-1.5 text-[11px] font-bold uppercase text-zinc-500">
+                        <span>Talle</span>
+                        <span className="text-center">Stock</span>
+                        <span />
+                      </div>
+                      {selectedProductEditorVariant.sizes.map(
+                        (size, sizeIndex) => {
                           const hasStock = Number(size.stock || 0) > 0;
 
                           return (
-                            <label
-                              key={`${variant.color}-${size.size}`}
-                              className={`inline-flex h-8 items-center overflow-hidden rounded-md text-xs font-semibold ring-1 ${
-                                hasStock
-                                  ? "bg-zinc-950 text-zinc-300 ring-zinc-800"
-                                  : "bg-zinc-950/80 text-zinc-600 ring-zinc-900"
-                              }`}
+                            <div
+                              key={`${selectedProductEditorColorIndex}-${sizeIndex}`}
+                              className="grid grid-cols-[minmax(0,1fr)_110px_36px] items-center border-b border-zinc-800/70 py-1.5 last:border-b-0"
                             >
-                              <span
-                                className={`min-w-9 px-2 text-center ${
-                                  hasStock ? "" : "line-through"
-                                }`}
-                              >
-                                {size.size}
-                              </span>
                               <input
-                                type="number"
-                                min="0"
-                                step="1"
-                                value={size.stock}
+                                type="text"
+                                value={size.size}
+                                placeholder="Talle"
+                                aria-label={`Talle de ${selectedProductEditorVariant.color || "color nuevo"}`}
                                 onChange={(event) => {
-                                  const nextStock = event.target.value;
+                                  const nextSize = event.target.value;
 
-                                  setStockEditor((currentEditor) => {
+                                  setProductEditor((currentEditor) =>
+                                    currentEditor
+                                      ? {
+                                          ...currentEditor,
+                                          variants: currentEditor.variants.map(
+                                            (variant, variantIndex) =>
+                                              variantIndex ===
+                                              selectedProductEditorColorIndex
+                                                ? {
+                                                    ...variant,
+                                                    sizes: variant.sizes.map(
+                                                      (currentSize, currentSizeIndex) =>
+                                                        currentSizeIndex === sizeIndex
+                                                          ? {
+                                                              ...currentSize,
+                                                              size: nextSize,
+                                                            }
+                                                          : currentSize
+                                                    ),
+                                                  }
+                                                : variant
+                                          ),
+                                        }
+                                      : currentEditor
+                                  );
+                                }}
+                                className={`h-9 w-24 rounded-lg border px-2 text-center text-xs font-black outline-none transition focus:border-white focus:bg-white focus:text-black ${
+                                  hasStock
+                                    ? "border-zinc-700 bg-zinc-900 text-white"
+                                    : "border-zinc-700 bg-zinc-950 text-white placeholder:text-zinc-500"
+                                }`}
+                              />
+                              <input
+                                type="text"
+                                inputMode="numeric"
+                                value={size.stock}
+                                aria-label={`Stock ${selectedProductEditorVariant.color}, talle ${size.size}`}
+                                onChange={(event) => {
+                                  const nextStock = event.target.value.replace(
+                                    /\D/g,
+                                    ""
+                                  );
+
+                                  setProductEditor((currentEditor) => {
                                     if (!currentEditor) return currentEditor;
 
                                     return {
                                       ...currentEditor,
                                       variants: currentEditor.variants.map(
                                         (currentVariant, currentVariantIndex) =>
-                                          currentVariantIndex === variantIndex
+                                          currentVariantIndex ===
+                                          selectedProductEditorColorIndex
                                             ? {
                                                 ...currentVariant,
-                                                sizes:
-                                                  currentVariant.sizes.map(
-                                                    (
-                                                      currentSize,
-                                                      currentSizeIndex
-                                                    ) =>
-                                                      currentSizeIndex ===
-                                                      sizeIndex
-                                                        ? {
-                                                            ...currentSize,
-                                                            stock: nextStock,
-                                                          }
-                                                        : currentSize
-                                                  ),
+                                                sizes: currentVariant.sizes.map(
+                                                  (
+                                                    currentSize,
+                                                    currentSizeIndex
+                                                  ) =>
+                                                    currentSizeIndex === sizeIndex
+                                                      ? {
+                                                          ...currentSize,
+                                                          stock: nextStock,
+                                                        }
+                                                      : currentSize
+                                                ),
                                               }
                                             : currentVariant
                                       ),
                                     };
                                   });
                                 }}
-                                className={`h-full w-12 border-l px-1 text-center text-xs font-black outline-none transition focus:bg-white focus:text-black ${
+                                className={`mx-auto h-9 w-20 rounded-lg border px-2 text-center text-sm font-black outline-none transition focus:border-white focus:bg-white focus:text-black ${
                                   hasStock
-                                    ? "border-emerald-900 bg-emerald-950 text-emerald-100"
+                                    ? "border-emerald-900 bg-emerald-950/80 text-emerald-100"
                                     : "border-zinc-800 bg-zinc-900 text-zinc-500"
                                 }`}
                               />
-                            </label>
+                              <button
+                                type="button"
+                                disabled={selectedProductEditorVariant.sizes.length <= 1}
+                                onClick={() =>
+                                  setProductEditor((currentEditor) =>
+                                    currentEditor
+                                      ? {
+                                          ...currentEditor,
+                                          variants: currentEditor.variants.map(
+                                            (variant, variantIndex) =>
+                                              variantIndex ===
+                                              selectedProductEditorColorIndex
+                                                ? {
+                                                    ...variant,
+                                                    sizes: variant.sizes.filter(
+                                                      (_, currentSizeIndex) =>
+                                                        currentSizeIndex !== sizeIndex
+                                                    ),
+                                                  }
+                                                : variant
+                                          ),
+                                        }
+                                      : currentEditor
+                                  )
+                                }
+                                className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-lg text-red-300 transition hover:bg-red-500/15 disabled:cursor-not-allowed disabled:opacity-25"
+                                aria-label={`Eliminar talle ${size.size || "nuevo"}`}
+                                title="Eliminar talle"
+                              >
+                                <Trash2 size={14} />
+                              </button>
+                            </div>
                           );
-                        })}
-                      </div>
-                    </section>
-                  );
-                })}
-              </div>
-            </div>
+                        }
+                      )}
+                    </div>
+                  </section>
+                ) : (
+                  <p className="text-sm text-zinc-500">
+                    Este producto no tiene colores cargados.
+                  </p>
+                )}
+              </section>
 
-            <div className="mt-5 grid shrink-0 grid-cols-2 gap-2">
-              <button
-                type="button"
-                onClick={() => setStockEditor(null)}
-                disabled={isSavingStock}
-                className="h-11 rounded-xl bg-zinc-900 text-sm font-bold text-zinc-300 transition hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                Cancelar
-              </button>
-              <button
-                type="submit"
-                disabled={isSavingStock}
-                className="h-11 rounded-xl bg-white text-sm font-black text-black transition hover:bg-zinc-200 disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                {isSavingStock ? "Guardando..." : "Guardar stock"}
-              </button>
-            </div>
-          </form>
-        </div>
-      )}
+              <section className="min-h-0 overflow-y-auto bg-zinc-900/20 p-4">
+                <h3 className="mb-3 text-sm font-black uppercase text-zinc-300">
+                  Costo y precios
+                </h3>
 
-      {priceEditor && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"
-        >
-          <form
-            onSubmit={handleSavePrices}
-            className="w-full max-w-md rounded-2xl border border-zinc-800 bg-zinc-950 p-4 shadow-2xl shadow-black/50"
-          >
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-zinc-500">
-                  Editar precios
-                </p>
-                <h2 className="mt-2 text-xl font-black text-white">
-                  {priceEditor.product.name}
-                </h2>
-                <p className="mt-1 text-sm font-semibold text-zinc-500">
-                  SKU {getShortSku(priceEditor.product.sku)}
-                </p>
-              </div>
-
-              <button
-                type="button"
-                onClick={() => setPriceEditor(null)}
-                disabled={isSavingPrice}
-                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-zinc-900 text-sm font-black text-zinc-300 transition hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-60"
-                aria-label="Cerrar editor de precios"
-              >
-                x
-              </button>
-            </div>
-
-            <div className="mt-4 grid gap-3">
-              <label className="grid gap-2">
-                <span className="text-xs font-bold uppercase text-zinc-500">
-                  Costo
-                </span>
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  value={priceEditor.cost}
-                  onChange={(event) =>
-                    setPriceEditor((currentEditor) =>
+                <button
+                  type="button"
+                  onClick={() =>
+                    setProductEditor((currentEditor) =>
                       currentEditor
                         ? {
                             ...currentEditor,
-                            cost: formatInventoryPriceInput(
-                              event.target.value
-                            ),
+                            curveEnabled: !currentEditor.curveEnabled,
                           }
                         : currentEditor
                     )
                   }
-                  className="h-11 rounded-xl bg-zinc-900 px-3 text-lg font-black text-white outline-none ring-1 ring-zinc-800 transition focus:ring-white"
-                />
-              </label>
-
-              <label className="grid gap-2">
-                <span className="text-xs font-bold uppercase text-zinc-500">
-                  Precio mayorista
-                </span>
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  value={priceEditor.price}
-                  onChange={(event) =>
-                    setPriceEditor((currentEditor) =>
-                      currentEditor
-                        ? {
-                            ...currentEditor,
-                            price: formatInventoryPriceInput(
-                              event.target.value
-                            ),
-                          }
-                        : currentEditor
-                    )
-                  }
-                  className="h-11 rounded-xl bg-zinc-900 px-3 text-lg font-black text-white outline-none ring-1 ring-zinc-800 transition focus:ring-white"
-                />
-              </label>
-
-              {isCurveProduct(priceEditor.product) && (
-                <label className="grid gap-2">
-                  <span className="text-xs font-bold uppercase text-zinc-500">
-                    Precio curva
+                  className={`mb-3 flex h-10 w-full cursor-pointer items-center justify-between rounded-lg border px-3 text-sm font-bold transition ${
+                    productEditor.curveEnabled
+                      ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-100"
+                      : "border-zinc-800 bg-zinc-900 text-zinc-400 hover:border-zinc-700"
+                  }`}
+                >
+                  <span>Curva en punto de venta</span>
+                  <span
+                    className={`rounded-md px-2 py-1 text-[11px] font-black ${
+                      productEditor.curveEnabled
+                        ? "bg-emerald-400 text-black"
+                        : "bg-zinc-800 text-zinc-500"
+                    }`}
+                  >
+                    {productEditor.curveEnabled ? "Habilitada" : "Desactivada"}
                   </span>
-                  <input
-                    type="text"
-                    inputMode="numeric"
-                    value={priceEditor.curvePrice}
-                    onChange={(event) =>
-                      setPriceEditor((currentEditor) =>
-                        currentEditor
-                          ? {
-                              ...currentEditor,
-                              curvePrice: formatInventoryPriceInput(
-                                event.target.value
-                              ),
-                            }
-                          : currentEditor
-                      )
-                    }
-                    className="h-11 rounded-xl bg-zinc-900 px-3 text-lg font-black text-white outline-none ring-1 ring-zinc-800 transition focus:ring-white"
-                  />
-                </label>
-              )}
+                </button>
 
-              <label className="grid gap-2">
-                <span className="text-xs font-bold uppercase text-zinc-500">
-                  Precio minorista / local
-                </span>
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  value={priceEditor.retailPrice}
-                  onChange={(event) =>
-                    setPriceEditor((currentEditor) =>
-                      currentEditor
-                        ? {
-                            ...currentEditor,
-                            retailPrice: formatInventoryPriceInput(
-                              event.target.value
-                            ),
-                          }
-                        : currentEditor
-                    )
-                  }
-                  className="h-11 rounded-xl bg-zinc-900 px-3 text-lg font-black text-white outline-none ring-1 ring-zinc-800 transition focus:ring-white"
-                />
-              </label>
+                <div className="grid gap-3.5">
+                  {(
+                    [
+                      ["Costo", "cost"],
+                      ["Precio mayorista", "price"],
+                      ...(productEditor.curveEnabled
+                        ? [["Precio curva", "curvePrice"]]
+                        : []),
+                      ["Precio minorista / local", "retailPrice"],
+                    ] as Array<[
+                      string,
+                      "cost" | "price" | "curvePrice" | "retailPrice",
+                    ]>
+                  ).map(([label, field]) => (
+                    <label key={field} className="grid gap-1.5">
+                      <span className="text-xs font-bold uppercase text-zinc-500">
+                        {label}
+                      </span>
+                      <input
+                        type="text"
+                        inputMode="numeric"
+                        value={productEditor[field]}
+                        onChange={(event) =>
+                          setProductEditor((currentEditor) =>
+                            currentEditor
+                              ? {
+                                  ...currentEditor,
+                                  [field]: formatInventoryPriceInput(
+                                    event.target.value
+                                  ),
+                                }
+                              : currentEditor
+                          )
+                        }
+                        className="h-10 rounded-lg border border-zinc-800 bg-zinc-900 px-3 text-base font-black text-white outline-none transition focus:border-white"
+                      />
+                    </label>
+                  ))}
+                </div>
+              </section>
             </div>
 
-            <div className="mt-5 grid grid-cols-2 gap-2">
+            <footer className="flex shrink-0 justify-end gap-2 border-t border-zinc-800 px-4 py-3">
               <button
                 type="button"
-                onClick={() => setPriceEditor(null)}
-                disabled={isSavingPrice}
-                className="h-11 rounded-xl bg-zinc-900 text-sm font-bold text-zinc-300 transition hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-60"
+                onClick={() => setProductEditor(null)}
+                disabled={isSavingProductEditor}
+                className="h-10 min-w-28 cursor-pointer rounded-lg px-4 text-sm font-bold text-zinc-400 transition hover:bg-zinc-900 hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
               >
                 Cancelar
               </button>
               <button
                 type="submit"
-                disabled={isSavingPrice}
-                className="h-11 rounded-xl bg-white text-sm font-black text-black transition hover:bg-zinc-200 disabled:cursor-not-allowed disabled:opacity-60"
+                disabled={isSavingProductEditor}
+                className="h-10 min-w-44 cursor-pointer rounded-lg bg-white px-5 text-sm font-black text-black transition hover:bg-zinc-200 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                {isSavingPrice ? "Guardando..." : "Guardar"}
+                {isSavingProductEditor ? "Guardando..." : "Guardar cambios"}
               </button>
-            </div>
+            </footer>
           </form>
         </div>
       )}

@@ -72,6 +72,99 @@ input[type="number"] {
   -moz-appearance: textfield;
 }
 
+/* Gestion uses a softer dark palette for long desktop sessions. */
+.gestion-theme {
+  --gestion-page: #151517;
+  --gestion-deep: #18181b;
+  --gestion-panel: #1c1c20;
+  --gestion-panel-rgb: 28 28 32;
+  --gestion-surface: #25252a;
+  --gestion-surface-rgb: 37 37 42;
+  --gestion-border: #38383f;
+  --gestion-text: #ececef;
+  background-color: var(--gestion-page);
+}
+
+.gestion-theme[data-gestion-tone="light"] {
+  --gestion-page: #1c1c1f;
+  --gestion-deep: #202024;
+  --gestion-panel: #252529;
+  --gestion-panel-rgb: 37 37 41;
+  --gestion-surface: #2d2d32;
+  --gestion-surface-rgb: 45 45 50;
+  --gestion-border: #414148;
+  --gestion-text: #e6e6e8;
+}
+
+.gestion-tone-option {
+  color: #a1a1aa;
+}
+
+.gestion-tone-option:hover {
+  background-color: var(--gestion-surface);
+  color: var(--gestion-text);
+}
+
+.gestion-theme[data-gestion-tone="soft"] .gestion-tone-soft,
+.gestion-theme[data-gestion-tone="light"] .gestion-tone-light {
+  background-color: #f4f4f5;
+  color: #18181b;
+}
+
+.gestion-theme .bg-\[\#090909\] {
+  background-color: var(--gestion-page) !important;
+}
+
+.gestion-theme .bg-\[\#070707\],
+.gestion-theme .bg-\[\#080808\] {
+  background-color: var(--gestion-deep) !important;
+}
+
+.gestion-theme .bg-zinc-950 {
+  background-color: var(--gestion-panel) !important;
+}
+
+.gestion-theme .bg-zinc-900 {
+  background-color: var(--gestion-surface) !important;
+}
+
+.gestion-theme .bg-zinc-900\/90 {
+  background-color: rgb(var(--gestion-surface-rgb) / 0.94) !important;
+}
+
+.gestion-theme .bg-zinc-900\/70 {
+  background-color: rgb(var(--gestion-surface-rgb) / 0.78) !important;
+}
+
+.gestion-theme .bg-zinc-900\/60,
+.gestion-theme .bg-zinc-900\/50,
+.gestion-theme .bg-zinc-900\/30,
+.gestion-theme .bg-zinc-900\/20 {
+  background-color: rgb(var(--gestion-surface-rgb) / 0.68) !important;
+}
+
+.gestion-theme .bg-zinc-950\/90,
+.gestion-theme .bg-zinc-950\/60,
+.gestion-theme .bg-zinc-950\/45 {
+  background-color: rgb(var(--gestion-panel-rgb) / 0.82) !important;
+}
+
+.gestion-theme .border-zinc-800 {
+  border-color: var(--gestion-border) !important;
+}
+
+.gestion-theme .text-white {
+  color: var(--gestion-text) !important;
+}
+
+.gestion-theme .pos-panel button:not(:disabled) {
+  cursor: pointer;
+}
+
+.gestion-theme .pos-panel button:disabled {
+  cursor: not-allowed;
+}
+
 .desktop-category-bar {
   display: block;
 }

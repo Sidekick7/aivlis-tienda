@@ -3,6 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import {
+  getCurveStockLimit,
   getCurveUnitsPerSet,
   isCurveProduct,
 } from "@/lib/curve";
@@ -47,6 +48,13 @@ export default function ProductCard({ product }: Props) {
   );
   const canBuyCurve = isCurveProduct(product);
   const isCurvePublication = isPublicCurveProduct(product);
+  const isSoldOut = isCurvePublication
+    ? !product.variants.some(
+        (variant) => getCurveStockLimit({ variant }) > 0
+      )
+    : !product.variants.some((variant) =>
+        variant.sizes.some((sizeItem) => sizeItem.stock > 0)
+      );
   const priceMode = isCurvePublication ? "curve" : "unit";
   const isOnSale = isProductSaleActive(product, priceMode);
   const curveUnitsPerSet = getCurveUnitsPerSet(product.variants[0]);
@@ -92,11 +100,18 @@ export default function ProductCard({ product }: Props) {
           />
         )}
 
-        {isCurvePublication && (
+        {(isCurvePublication || isSoldOut) && (
           <div className="absolute left-2 top-2 z-10 flex flex-col items-start gap-1.5 sm:left-3 sm:top-3">
-            <span className="bg-red-700 px-2.5 py-1 text-[11px] font-black uppercase leading-none text-white sm:text-xs">
-              Curva
-            </span>
+            {isCurvePublication && (
+              <span className="bg-red-700 px-2.5 py-1 text-[11px] font-black uppercase leading-none text-white sm:text-xs">
+                Curva
+              </span>
+            )}
+            {isSoldOut && (
+              <span className="border border-white/70 bg-black/90 px-2.5 py-1 text-[11px] font-black uppercase leading-none text-white sm:text-xs">
+                Agotado
+              </span>
+            )}
           </div>
         )}
 

@@ -3,7 +3,14 @@
 import Image from "next/image";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
+  ArrowDown,
+  ArrowLeft,
+  ArrowRightLeft,
+  ArrowUp,
+  Banknote,
   CheckCircle,
+  Eye,
+  EyeOff,
   List,
   Minus,
   Plus,
@@ -15,13 +22,13 @@ import {
   createLocalSale,
   createLocalSaleNumber,
 } from "@/lib/localSales";
-import { isCurveProduct } from "@/lib/curve";
 import { groupSaleItems } from "@/lib/saleItemGroups";
 import { getLocalSaleChargeBreakdown } from "@/lib/localSaleReceipt";
 import { getProductImage } from "@/lib/productDisplay";
 import { formatPrice, getRetailPrice } from "@/lib/pricing";
 import { getVariantSizeStock } from "@/lib/stock";
 import type {
+  LocalSaleAdjustmentType,
   LocalSaleItemInput,
   LocalSalePaymentMethod,
 } from "@/types/localSale";
@@ -39,15 +46,10 @@ type PosTicketItem = LocalSaleItemInput & {
   adjustmentValue: number;
 };
 
-type PosPriceList = "base" | "curve" | "retail";
+type PosPriceList = "base" | "retail";
 type PosOperationType = "sale" | "reserve";
 
-type PosAdjustmentType =
-  | "none"
-  | "discount-percent"
-  | "discount-amount"
-  | "surcharge-percent"
-  | "surcharge-amount";
+type PosAdjustmentType = LocalSaleAdjustmentType;
 
 type PosTicketStorage = {
   ticketItems?: unknown;
@@ -56,6 +58,8 @@ type PosTicketStorage = {
   cashAmount?: unknown;
   transferAmount?: unknown;
   shouldPrintReceipt?: unknown;
+  isProductListOpen?: unknown;
+  applyTransferSurcharge?: unknown;
 };
 
 type NormalizedPosTicketStorage = {
@@ -65,6 +69,8 @@ type NormalizedPosTicketStorage = {
   cashAmount: string;
   transferAmount: string;
   shouldPrintReceipt: boolean;
+  isProductListOpen: boolean;
+  applyTransferSurcharge: boolean;
 };
 
 type PaymentDetails = {
@@ -88,7 +94,6 @@ const priceLists: Array<{
   value: PosPriceList;
 }> = [
   { label: "Mayorista", value: "base" },
-  { label: "Curva", value: "curve" },
   { label: "Minorista", value: "retail" },
 ];
 
@@ -113,14 +118,38 @@ const adjustmentOptions: Array<{
 
 const ticketGridColumns =
   "grid-cols-[34px_70px_minmax(120px,1fr)_82px_56px_104px_88px_92px_98px_36px]";
+const ticketHeaderCellClass =
+  "flex min-h-10 items-center border-r border-zinc-800 px-2 last:border-r-0";
+const ticketRowCellClass =
+  "flex h-full min-h-[54px] items-center border-r border-zinc-800/80 px-2 last:border-r-0";
 const posTicketStorageKey = "aivlis-pos-ticket";
 
 function getShortSku(sku?: string | null) {
   return sku?.startsWith("AIV-") ? sku.slice(4) : sku || "";
 }
 
-function getItemKey(productId: number, color: string, size: string) {
-  return [productId, color, size].join("|");
+function getSaleErrorMessage(error: unknown) {
+  if (error instanceof Error) return error.message;
+
+  if (
+    typeof error === "object" &&
+    error !== null &&
+    "message" in error &&
+    typeof error.message === "string"
+  ) {
+    return error.message;
+  }
+
+  return "No se pudo registrar la venta.";
+}
+
+function getItemKey(
+  productId: number,
+  color: string,
+  size: string,
+  saleMode: "unit" | "curve" = "unit"
+) {
+  return [productId, color, size, saleMode].join("|");
 }
 
 function getVariantQuantityKey(color: string, size: string) {
@@ -467,7 +496,7 @@ function printLocalSaleReceipt({
 }
 
 function isPriceList(value: unknown): value is PosPriceList {
-  return value === "base" || value === "curve" || value === "retail";
+  return value === "base" || value === "retail";
 }
 
 function isPaymentMethod(
@@ -506,7 +535,12 @@ function normalizeStoredTicketItems(value: unknown) {
 
     return [
       {
-        key: storedItem.key,
+        key: getItemKey(
+          storedItem.productId,
+          storedItem.variantColor,
+          storedItem.size,
+          storedItem.saleMode === "curve" ? "curve" : "unit"
+        ),
         productId: storedItem.productId,
         productSlug: storedItem.productSlug,
         productSku: storedItem.productSku,
@@ -554,6 +588,8 @@ function getStoredPosTicket(): NormalizedPosTicketStorage {
     cashAmount: "",
     transferAmount: "",
     shouldPrintReceipt: false,
+    isProductListOpen: false,
+    applyTransferSurcharge: false,
   };
 
   if (typeof window === "undefined") {
@@ -589,6 +625,14 @@ function getStoredPosTicket(): NormalizedPosTicketStorage {
         typeof parsedTicket.shouldPrintReceipt === "boolean"
           ? parsedTicket.shouldPrintReceipt
           : fallbackTicket.shouldPrintReceipt,
+      isProductListOpen:
+        typeof parsedTicket.isProductListOpen === "boolean"
+          ? parsedTicket.isProductListOpen
+          : fallbackTicket.isProductListOpen,
+      applyTransferSurcharge:
+        typeof parsedTicket.applyTransferSurcharge === "boolean"
+          ? parsedTicket.applyTransferSurcharge
+          : fallbackTicket.applyTransferSurcharge,
     };
   } catch {
     window.localStorage.removeItem(posTicketStorageKey);
@@ -605,9 +649,18 @@ function getPriceListLabel(priceList: PosPriceList) {
 
 function getProductUnitPrice(product: Product, priceList: PosPriceList) {
   if (priceList === "retail") return getRetailPrice(product);
-  if (priceList === "curve") return product.curvePrice || product.price;
 
   return product.price;
+}
+
+function getSaleItemBaseUnitPrice(
+  product: Product,
+  priceList: PosPriceList,
+  saleMode?: "unit" | "curve"
+) {
+  return saleMode === "curve"
+    ? product.curvePrice || product.price
+    : getProductUnitPrice(product, priceList);
 }
 
 function getAdjustedUnitPrice(item: PosTicketItem, baseUnitPrice: number) {
@@ -639,19 +692,9 @@ function getAdjustmentLabel(item: PosTicketItem) {
     return "Sin";
   }
 
-  if (item.adjustmentType === "discount-percent") {
-    return `-${adjustmentValue}%`;
-  }
-
-  if (item.adjustmentType === "surcharge-percent") {
-    return `+${adjustmentValue}%`;
-  }
-
-  if (item.adjustmentType === "discount-amount") {
-    return `-${formatPrice(adjustmentValue)}`;
-  }
-
-  return `+${formatPrice(adjustmentValue)}`;
+  return item.adjustmentType.startsWith("discount")
+    ? "Descuento"
+    : "Recargo";
 }
 
 function applyLocalSalePricing(
@@ -662,12 +705,13 @@ function applyLocalSalePricing(
   const pricedItems = items.map((item) => {
     const product = productsById.get(item.productId);
     const baseUnitPrice = product
-      ? getProductUnitPrice(product, priceList)
+      ? getSaleItemBaseUnitPrice(product, priceList, item.saleMode)
       : item.unitPrice;
     const unitPrice = getAdjustedUnitPrice(item, baseUnitPrice);
 
     return {
       ...item,
+      baseUnitPrice,
       unitPrice,
       subtotal: unitPrice * item.quantity,
     };
@@ -695,17 +739,7 @@ function applyLocalSalePricing(
     const expectedSizes = variant?.sizes.map((size) => size.size) ?? [];
     const groupQuantities = groupItems.map((groupItem) => groupItem.quantity);
     const firstQuantity = groupQuantities[0] ?? 0;
-    const isCompleteCurve =
-      priceList === "curve" &&
-      !!product &&
-      isCurveProduct(product) &&
-      expectedSizes.length > 0 &&
-      expectedSizes.every((size) =>
-        groupItems.some(
-          (groupItem) => groupItem.size === size && groupItem.quantity > 0
-        )
-      ) &&
-      groupQuantities.every((quantity) => quantity === firstQuantity);
+    const isCompleteCurve = item.saleMode === "curve";
 
     return {
       ...item,
@@ -759,20 +793,21 @@ export default function PointOfSalePanel({
   const [shouldPrintReceipt, setShouldPrintReceipt] = useState(
     initialTicketDraft.shouldPrintReceipt
   );
+  const [applyTransferSurcharge, setApplyTransferSurcharge] = useState(
+    initialTicketDraft.applyTransferSurcharge
+  );
   const [editingAdjustmentKey, setEditingAdjustmentKey] = useState<
     string | null
   >(null);
-  const [draftAdjustmentType, setDraftAdjustmentType] =
-    useState<PosAdjustmentType>("none");
   const [draftAdjustmentValue, setDraftAdjustmentValue] = useState("");
   const [selectedTicketItemKeys, setSelectedTicketItemKeys] = useState<
     string[]
   >([]);
   const [isBulkAdjustmentOpen, setIsBulkAdjustmentOpen] = useState(false);
-  const [bulkAdjustmentType, setBulkAdjustmentType] =
-    useState<PosAdjustmentType>("discount-amount");
   const [bulkAdjustmentValue, setBulkAdjustmentValue] = useState("");
-  const [isProductListOpen, setIsProductListOpen] = useState(false);
+  const [isProductListOpen, setIsProductListOpen] = useState(
+    initialTicketDraft.isProductListOpen
+  );
   const [isVariantPickerOpen, setIsVariantPickerOpen] = useState(false);
   const [isSaleConfirmOpen, setIsSaleConfirmOpen] = useState(false);
   const [expandedStockProductId, setExpandedStockProductId] =
@@ -780,8 +815,32 @@ export default function PointOfSalePanel({
   const [isSavingSale, setIsSavingSale] = useState(false);
   const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
+  const noticeTimeoutRef = useRef<number | null>(null);
   const cashAmountInputRef = useRef<HTMLInputElement>(null);
   const transferAmountInputRef = useRef<HTMLInputElement>(null);
+  const adjustmentPriceInputRef = useRef<HTMLInputElement>(null);
+  const bulkAdjustmentPriceInputRef = useRef<HTMLInputElement>(null);
+
+  const showNotice = (message: string) => {
+    if (noticeTimeoutRef.current !== null) {
+      window.clearTimeout(noticeTimeoutRef.current);
+    }
+
+    setNotice(message);
+    noticeTimeoutRef.current = window.setTimeout(() => {
+      setNotice("");
+      noticeTimeoutRef.current = null;
+    }, 3000);
+  };
+
+  useEffect(
+    () => () => {
+      if (noticeTimeoutRef.current !== null) {
+        window.clearTimeout(noticeTimeoutRef.current);
+      }
+    },
+    []
+  );
 
   useEffect(() => {
     const hasDraftTicket =
@@ -790,7 +849,9 @@ export default function PointOfSalePanel({
       paymentMethod !== "cash" ||
       cashAmount.trim().length > 0 ||
       transferAmount.trim().length > 0 ||
-      shouldPrintReceipt;
+      shouldPrintReceipt ||
+      isProductListOpen ||
+      applyTransferSurcharge;
 
     if (!hasDraftTicket) {
       window.localStorage.removeItem(posTicketStorageKey);
@@ -806,10 +867,14 @@ export default function PointOfSalePanel({
         cashAmount,
         transferAmount,
         shouldPrintReceipt,
+        isProductListOpen,
+        applyTransferSurcharge,
       })
     );
   }, [
+    applyTransferSurcharge,
     cashAmount,
+    isProductListOpen,
     paymentMethod,
     priceList,
     shouldPrintReceipt,
@@ -833,10 +898,35 @@ export default function PointOfSalePanel({
     return () => window.clearTimeout(focusTimer);
   }, [isSaleConfirmOpen, paymentMethod]);
 
-  const saleProducts = useMemo(() => products, [products]);
+  useEffect(() => {
+    if (!editingAdjustmentKey) return;
+
+    const focusTimer = window.setTimeout(() => {
+      adjustmentPriceInputRef.current?.focus();
+      adjustmentPriceInputRef.current?.select();
+    }, 0);
+
+    return () => window.clearTimeout(focusTimer);
+  }, [editingAdjustmentKey]);
+
+  useEffect(() => {
+    if (!isBulkAdjustmentOpen) return;
+
+    const focusTimer = window.setTimeout(() => {
+      bulkAdjustmentPriceInputRef.current?.focus();
+      bulkAdjustmentPriceInputRef.current?.select();
+    }, 0);
+
+    return () => window.clearTimeout(focusTimer);
+  }, [isBulkAdjustmentOpen]);
+
+  const saleProducts = useMemo(
+    () => products.filter((product) => !product.archivedAt),
+    [products]
+  );
   const productsById = useMemo(
-    () => new Map(saleProducts.map((product) => [product.id, product])),
-    [saleProducts]
+    () => new Map(products.map((product) => [product.id, product])),
+    [products]
   );
   const normalizedSearch = searchQuery.trim().toLowerCase();
   const searchResults = useMemo(() => {
@@ -881,12 +971,15 @@ export default function PointOfSalePanel({
                 size.size
               );
               const inTicket =
-                ticketItems.find(
-                  (item) =>
+                ticketItems.reduce(
+                  (total, item) =>
                     item.productId === selectedProduct.id &&
                     item.variantColor === variant.color &&
                     item.size === size.size
-                )?.quantity ?? 0;
+                      ? total + item.quantity
+                      : total,
+                  0
+                );
               const available = Math.max(size.stock - inTicket, 0);
               const quantity = Math.min(
                 Math.max(sizeQuantities[quantityKey] ?? 0, 0),
@@ -919,6 +1012,15 @@ export default function PointOfSalePanel({
     (total, size) => total + size.quantity,
     0
   );
+  const selectedCurveRows = selectedSizeRows;
+  const selectedColorCurveCount =
+    selectedProduct?.curveEnabled && selectedCurveRows.length > 1
+      ? Math.min(...selectedCurveRows.map((size) => size.quantity))
+      : 0;
+  const canAddSelectedCurve =
+    Boolean(selectedProduct?.curveEnabled) &&
+    selectedCurveRows.length > 1 &&
+    selectedCurveRows.every((size) => size.quantity < size.available);
   const pricedTicketItems = useMemo(
     () => applyLocalSalePricing(ticketItems, productsById, priceList),
     [priceList, productsById, ticketItems]
@@ -928,7 +1030,8 @@ export default function PointOfSalePanel({
     0
   );
   const transferSurcharge =
-    paymentMethod === "transfer" || paymentMethod === "mixed"
+    applyTransferSurcharge &&
+    (paymentMethod === "transfer" || paymentMethod === "mixed")
       ? Math.round(total * transferSurchargeRate)
       : 0;
   const totalToCharge = total + transferSurcharge;
@@ -972,27 +1075,23 @@ export default function PointOfSalePanel({
     null;
   const editingAdjustmentBaseUnitPrice = editingAdjustmentSourceItem
     ? productsById.has(editingAdjustmentSourceItem.productId)
-      ? getProductUnitPrice(
+      ? getSaleItemBaseUnitPrice(
           productsById.get(editingAdjustmentSourceItem.productId)!,
-          priceList
+          priceList,
+          editingAdjustmentSourceItem.saleMode
         )
       : editingAdjustmentSourceItem.unitPrice
     : 0;
-  const editingAdjustmentDraftValue =
-    draftAdjustmentType === "none" ? 0 : parseMoneyInput(draftAdjustmentValue);
   const editingAdjustmentPreviewUnitPrice = editingAdjustmentSourceItem
-    ? getAdjustedUnitPrice(
-        {
-          ...editingAdjustmentSourceItem,
-          adjustmentType:
-            editingAdjustmentDraftValue > 0 ? draftAdjustmentType : "none",
-          adjustmentValue: editingAdjustmentDraftValue,
-        },
-        editingAdjustmentBaseUnitPrice
-      )
+    ? draftAdjustmentValue.trim()
+      ? parseMoneyInput(draftAdjustmentValue)
+      : editingAdjustmentBaseUnitPrice
     : 0;
   const editingAdjustmentPreviewDelta =
     editingAdjustmentPreviewUnitPrice - editingAdjustmentBaseUnitPrice;
+  const hasValidAdjustmentPrice =
+    draftAdjustmentValue.trim().length > 0 &&
+    editingAdjustmentPreviewUnitPrice > 0;
   const getTicketItemStockLimit = (item: PosTicketItem) =>
     getVariantSizeStock({
       variants: productsById.get(item.productId)?.variants,
@@ -1011,14 +1110,12 @@ export default function PointOfSalePanel({
 
       if (editingAdjustmentKey) {
         setEditingAdjustmentKey(null);
-        setDraftAdjustmentType("none");
         setDraftAdjustmentValue("");
         return;
       }
 
       if (isBulkAdjustmentOpen) {
         setIsBulkAdjustmentOpen(false);
-        setBulkAdjustmentType("discount-amount");
         setBulkAdjustmentValue("");
         return;
       }
@@ -1063,6 +1160,28 @@ export default function PointOfSalePanel({
     setNotice("");
   };
 
+  const toggleInlineProduct = (product: Product) => {
+    if (selectedProductId === product.id && !isVariantPickerOpen) {
+      setSelectedProductId(null);
+      setSelectedColor("");
+      setSizeQuantities({});
+      return;
+    }
+
+    const firstAvailableVariant =
+      product.variants.find((variant) =>
+        variant.sizes.some((size) => size.stock > 0)
+      ) || product.variants[0];
+
+    setSelectedProductId(product.id);
+    setSelectedColor(firstAvailableVariant?.color ?? "");
+    setSizeQuantities({});
+    setIsVariantPickerOpen(false);
+    setExpandedStockProductId(null);
+    setError("");
+    setNotice("");
+  };
+
   const returnToProductList = () => {
     setIsVariantPickerOpen(false);
     setIsProductListOpen(true);
@@ -1089,72 +1208,122 @@ export default function PointOfSalePanel({
       return;
     }
 
-    const unitPrice = getProductUnitPrice(selectedProduct, priceList);
-
     setTicketItems((currentItems) => {
       let updatedItems = [...currentItems];
-      const lineGroupIdsByColor = new Map<string, string>();
+      const rowsByColor = new Map<string, typeof selectedVariants>();
 
-      for (const size of selectedVariants) {
-        const colorGroupKey = `${selectedProduct.id}|${size.color}`;
-        const existingGroupId = updatedItems.find(
-          (item) =>
-            item.productId === selectedProduct.id &&
-            item.variantColor === size.color
-        )?.lineGroupId;
-        const lineGroupId =
-          existingGroupId ||
-          lineGroupIdsByColor.get(colorGroupKey) ||
-          crypto.randomUUID();
+      for (const row of selectedVariants) {
+        const colorRows = rowsByColor.get(row.color) ?? [];
+        colorRows.push(row);
+        rowsByColor.set(row.color, colorRows);
+      }
 
-        lineGroupIdsByColor.set(colorGroupKey, lineGroupId);
-
-        const itemKey = getItemKey(
-          selectedProduct.id,
-          size.color,
-          size.size
+      for (const [color, colorRows] of rowsByColor) {
+        const variant = selectedProduct.variants.find(
+          (productVariant) => productVariant.color === color
         );
-        const existingItem = updatedItems.find(
-          (item) => item.key === itemKey
+        const expectedSizes = variant?.sizes.map((size) => size.size) ?? [];
+        const selectedQuantityBySize = new Map(
+          colorRows.map((row) => [row.size, row.quantity])
         );
+        const curveQuantity =
+          selectedProduct.curveEnabled &&
+          expectedSizes.length > 1 &&
+          expectedSizes.every(
+            (size) => (selectedQuantityBySize.get(size) ?? 0) > 0
+          )
+            ? Math.min(
+                ...expectedSizes.map(
+                  (size) => selectedQuantityBySize.get(size) ?? 0
+                )
+              )
+            : 0;
+        const curveGroupId =
+          updatedItems.find(
+            (item) =>
+              item.productId === selectedProduct.id &&
+              item.variantColor === color &&
+              item.saleMode === "curve"
+          )?.lineGroupId ?? crypto.randomUUID();
+        const unitGroupId =
+          updatedItems.find(
+            (item) =>
+              item.productId === selectedProduct.id &&
+              item.variantColor === color &&
+              item.saleMode !== "curve"
+          )?.lineGroupId ?? crypto.randomUUID();
 
-        updatedItems = existingItem
-          ? updatedItems.map((item) =>
-              item.key === itemKey
-                ? {
-                    ...item,
-                    quantity: item.quantity + size.quantity,
-                    subtotal:
-                      item.unitPrice * (item.quantity + size.quantity),
-                  }
-                : item
-            )
-          : [
-              ...updatedItems,
-              {
-                key: itemKey,
-                productId: selectedProduct.id,
-                productSlug: selectedProduct.slug,
-                productSku: selectedProduct.sku,
-                productName: selectedProduct.name,
-                variantColor: size.color,
-                size: size.size,
-                quantity: size.quantity,
-                unitPrice,
-                subtotal: unitPrice * size.quantity,
-                lineGroupId,
-                saleMode: "unit" as const,
-                bundleQuantity: size.quantity,
-                unitsPerBundle: 1,
-                bundlePrice: unitPrice,
-                adjustmentType: "none",
-                adjustmentValue: 0,
-                imageUrl:
-                  size.images[0] ||
-                  selectedProduct.images[0] ||
-                  "",
-              },
-            ];
+        const addLine = (
+          row: (typeof colorRows)[number],
+          quantity: number,
+          saleMode: "unit" | "curve",
+          lineGroupId: string
+        ) => {
+          if (quantity <= 0) return;
+
+          const itemKey = getItemKey(
+            selectedProduct.id,
+            row.color,
+            row.size,
+            saleMode
+          );
+          const existingItem = updatedItems.find(
+            (item) => item.key === itemKey
+          );
+          const unitPrice =
+            saleMode === "curve"
+              ? selectedProduct.curvePrice || selectedProduct.price
+              : getProductUnitPrice(selectedProduct, priceList);
+
+          updatedItems = existingItem
+            ? updatedItems.map((item) =>
+                item.key === itemKey
+                  ? {
+                      ...item,
+                      quantity: item.quantity + quantity,
+                      subtotal: item.unitPrice * (item.quantity + quantity),
+                    }
+                  : item
+              )
+            : [
+                ...updatedItems,
+                {
+                  key: itemKey,
+                  productId: selectedProduct.id,
+                  productSlug: selectedProduct.slug,
+                  productSku: selectedProduct.sku,
+                  productName: selectedProduct.name,
+                  variantColor: row.color,
+                  size: row.size,
+                  quantity,
+                  unitPrice,
+                  subtotal: unitPrice * quantity,
+                  lineGroupId,
+                  saleMode,
+                  bundleQuantity: quantity,
+                  unitsPerBundle:
+                    saleMode === "curve" ? expectedSizes.length : 1,
+                  bundlePrice:
+                    saleMode === "curve"
+                      ? unitPrice * expectedSizes.length
+                      : unitPrice,
+                  adjustmentType: "none",
+                  adjustmentValue: 0,
+                  imageUrl:
+                    row.images[0] || selectedProduct.images[0] || "",
+                },
+              ];
+        };
+
+        for (const row of colorRows) {
+          addLine(row, curveQuantity, "curve", curveGroupId);
+          addLine(
+            row,
+            row.quantity - curveQuantity,
+            "unit",
+            unitGroupId
+          );
+        }
       }
 
       return repriceItems(updatedItems);
@@ -1164,7 +1333,7 @@ export default function PointOfSalePanel({
     setIsVariantPickerOpen(false);
     setSelectedProductId(null);
     setSearchQuery("");
-    setNotice("Producto agregado al ticket.");
+    showNotice("Producto agregado al ticket.");
   };
 
   const updateSizeQuantity = (
@@ -1189,12 +1358,28 @@ export default function PointOfSalePanel({
   };
 
   const fillCurveQuantities = () => {
+    if (!canAddSelectedCurve) {
+      const missingSizes = selectedCurveRows
+        .filter((size) => size.quantity >= size.available)
+        .map((size) => size.size);
+      setError(
+        missingSizes.length > 0
+          ? `Falta stock en talle ${missingSizes.join(", ")} para completar la curva.`
+          : "No hay stock suficiente para sumar otra curva completa."
+      );
+      return;
+    }
+
+    setError("");
     setSizeQuantities((currentQuantities) => ({
       ...currentQuantities,
       ...Object.fromEntries(
-        selectedSizeRows.map((size) => [
+        selectedCurveRows.map((size) => [
           size.quantityKey,
-          size.available > 0 ? 1 : 0,
+          Math.min(
+            (currentQuantities[size.quantityKey] ?? 0) + 1,
+            size.available
+          ),
         ])
       ),
     }));
@@ -1214,6 +1399,43 @@ export default function PointOfSalePanel({
 
   const updateTicketQuantity = (key: string, nextQuantity: number) => {
     setTicketItems((currentItems) => {
+      const targetItem = currentItems.find((item) => item.key === key);
+
+      if (targetItem?.saleMode === "curve" && targetItem.lineGroupId) {
+        const quantityDelta = nextQuantity - targetItem.quantity;
+        const curveItems = currentItems.filter(
+          (item) => item.lineGroupId === targetItem.lineGroupId
+        );
+        const canApplyQuantity = curveItems.every((item) => {
+          const product = productsById.get(item.productId);
+          const stockLimit = getVariantSizeStock({
+            variants: product?.variants,
+            color: item.variantColor,
+            size: item.size,
+          });
+
+          return item.quantity + quantityDelta <= stockLimit;
+        });
+
+        if (!canApplyQuantity) return currentItems;
+
+        return repriceItems(
+          currentItems
+            .map((item) =>
+              item.lineGroupId === targetItem.lineGroupId
+                ? {
+                    ...item,
+                    quantity: Math.max(item.quantity + quantityDelta, 0),
+                    subtotal:
+                      item.unitPrice *
+                      Math.max(item.quantity + quantityDelta, 0),
+                  }
+                : item
+            )
+            .filter((item) => item.quantity > 0)
+        );
+      }
+
       const updatedItems = currentItems
         .map((item) => {
           if (item.key !== key) return item;
@@ -1242,25 +1464,33 @@ export default function PointOfSalePanel({
   };
 
   const removeTicketItem = (key: string) => {
-    setTicketItems((currentItems) =>
-      repriceItems(currentItems.filter((item) => item.key !== key))
-    );
-    setSelectedTicketItemKeys((currentKeys) =>
-      currentKeys.filter((currentKey) => currentKey !== key)
-    );
+    setTicketItems((currentItems) => {
+      const targetItem = currentItems.find((item) => item.key === key);
+      const removedKeys = new Set(
+        targetItem?.saleMode === "curve" && targetItem.lineGroupId
+          ? currentItems
+              .filter((item) => item.lineGroupId === targetItem.lineGroupId)
+              .map((item) => item.key)
+          : [key]
+      );
+
+      setSelectedTicketItemKeys((currentKeys) =>
+        currentKeys.filter((currentKey) => !removedKeys.has(currentKey))
+      );
+
+      return repriceItems(
+        currentItems.filter((item) => !removedKeys.has(item.key))
+      );
+    });
   };
 
   const openAdjustmentEditor = (item: PosTicketItem) => {
     setEditingAdjustmentKey(item.key);
-    setDraftAdjustmentType(item.adjustmentType);
-    setDraftAdjustmentValue(
-      item.adjustmentValue > 0 ? getMoneyInputValue(item.adjustmentValue) : ""
-    );
+    setDraftAdjustmentValue(getMoneyInputValue(item.unitPrice));
   };
 
   const closeAdjustmentEditor = () => {
     setEditingAdjustmentKey(null);
-    setDraftAdjustmentType("none");
     setDraftAdjustmentValue("");
   };
 
@@ -1287,32 +1517,53 @@ export default function PointOfSalePanel({
     }
 
     setError("");
-    setBulkAdjustmentType("discount-amount");
-    setBulkAdjustmentValue("");
+    const selectedPrices = pricedTicketItems
+      .filter((item) => selectedTicketKeys.includes(item.key))
+      .map((item) => item.unitPrice);
+    const firstSelectedPrice = selectedPrices[0] ?? 0;
+    const hasOneSharedPrice = selectedPrices.every(
+      (price) => price === firstSelectedPrice
+    );
+
+    setBulkAdjustmentValue(
+      hasOneSharedPrice ? getMoneyInputValue(firstSelectedPrice) : ""
+    );
     setIsBulkAdjustmentOpen(true);
   };
 
   const closeBulkAdjustmentEditor = () => {
     setIsBulkAdjustmentOpen(false);
-    setBulkAdjustmentType("discount-amount");
     setBulkAdjustmentValue("");
   };
 
   const applyBulkAdjustment = () => {
-    const adjustmentValue = parseMoneyInput(bulkAdjustmentValue);
+    const nextUnitPrice = parseMoneyInput(bulkAdjustmentValue);
+
+    if (nextUnitPrice <= 0) return;
 
     setTicketItems((currentItems) =>
       applyLocalSalePricing(
-        currentItems.map((item) =>
-          selectedTicketKeys.includes(item.key)
-            ? {
-                ...item,
-                adjustmentType:
-                  adjustmentValue > 0 ? bulkAdjustmentType : "none",
-                adjustmentValue,
-              }
-            : item
-        ),
+        currentItems.map((item) => {
+          if (!selectedTicketKeys.includes(item.key)) return item;
+
+          const product = productsById.get(item.productId);
+          const baseUnitPrice = product
+            ? getSaleItemBaseUnitPrice(product, priceList, item.saleMode)
+            : item.baseUnitPrice ?? item.unitPrice;
+          const adjustmentDelta = nextUnitPrice - baseUnitPrice;
+          const adjustmentType: PosAdjustmentType =
+            adjustmentDelta < 0
+              ? "discount-amount"
+              : adjustmentDelta > 0
+                ? "surcharge-amount"
+                : "none";
+
+          return {
+            ...item,
+            adjustmentType,
+            adjustmentValue: Math.abs(adjustmentDelta),
+          };
+        }),
         productsById,
         priceList
       )
@@ -1346,24 +1597,37 @@ export default function PointOfSalePanel({
   };
 
   const saveAdjustment = () => {
-    if (!editingAdjustmentKey) return;
+    if (!editingAdjustmentKey || !hasValidAdjustmentPrice) return;
 
-    const adjustmentValue =
-      draftAdjustmentType === "none"
-        ? 0
-        : parseMoneyInput(draftAdjustmentValue);
+    const nextUnitPrice = parseMoneyInput(draftAdjustmentValue);
+    const adjustmentDelta = nextUnitPrice - editingAdjustmentBaseUnitPrice;
+    const adjustmentType: PosAdjustmentType =
+      adjustmentDelta < 0
+        ? "discount-amount"
+        : adjustmentDelta > 0
+          ? "surcharge-amount"
+          : "none";
+    const adjustmentValue = Math.abs(adjustmentDelta);
 
     setTicketItems((currentItems) =>
       repriceItems(
-        currentItems.map((item) =>
-          item.key === editingAdjustmentKey
+        currentItems.map((item) => {
+          const editingItem = currentItems.find(
+            (currentItem) => currentItem.key === editingAdjustmentKey
+          );
+          const isSameCurve =
+            editingItem?.saleMode === "curve" &&
+            editingItem.lineGroupId &&
+            item.lineGroupId === editingItem.lineGroupId;
+
+          return item.key === editingAdjustmentKey || isSameCurve
             ? {
                 ...item,
-                adjustmentType: adjustmentValue > 0 ? draftAdjustmentType : "none",
+                adjustmentType,
                 adjustmentValue,
               }
-            : item
-        )
+            : item;
+        })
       )
     );
 
@@ -1375,7 +1639,8 @@ export default function PointOfSalePanel({
 
     const nextTotalToCharge =
       total +
-      (method === "transfer" || method === "mixed"
+      (applyTransferSurcharge &&
+      (method === "transfer" || method === "mixed")
         ? Math.round(total * transferSurchargeRate)
         : 0);
 
@@ -1391,21 +1656,22 @@ export default function PointOfSalePanel({
     }
   };
 
+  const handleTransferSurchargeChange = (shouldApply: boolean) => {
+    setApplyTransferSurcharge(shouldApply);
+
+    if (paymentMethod === "transfer") {
+      const nextTotal =
+        total +
+        (shouldApply ? Math.round(total * transferSurchargeRate) : 0);
+      setTransferAmount(getMoneyInputValue(nextTotal));
+    }
+  };
+
   const openSaleConfirm = () => {
     setError("");
 
     if (pricedTicketItems.length === 0) {
       setError("Agrega al menos un producto.");
-      return;
-    }
-
-    if (
-      priceList === "curve" &&
-      pricedTicketItems.some((item) => item.saleMode !== "curve")
-    ) {
-      setError(
-        "Para usar precio curva agrega todos los talles con la misma cantidad."
-      );
       return;
     }
 
@@ -1442,16 +1708,6 @@ export default function PointOfSalePanel({
 
     if (pricedTicketItems.length === 0) {
       setError("Agrega al menos un producto.");
-      return;
-    }
-
-    if (
-      priceList === "curve" &&
-      pricedTicketItems.some((item) => item.saleMode !== "curve")
-    ) {
-      setError(
-        "Para usar precio curva agrega todos los talles con la misma cantidad."
-      );
       return;
     }
 
@@ -1512,7 +1768,7 @@ export default function PointOfSalePanel({
         total: receiptTotal,
         items: receiptItems,
       });
-      setNotice(
+      showNotice(
         operationType === "reserve"
           ? `Reserva #${getShortSaleNumber(sale.saleNumber)} registrada.`
           : `Venta #${getShortSaleNumber(sale.saleNumber)} registrada.`
@@ -1530,19 +1786,15 @@ export default function PointOfSalePanel({
       await onSaleCreated();
     } catch (saleError) {
       receiptWindow?.close();
-      setError(
-        saleError instanceof Error
-          ? saleError.message
-          : "No se pudo registrar la venta."
-      );
+      setError(getSaleErrorMessage(saleError));
     } finally {
       setIsSavingSale(false);
     }
   };
 
   return (
-    <section className="relative flex h-full min-h-0 flex-col gap-2 overflow-hidden rounded-2xl border border-zinc-800 bg-zinc-950 p-2">
-      <div className="flex shrink-0 flex-wrap items-center gap-2">
+    <section className="pos-panel relative flex h-full min-h-0 flex-col gap-2 overflow-hidden px-1">
+      <div className="flex w-full shrink-0 flex-wrap items-center gap-2">
         <div className="relative w-full min-w-[280px] max-w-[420px] shrink-0">
           <Search
             size={16}
@@ -1603,7 +1855,7 @@ export default function PointOfSalePanel({
             Lista de productos
           </button>
 
-          <label className="flex h-10 items-center gap-2 rounded-xl border border-zinc-800 bg-zinc-900 px-2">
+          <label className="flex h-10 items-center gap-2 px-1">
             <span className="text-xs font-semibold uppercase text-zinc-500">
               Lista
             </span>
@@ -1626,7 +1878,7 @@ export default function PointOfSalePanel({
             </select>
           </label>
 
-          <label className="flex h-10 items-center gap-2 rounded-xl border border-zinc-800 bg-zinc-900 px-2">
+          <label className="flex h-10 items-center gap-2 px-1">
             <span className="text-xs font-semibold uppercase text-zinc-500">
               Tipo
             </span>
@@ -1649,14 +1901,14 @@ export default function PointOfSalePanel({
           </label>
 
           {notice && (
-            <span className="inline-flex h-10 min-w-0 items-center gap-2 rounded-xl bg-emerald-400/15 px-3 text-sm font-semibold text-emerald-200">
+            <span className="fixed left-1/2 top-16 z-[80] inline-flex h-10 max-w-[520px] -translate-x-1/2 items-center gap-2 rounded-xl bg-emerald-950 px-4 text-sm font-semibold text-emerald-100 shadow-xl">
               <CheckCircle size={16} />
               <span className="truncate">{notice}</span>
             </span>
           )}
 
           {error && (
-            <span className="inline-flex h-10 min-w-0 items-center rounded-xl bg-red-500/15 px-3 text-sm font-semibold text-red-200">
+            <span className="fixed left-1/2 top-4 z-[80] inline-flex h-10 max-w-[520px] -translate-x-1/2 items-center rounded-xl bg-red-950 px-4 text-sm font-semibold text-red-100 shadow-xl">
               <span className="truncate">{error}</span>
             </span>
           )}
@@ -1784,13 +2036,13 @@ export default function PointOfSalePanel({
       )}
       */}
 
-      <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-hidden pb-[76px]">
-        <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border border-zinc-800 bg-zinc-900">
-          <div className="min-h-0 flex-1 overflow-hidden p-2">
-            <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-xl border border-zinc-800 bg-zinc-950">
-              <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-b border-zinc-800 px-3 py-1.5">
+      <div className="flex w-full min-h-0 flex-1 flex-col gap-2 overflow-hidden pb-[88px]">
+        <div className="flex min-h-0 flex-1 flex-col overflow-hidden border-y border-zinc-800">
+          <div className="min-h-0 flex-1 overflow-hidden">
+            <div className="flex h-full min-h-0 flex-col overflow-hidden">
+              <div className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-b border-zinc-800 px-3 py-2">
                 <div className="flex items-center gap-2">
-                  <label className="flex h-8 cursor-pointer items-center gap-2 rounded-lg bg-zinc-900 px-2 text-xs font-bold text-zinc-300 transition hover:bg-zinc-800">
+                  <label className="flex h-8 cursor-pointer items-center gap-2 text-xs font-bold text-zinc-300 transition hover:text-white">
                     <input
                       type="checkbox"
                       checked={isEveryTicketItemSelected}
@@ -1810,7 +2062,7 @@ export default function PointOfSalePanel({
                     type="button"
                     onClick={clearSelectedAdjustments}
                     disabled={selectedTicketCount === 0}
-                    className="h-8 cursor-pointer rounded-lg bg-zinc-900 px-3 text-xs font-bold text-zinc-300 transition hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-40"
+                    className="h-8 cursor-pointer px-2 text-xs font-bold text-zinc-400 transition hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
                   >
                     Sin ajuste
                   </button>
@@ -1825,48 +2077,85 @@ export default function PointOfSalePanel({
                 </div>
               </div>
 
-              <div
-                className={`grid ${ticketGridColumns} shrink-0 gap-2 border-b border-zinc-800 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-zinc-500`}
-              >
-                <span />
-                <span>SKU</span>
-                <span>Producto</span>
-                <span className="text-center">Color</span>
-                <span className="text-center">Talle</span>
-                <span className="text-center">Cant.</span>
-                <span className="text-center">Unit.</span>
-                <span className="text-center">Ajuste</span>
-                <span className="text-center">Subtotal</span>
-                <span />
-              </div>
-
               <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden [scrollbar-gutter:stable]">
+                <div
+                  className={`sticky top-0 z-10 grid ${ticketGridColumns} shrink-0 border-b border-zinc-800 bg-zinc-950 px-2 text-xs font-semibold uppercase tracking-wide text-zinc-500`}
+                >
+                  <span className={`${ticketHeaderCellClass} justify-center`} />
+                  <span className={`${ticketHeaderCellClass} justify-center`}>
+                    SKU
+                  </span>
+                  <span className={ticketHeaderCellClass}>Producto</span>
+                  <span className={`${ticketHeaderCellClass} justify-center`}>
+                    Color
+                  </span>
+                  <span className={`${ticketHeaderCellClass} justify-center`}>
+                    Talle
+                  </span>
+                  <span className={`${ticketHeaderCellClass} justify-center`}>
+                    Cant.
+                  </span>
+                  <span className={`${ticketHeaderCellClass} justify-center`}>
+                    Unit.
+                  </span>
+                  <span className={`${ticketHeaderCellClass} justify-center`}>
+                    Ajuste
+                  </span>
+                  <span className={`${ticketHeaderCellClass} justify-center`}>
+                    Subtotal
+                  </span>
+                  <span className={ticketHeaderCellClass} />
+                </div>
+
                 {pricedTicketItems.length === 0 ? (
-                  <div className="flex h-full items-center justify-center px-4 text-center text-sm font-semibold text-zinc-500">
+                  <div className="flex min-h-[220px] items-center justify-center px-4 text-center text-sm font-semibold text-zinc-500">
                     Busca un producto y agregalo al ticket.
                   </div>
                 ) : (
                   pricedTicketItems.map((item, index) => {
-                    const stockLimit = getTicketItemStockLimit(item);
+                    const curveGroupItems =
+                      item.saleMode === "curve" && item.lineGroupId
+                        ? pricedTicketItems.filter(
+                            (groupItem) =>
+                              groupItem.lineGroupId === item.lineGroupId
+                          )
+                        : [];
+                    const isCurveItem = curveGroupItems.length > 0;
+                    const isFirstCurveRow =
+                      isCurveItem && curveGroupItems[0]?.key === item.key;
+                    const isLastCurveRow =
+                      isCurveItem &&
+                      curveGroupItems[curveGroupItems.length - 1]?.key ===
+                        item.key;
+                    const stockLimit =
+                      curveGroupItems.length > 0
+                        ? Math.min(
+                            ...curveGroupItems.map(getTicketItemStockLimit)
+                          )
+                        : getTicketItemStockLimit(item);
                     const isAtStockLimit =
                       stockLimit > 0 && item.quantity >= stockLimit;
-                    const product = productsById.get(item.productId);
-                    const baseUnitPrice = product
-                      ? getProductUnitPrice(product, priceList)
-                      : item.unitPrice;
                     const hasPriceAdjustment =
                       item.adjustmentType !== "none" &&
                       Number(item.adjustmentValue || 0) > 0 &&
-                      item.unitPrice !== baseUnitPrice;
+                      item.unitPrice !== item.baseUnitPrice;
 
                     return (
                       <div
                         key={item.key}
-                        className={`grid ${ticketGridColumns} items-center gap-2 border-b border-zinc-900/80 px-3 py-2.5 transition hover:bg-zinc-900/70 ${
-                          index % 2 === 0 ? "bg-zinc-950/35" : "bg-zinc-900/15"
+                        className={`grid ${ticketGridColumns} items-stretch border-b px-2 transition ${
+                          isCurveItem
+                            ? `border-l-2 border-l-sky-400/80 border-b-sky-900/40 bg-sky-950/20 hover:bg-sky-950/35 ${
+                                isFirstCurveRow ? "border-t border-t-sky-900/40" : ""
+                              } ${isLastCurveRow ? "mb-1" : ""}`
+                            : `border-zinc-900/80 hover:bg-zinc-900/70 ${
+                                index % 2 === 0
+                                  ? "bg-zinc-950/35"
+                                  : "bg-zinc-900/15"
+                              }`
                         }`}
                       >
-                        <div className="flex items-center justify-center">
+                        <div className={`${ticketRowCellClass} justify-center`}>
                           <input
                             type="checkbox"
                             checked={selectedTicketKeys.includes(item.key)}
@@ -1876,103 +2165,145 @@ export default function PointOfSalePanel({
                           />
                         </div>
 
-                        <span className="rounded-lg bg-zinc-800 px-2 py-1 text-xs font-bold text-zinc-200">
-                          {getShortSku(item.productSku)}
-                        </span>
-
-                        <div className="min-w-0">
-                          <p className="truncate text-sm font-bold text-white">
-                            {item.productName}
-                          </p>
-                          {isAtStockLimit && (
-                            <p className="mt-0.5 truncate text-[11px] font-semibold text-amber-300">
-                              Stock maximo ({stockLimit})
-                            </p>
+                        <div className={`${ticketRowCellClass} justify-center`}>
+                          {(!isCurveItem || isFirstCurveRow) && (
+                            <span className="w-full rounded-md bg-zinc-900 px-1.5 py-1 text-center font-mono text-xs font-bold text-zinc-200">
+                              {getShortSku(item.productSku)}
+                            </span>
                           )}
                         </div>
 
-                        <span className="mx-auto w-fit rounded-full bg-zinc-800 px-2 py-1 text-xs font-semibold text-zinc-200">
-                          {item.variantColor}
-                        </span>
+                        <div className={`${ticketRowCellClass} min-w-0`}>
+                          {(!isCurveItem || isFirstCurveRow) && (
+                            <div className="min-w-0">
+                              <div className="flex min-w-0 items-center gap-2">
+                                {isCurveItem && (
+                                  <span className="shrink-0 rounded bg-sky-400 px-1.5 py-0.5 text-[10px] font-black text-black">
+                                    CURVA
+                                  </span>
+                                )}
+                                <p className="truncate text-sm font-bold text-white">
+                                  {item.productName}
+                                </p>
+                              </div>
+                              {isAtStockLimit && (
+                                <p className="mt-0.5 truncate text-[11px] font-semibold text-amber-300">
+                                  Stock maximo ({stockLimit})
+                                </p>
+                              )}
+                            </div>
+                          )}
+                        </div>
 
-                        <span className="mx-auto w-fit rounded-full bg-white px-2 py-1 text-xs font-bold text-black">
-                          {item.size}
-                        </span>
+                        <div className={`${ticketRowCellClass} justify-center`}>
+                          {(!isCurveItem || isFirstCurveRow) && (
+                            <span className="max-w-full truncate text-xs font-semibold text-zinc-300">
+                              {item.variantColor}
+                            </span>
+                          )}
+                        </div>
 
-                        <div className="flex items-center justify-center gap-1">
-                          <button
-                            type="button"
-                            onClick={() =>
-                              updateTicketQuantity(
-                                item.key,
-                                item.quantity - 1
-                              )
-                            }
-                            className="flex h-7 w-7 items-center justify-center rounded-lg bg-zinc-800 text-white transition hover:bg-zinc-700"
-                          >
-                            <Minus size={14} />
-                          </button>
-                          <span className="min-w-6 text-center text-sm font-bold">
-                            {item.quantity}
+                        <div className={`${ticketRowCellClass} justify-center`}>
+                          <span className="w-fit rounded-full bg-white px-2 py-1 text-xs font-bold text-black">
+                            {item.size}
                           </span>
-                          <button
-                            type="button"
-                            onClick={() =>
-                              updateTicketQuantity(
-                                item.key,
-                                item.quantity + 1
-                              )
-                            }
-                            disabled={isAtStockLimit}
-                            title={
-                              isAtStockLimit
-                                ? `Stock maximo: ${stockLimit}`
-                                : "Sumar una unidad"
-                            }
-                            className="flex h-7 w-7 items-center justify-center rounded-lg bg-zinc-800 text-white transition hover:bg-zinc-700 disabled:cursor-not-allowed disabled:opacity-35"
-                          >
-                            <Plus size={14} />
-                          </button>
                         </div>
 
-                        <div className="text-center tabular-nums">
-                          {hasPriceAdjustment && (
-                            <p className="text-[11px] font-bold text-zinc-500 line-through">
-                              {formatPrice(baseUnitPrice)}
-                            </p>
-                          )}
+                        <div className={`${ticketRowCellClass} justify-center`}>
+                          <div className="flex items-center justify-center gap-1">
+                            <button
+                              type="button"
+                              onClick={() =>
+                                updateTicketQuantity(
+                                  item.key,
+                                  item.quantity - 1
+                                )
+                              }
+                              className="flex h-7 w-7 items-center justify-center rounded-lg bg-zinc-800 text-white transition hover:bg-zinc-700"
+                            >
+                              <Minus size={14} />
+                            </button>
+                            <span className="min-w-6 text-center text-sm font-bold">
+                              {item.quantity}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() =>
+                                updateTicketQuantity(
+                                  item.key,
+                                  item.quantity + 1
+                                )
+                              }
+                              disabled={isAtStockLimit}
+                              title={
+                                isAtStockLimit
+                                  ? `Stock maximo: ${stockLimit}`
+                                  : "Sumar una unidad"
+                              }
+                              className="flex h-7 w-7 items-center justify-center rounded-lg bg-zinc-800 text-white transition hover:bg-zinc-700 disabled:cursor-not-allowed disabled:opacity-35"
+                            >
+                              <Plus size={14} />
+                            </button>
+                          </div>
+                        </div>
+
+                        <div className={`${ticketRowCellClass} justify-center text-center tabular-nums`}>
                           <p
                             className={`text-sm font-black ${
                               hasPriceAdjustment
-                                ? "text-emerald-100"
-                                : "text-zinc-300"
+                                ? "text-zinc-500 line-through"
+                                : isCurveItem
+                                  ? "text-sky-200"
+                                  : "text-zinc-300"
                             }`}
                           >
-                            {formatPrice(item.unitPrice)}
+                            {formatPrice(
+                              hasPriceAdjustment
+                                ? item.baseUnitPrice ?? item.unitPrice
+                                : item.unitPrice
+                            )}
                           </p>
                         </div>
 
-                        <button
-                          type="button"
-                          onClick={() => openAdjustmentEditor(item)}
-                          className={`h-8 rounded-lg px-2 text-xs font-bold transition ${
-                            item.adjustmentType === "none"
-                              ? "bg-zinc-800 text-zinc-400 hover:bg-zinc-700 hover:text-white"
-                              : "bg-amber-400/15 text-amber-200 hover:bg-amber-400/25"
-                          }`}
-                        >
-                          {getAdjustmentLabel(item)}
-                        </button>
+                        <div className={`${ticketRowCellClass} justify-center`}>
+                          <button
+                            type="button"
+                            onClick={() => openAdjustmentEditor(item)}
+                            title={getAdjustmentLabel(item)}
+                            className={`inline-flex h-8 items-center justify-center gap-1 rounded-lg px-2 text-xs font-bold tabular-nums transition ${
+                              !hasPriceAdjustment
+                                ? "text-zinc-500 hover:text-white"
+                                : item.adjustmentType.startsWith("discount")
+                                  ? "bg-emerald-400/15 text-emerald-200 hover:bg-emerald-400/25"
+                                  : "bg-amber-400/15 text-amber-200 hover:bg-amber-400/25"
+                            }`}
+                          >
+                            {hasPriceAdjustment ? (
+                              <>
+                                {item.adjustmentType.startsWith("discount") ? (
+                                  <ArrowDown size={13} strokeWidth={2.5} />
+                                ) : (
+                                  <ArrowUp size={13} strokeWidth={2.5} />
+                                )}
+                                {formatPrice(item.unitPrice)}
+                              </>
+                            ) : (
+                              "Sin ajuste"
+                            )}
+                          </button>
+                        </div>
 
-                        <p className="text-center text-sm font-bold tabular-nums text-white">
-                          {formatPrice(item.subtotal)}
-                        </p>
+                        <div className={`${ticketRowCellClass} justify-center`}>
+                          <p className="text-center text-sm font-bold tabular-nums text-white">
+                            {formatPrice(item.subtotal)}
+                          </p>
+                        </div>
 
-                        <div className="flex h-full items-center justify-center">
+                        <div className={`${ticketRowCellClass} justify-center`}>
                           <button
                             type="button"
                             onClick={() => removeTicketItem(item.key)}
-                            className="flex h-9 w-9 items-center justify-center rounded-lg bg-red-500/15 text-red-200 transition hover:bg-red-500/25"
+                            className="flex h-9 w-9 items-center justify-center text-red-300 transition hover:text-red-200"
                           >
                             <Trash2 size={15} />
                           </button>
@@ -1986,40 +2317,40 @@ export default function PointOfSalePanel({
           </div>
         </div>
 
-        <aside className="absolute bottom-2 left-2 right-2 z-20 rounded-2xl border border-zinc-800 bg-zinc-900 p-1.5 shadow-2xl shadow-black/40">
-          <div className="mx-auto grid max-w-5xl grid-cols-[74px_100px_minmax(36px,1fr)_250px_240px_148px] items-center gap-2">
-            <button
-              type="button"
-              onClick={() =>
-                setShouldPrintReceipt((currentValue) => !currentValue)
-              }
-              className={`flex h-14 flex-col items-center justify-center rounded-xl border px-1.5 text-[10px] font-black uppercase transition ${
-                shouldPrintReceipt
-                  ? "border-emerald-300 bg-emerald-400/15 text-emerald-200"
-                  : "border-zinc-800 bg-zinc-950 text-zinc-500 hover:border-zinc-700 hover:text-zinc-300"
-              }`}
-            >
-              {shouldPrintReceipt ? (
-                <CheckCircle size={17} />
-              ) : (
-                <X size={17} />
-              )}
-              <span className="mt-0.5">Imp.</span>
-            </button>
+        <aside className="absolute bottom-0 left-0 right-0 z-20 border-t border-zinc-800 bg-zinc-950 px-2 py-2.5">
+          <div className="grid grid-cols-[220px_minmax(225px,1fr)_530px] items-center gap-2">
+            <div className="flex h-16 items-center justify-end gap-3 border-r border-zinc-800 pr-3">
+              <button
+                type="button"
+                onClick={() =>
+                  setShouldPrintReceipt((currentValue) => !currentValue)
+                }
+                className={`flex h-12 cursor-pointer items-center gap-2 rounded-lg border px-3 text-xs font-black uppercase transition ${
+                  shouldPrintReceipt
+                    ? "border-emerald-400/50 bg-emerald-400/15 text-emerald-200 hover:bg-emerald-400/25"
+                    : "border-zinc-700 bg-zinc-900 text-zinc-300 hover:bg-zinc-800 hover:text-white"
+                }`}
+              >
+                {shouldPrintReceipt ? (
+                  <CheckCircle size={18} />
+                ) : (
+                  <X size={18} />
+                )}
+                Imprimir
+              </button>
 
-            <div className="flex h-14 flex-col justify-center rounded-xl border border-zinc-800 bg-zinc-950 px-3">
-              <p className="text-[11px] font-semibold uppercase text-zinc-500">
-                Prendas
-              </p>
-              <p className="text-2xl font-black leading-none text-white">
-                {totalTicketUnits}
-              </p>
+              <div className="border-l border-zinc-800 pl-4">
+                <p className="text-[11px] font-semibold uppercase text-zinc-500">
+                  Prendas
+                </p>
+                <p className="text-2xl font-black leading-none text-white">
+                  {totalTicketUnits}
+                </p>
+              </div>
             </div>
 
-            <div />
-
             <div
-              className={`flex h-14 items-center justify-center gap-3 rounded-xl px-4 text-center text-black ${
+              className={`mx-auto flex h-16 w-full max-w-[235px] items-center justify-center gap-2 rounded-xl px-3 text-center text-black ${
                 operationType === "reserve"
                   ? "bg-amber-300"
                   : "bg-emerald-400"
@@ -2040,41 +2371,82 @@ export default function PointOfSalePanel({
               </div>
             </div>
 
-            <div className="flex h-14 items-center rounded-xl border border-zinc-800 bg-zinc-950 px-2">
-              <select
-                className="h-11 w-full cursor-pointer rounded-lg border border-zinc-700 bg-zinc-900 px-3 text-base font-black text-white outline-none transition focus:border-zinc-400"
-                value={paymentMethod}
-                onChange={(event) =>
-                  handlePaymentMethodChange(
-                    event.target.value as LocalSalePaymentMethod
-                  )
-                }
-              >
-                {paymentMethods.map((method) => (
-                  <option
-                    key={method.value}
-                    value={method.value}
-                  >
-                    {method.value === "transfer"
-                      ? `${method.label} (+5%)`
-                      : method.label}
-                  </option>
-                ))}
-              </select>
-            </div>
+            <div className="grid h-16 grid-cols-[232px_108px_150px] items-end gap-2 border-l border-zinc-800 pl-3">
+              <div className="grid gap-1">
+                <p className="text-[10px] font-bold uppercase text-zinc-500">
+                  Medio de pago
+                </p>
+                <div className="grid h-10 grid-cols-2 overflow-hidden rounded-lg border border-zinc-700 bg-zinc-900">
+                  {paymentMethods.map((method) => (
+                    <button
+                      type="button"
+                      key={method.value}
+                      onClick={() => handlePaymentMethodChange(method.value)}
+                      aria-pressed={paymentMethod === method.value}
+                    className={`inline-flex h-full min-w-0 cursor-pointer items-center justify-center overflow-hidden border-r border-zinc-700 px-2 text-[13px] font-black transition last:border-r-0 ${
+                        paymentMethod === method.value
+                          ? "bg-white text-black"
+                          : "text-zinc-300 hover:bg-zinc-800 hover:text-white"
+                      }`}
+                    >
+                      {method.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
 
-            <button
-              type="button"
-              onClick={openSaleConfirm}
-              disabled={isSavingSale || ticketItems.length === 0}
-              className={`h-14 rounded-xl text-base font-black text-black transition disabled:cursor-not-allowed disabled:opacity-50 ${
-                operationType === "reserve"
-                  ? "bg-amber-300 hover:bg-amber-200"
-                  : "bg-emerald-400 hover:bg-emerald-300"
-              }`}
-            >
-              {operationType === "reserve" ? "Reservar" : "Confirmar"}
-            </button>
+              <div className="grid gap-1">
+                <p className="text-[10px] font-bold uppercase text-zinc-500">
+                  Recargo
+                </p>
+                <div className="flex h-10 items-center justify-center gap-2 rounded-lg border border-zinc-800 bg-zinc-900 px-2">
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={
+                      applyTransferSurcharge && paymentMethod === "transfer"
+                    }
+                    disabled={paymentMethod !== "transfer"}
+                    onClick={() =>
+                      handleTransferSurchargeChange(!applyTransferSurcharge)
+                    }
+                    className={`relative h-6 w-11 shrink-0 cursor-pointer rounded-full transition disabled:cursor-not-allowed disabled:opacity-35 ${
+                      applyTransferSurcharge && paymentMethod === "transfer"
+                        ? "bg-amber-300"
+                        : "bg-zinc-700"
+                    }`}
+                  >
+                    <span
+                      className={`absolute top-1 h-4 w-4 rounded-full bg-white transition-all ${
+                        applyTransferSurcharge && paymentMethod === "transfer"
+                          ? "left-6"
+                          : "left-1"
+                      }`}
+                    />
+                  </button>
+                  <span className={`whitespace-nowrap text-xs font-black ${
+                    paymentMethod === "transfer"
+                      ? "text-zinc-200"
+                      : "text-zinc-600"
+                  }`}>
+                    5%
+                  </span>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={openSaleConfirm}
+                disabled={isSavingSale || ticketItems.length === 0}
+                className={`h-14 rounded-xl text-base font-black text-black transition disabled:cursor-not-allowed disabled:opacity-50 ${
+                  operationType === "reserve"
+                    ? "bg-amber-300 hover:bg-amber-200"
+                    : "bg-emerald-400 hover:bg-emerald-300"
+                }`}
+              >
+                {operationType === "reserve" ? "Reservar" : "Confirmar"}
+              </button>
+            </div>
 
           </div>
         </aside>
@@ -2111,29 +2483,35 @@ export default function PointOfSalePanel({
 
             <div className="mt-4 grid gap-3">
               <div className="grid grid-cols-[minmax(0,1fr)_112px] gap-2">
-                <label className="grid gap-1.5">
+                <div className="grid gap-1.5">
                   <span className="text-xs font-semibold uppercase text-zinc-500">
                     Metodo de pago
                   </span>
-                  <select
-                    value={paymentMethod}
-                    onChange={(event) =>
-                      handlePaymentMethodChange(
-                        event.target.value as LocalSalePaymentMethod
-                      )
-                    }
-                    className="h-11 rounded-xl border border-zinc-700 bg-zinc-900 px-3 text-sm font-bold text-white outline-none transition focus:border-zinc-400"
-                  >
+                  <div className="flex h-11 items-center gap-2">
                     {paymentMethods.map((method) => (
-                      <option
+                      <button
+                        type="button"
                         key={method.value}
-                        value={method.value}
+                        onClick={() => handlePaymentMethodChange(method.value)}
+                        aria-pressed={paymentMethod === method.value}
+                        className={`inline-flex h-11 cursor-pointer items-center justify-center gap-1.5 rounded-lg border px-3 text-xs font-black transition ${
+                          method.value === "cash" ? "w-24" : "w-32"
+                        } ${
+                          paymentMethod === method.value
+                            ? "border-white bg-white text-black"
+                            : "border-zinc-700 bg-zinc-900 text-zinc-300 hover:border-zinc-500 hover:bg-zinc-800 hover:text-white"
+                        }`}
                       >
+                        {method.value === "cash" ? (
+                          <Banknote size={15} />
+                        ) : (
+                          <ArrowRightLeft size={15} />
+                        )}
                         {method.label}
-                      </option>
+                      </button>
                     ))}
-                  </select>
-                </label>
+                  </div>
+                </div>
 
                 <button
                   type="button"
@@ -2154,6 +2532,33 @@ export default function PointOfSalePanel({
                   Imp.
                 </button>
               </div>
+
+              {paymentMethod === "transfer" && (
+                <div className="flex h-10 items-center gap-3 border-t border-zinc-800 pt-2">
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={applyTransferSurcharge}
+                    onClick={() =>
+                      handleTransferSurchargeChange(!applyTransferSurcharge)
+                    }
+                    className={`relative h-6 w-11 shrink-0 cursor-pointer rounded-full transition ${
+                      applyTransferSurcharge
+                        ? "bg-amber-300"
+                        : "bg-zinc-700"
+                    }`}
+                  >
+                    <span
+                      className={`absolute top-1 h-4 w-4 rounded-full bg-white transition-all ${
+                        applyTransferSurcharge ? "left-6" : "left-1"
+                      }`}
+                    />
+                  </button>
+                  <span className="text-xs font-bold text-zinc-300">
+                    Aplicar recargo por transferencia 5%
+                  </span>
+                </div>
+              )}
 
               {transferSurcharge > 0 && (
                 <p className="rounded-xl bg-amber-400/10 px-3 py-2 text-xs font-bold text-amber-100">
@@ -2179,6 +2584,7 @@ export default function PointOfSalePanel({
                     type="text"
                     inputMode="numeric"
                     value={cashAmount}
+                    onFocus={(event) => event.currentTarget.select()}
                     onChange={(event) =>
                       setCashAmount(formatMoneyInput(event.target.value))
                     }
@@ -2204,6 +2610,7 @@ export default function PointOfSalePanel({
                     type="text"
                     inputMode="numeric"
                     value={transferAmount}
+                    onFocus={(event) => event.currentTarget.select()}
                     onChange={(event) =>
                       setTransferAmount(formatMoneyInput(event.target.value))
                     }
@@ -2296,50 +2703,33 @@ export default function PointOfSalePanel({
             </div>
 
             <p className="mt-3 rounded-xl border border-amber-400/20 bg-amber-400/10 px-3 py-2 text-xs font-semibold text-amber-100">
-              El monto se aplica por unidad a cada articulo seleccionado. No
-              modifica el precio del producto.
+              El nuevo precio unitario se aplica a todos los renglones
+              seleccionados solo durante esta venta.
             </p>
 
-            <div className="mt-4 grid gap-3">
+            <div className="mt-4">
               <label className="grid gap-1.5">
                 <span className="text-xs font-semibold uppercase text-zinc-500">
-                  Tipo
-                </span>
-                <select
-                  value={bulkAdjustmentType}
-                  onChange={(event) =>
-                    setBulkAdjustmentType(
-                      event.target.value as PosAdjustmentType
-                    )
-                  }
-                  className="h-11 rounded-xl border border-zinc-700 bg-zinc-900 px-3 text-sm font-bold text-white outline-none transition focus:border-zinc-400"
-                >
-                  {adjustmentOptions
-                    .filter((option) => option.value !== "none")
-                    .map((option) => (
-                      <option
-                        key={option.value}
-                        value={option.value}
-                      >
-                        {option.label}
-                      </option>
-                    ))}
-                </select>
-              </label>
-
-              <label className="grid gap-1.5">
-                <span className="text-xs font-semibold uppercase text-zinc-500">
-                  Monto en pesos
+                  Nuevo precio
                 </span>
                 <input
-                  type="number"
-                  min="0"
+                  ref={bulkAdjustmentPriceInputRef}
+                  type="text"
+                  inputMode="numeric"
                   value={bulkAdjustmentValue}
                   onChange={(event) =>
-                    setBulkAdjustmentValue(event.target.value)
+                    setBulkAdjustmentValue(
+                      formatMoneyInput(event.target.value)
+                    )
                   }
-                  placeholder="Ej: 1000"
-                  className="h-11 rounded-xl border border-zinc-700 bg-zinc-900 px-3 text-lg font-bold text-white outline-none transition placeholder:text-zinc-600 focus:border-zinc-400"
+                  onFocus={(event) => event.currentTarget.select()}
+                  onKeyDown={(event) => {
+                    if (event.key !== "Enter") return;
+                    event.preventDefault();
+                    applyBulkAdjustment();
+                  }}
+                  placeholder="Ej: 20.000"
+                  className="h-12 rounded-xl border border-zinc-700 bg-zinc-900 px-3 text-xl font-bold tabular-nums text-white outline-none transition placeholder:text-zinc-600 focus:border-zinc-400"
                 />
               </label>
             </div>
@@ -2355,7 +2745,8 @@ export default function PointOfSalePanel({
               <button
                 type="button"
                 onClick={applyBulkAdjustment}
-                className="h-11 rounded-xl bg-white text-sm font-black text-black transition hover:bg-zinc-200"
+                disabled={parseMoneyInput(bulkAdjustmentValue) <= 0}
+                className="h-11 cursor-pointer rounded-xl bg-white text-sm font-black text-black transition hover:bg-zinc-200 disabled:cursor-not-allowed disabled:opacity-40"
               >
                 Aplicar
               </button>
@@ -2398,71 +2789,48 @@ export default function PointOfSalePanel({
             <div className="mt-4 grid gap-3">
               <label className="grid gap-1.5">
                 <span className="text-xs font-semibold uppercase text-zinc-500">
-                  Tipo
-                </span>
-                <select
-                  value={draftAdjustmentType}
-                  onChange={(event) =>
-                    setDraftAdjustmentType(
-                      event.target.value as PosAdjustmentType
-                    )
-                  }
-                  className="h-11 rounded-xl border border-zinc-700 bg-zinc-900 px-3 text-sm font-bold text-white outline-none transition focus:border-zinc-400"
-                >
-                  {adjustmentOptions.map((option) => (
-                    <option
-                      key={option.value}
-                      value={option.value}
-                    >
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
-              </label>
-
-              <label className="grid gap-1.5">
-                <span className="text-xs font-semibold uppercase text-zinc-500">
-                  Monto en pesos
+                  Nuevo precio
                 </span>
                 <input
-                  type="number"
-                  min="0"
+                  ref={adjustmentPriceInputRef}
+                  type="text"
+                  inputMode="numeric"
                   value={draftAdjustmentValue}
                   onChange={(event) =>
-                    setDraftAdjustmentValue(event.target.value)
+                    setDraftAdjustmentValue(formatMoneyInput(event.target.value))
                   }
-                  disabled={draftAdjustmentType === "none"}
-                  placeholder="Ej: 1000"
-                  className="h-11 rounded-xl border border-zinc-700 bg-zinc-900 px-3 text-lg font-bold text-white outline-none transition placeholder:text-zinc-600 focus:border-zinc-400 disabled:cursor-not-allowed disabled:opacity-40"
+                  placeholder="Ej: 10.000"
+                  className="h-12 rounded-xl border border-zinc-700 bg-zinc-900 px-3 text-xl font-bold tabular-nums text-white outline-none transition placeholder:text-zinc-600 focus:border-zinc-400"
                 />
               </label>
 
-              <div className="grid gap-2 rounded-xl bg-zinc-900 p-3 text-sm">
+              <div className="grid gap-2 border-t border-zinc-800 pt-3 text-sm">
                 <div className="flex justify-between text-zinc-400">
-                  <span>Precio base</span>
+                  <span>Precio de lista</span>
                   <span className="font-bold tabular-nums">
                     {formatPrice(editingAdjustmentBaseUnitPrice)}
                   </span>
                 </div>
-                <div className="flex justify-between text-zinc-400">
-                  <span>Ajuste</span>
+                <div className="flex justify-between">
+                  <span className="text-zinc-400">
+                    {editingAdjustmentPreviewDelta < 0
+                      ? "Descuento"
+                      : editingAdjustmentPreviewDelta > 0
+                        ? "Recargo"
+                        : "Sin ajuste"}
+                  </span>
                   <span
                     className={`font-bold tabular-nums ${
                       editingAdjustmentPreviewDelta < 0
-                        ? "text-red-200"
+                        ? "text-emerald-300"
                         : editingAdjustmentPreviewDelta > 0
                           ? "text-amber-200"
                           : "text-zinc-300"
                     }`}
                   >
-                    {editingAdjustmentPreviewDelta > 0 ? "+" : ""}
-                    {formatPrice(editingAdjustmentPreviewDelta)}
-                  </span>
-                </div>
-                <div className="flex justify-between rounded-lg bg-zinc-950 px-2 py-2 font-black text-white">
-                  <span>Final unitario</span>
-                  <span className="tabular-nums">
-                    {formatPrice(editingAdjustmentPreviewUnitPrice)}
+                    {editingAdjustmentPreviewDelta === 0
+                      ? "-"
+                      : formatPrice(Math.abs(editingAdjustmentPreviewDelta))}
                   </span>
                 </div>
               </div>
@@ -2479,7 +2847,8 @@ export default function PointOfSalePanel({
               <button
                 type="button"
                 onClick={saveAdjustment}
-                className="h-11 rounded-xl bg-white text-sm font-bold text-black transition hover:bg-zinc-200"
+                disabled={!hasValidAdjustmentPrice}
+                className="h-11 rounded-xl bg-white text-sm font-bold text-black transition hover:bg-zinc-200 disabled:cursor-not-allowed disabled:opacity-40"
               >
                 Guardar
               </button>
@@ -2490,8 +2859,8 @@ export default function PointOfSalePanel({
 
       {isVariantPickerOpen && selectedProduct && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
-          <div className="w-full max-w-2xl overflow-hidden rounded-2xl border border-zinc-800 bg-zinc-950 shadow-2xl shadow-black/50">
-            <div className="flex items-start justify-between gap-3 border-b border-zinc-800 p-4">
+          <div className="flex h-[min(600px,calc(100vh-24px))] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-zinc-800 bg-zinc-950 shadow-2xl shadow-black/50">
+            <div className="flex min-h-[74px] shrink-0 items-start justify-between gap-3 border-b border-zinc-800 p-3">
               <div className="flex min-w-0 items-center gap-3">
                 <div className="h-16 w-16 shrink-0 overflow-hidden rounded-xl border border-zinc-800 bg-zinc-900">
                   <Image
@@ -2507,14 +2876,36 @@ export default function PointOfSalePanel({
                   <h2 className="truncate text-xl font-bold text-white">
                     {selectedProduct.name}
                   </h2>
-                  <p className="mt-1 text-xs font-semibold text-zinc-500">
-                    SKU {getShortSku(selectedProduct.sku)} - Mayorista{" "}
-                    {formatPrice(selectedProduct.price)} - Curva{" "}
-                    {formatPrice(
-                      selectedProduct.curvePrice || selectedProduct.price
-                    )} - Local{" "}
-                    {formatPrice(getRetailPrice(selectedProduct))}
-                  </p>
+                  <div className="mt-1 flex flex-wrap content-start gap-x-4 gap-y-1 text-xs">
+                    <span className="text-zinc-500">
+                      SKU{" "}
+                      <strong className="rounded-md bg-zinc-900 px-2 py-1 font-mono font-bold text-zinc-100">
+                        {getShortSku(selectedProduct.sku)}
+                      </strong>
+                    </span>
+                    <span className="text-zinc-500">
+                      Mayorista{" "}
+                      <strong className="font-bold text-zinc-300">
+                        {formatPrice(selectedProduct.price)}
+                      </strong>
+                    </span>
+                    {selectedProduct.curveEnabled && (
+                      <span className="text-zinc-500">
+                        Curva{" "}
+                        <strong className="font-bold text-sky-200">
+                          {formatPrice(
+                            selectedProduct.curvePrice || selectedProduct.price
+                          )}
+                        </strong>
+                      </span>
+                    )}
+                    <span className="text-zinc-500">
+                      Local{" "}
+                      <strong className="font-bold text-zinc-300">
+                        {formatPrice(getRetailPrice(selectedProduct))}
+                      </strong>
+                    </span>
+                  </div>
                 </div>
               </div>
 
@@ -2522,24 +2913,25 @@ export default function PointOfSalePanel({
                 <button
                   type="button"
                   onClick={returnToProductList}
-                  className="h-10 cursor-pointer rounded-xl border border-zinc-700 bg-zinc-900 px-3 text-xs font-black text-zinc-100 transition hover:border-white hover:bg-zinc-800 hover:text-white"
+                  className="inline-flex h-10 cursor-pointer items-center gap-2 rounded-lg bg-zinc-900 px-3 text-xs font-black text-zinc-200 transition hover:bg-zinc-800 hover:text-white"
                 >
+                  <ArrowLeft size={16} />
                   Volver a lista
                 </button>
 
                 <button
                   type="button"
                   onClick={() => setIsVariantPickerOpen(false)}
-                  className="flex h-10 w-10 cursor-pointer items-center justify-center rounded-xl border border-zinc-700 bg-zinc-900 text-zinc-200 transition hover:border-red-300 hover:bg-red-500/15 hover:text-red-100"
+                  className="flex h-10 w-10 cursor-pointer items-center justify-center rounded-lg bg-zinc-900 text-zinc-300 transition hover:bg-red-500/15 hover:text-red-200"
                 >
                   <X size={18} />
                 </button>
               </div>
             </div>
 
-            <div className="grid gap-4 p-4">
+            <div className="grid min-h-0 flex-1 content-start gap-3 overflow-y-auto p-3 [scrollbar-gutter:stable]">
               <div>
-                <p className="mb-2 text-xs font-semibold uppercase text-zinc-500">
+                <p className="mb-1.5 text-xs font-semibold uppercase text-zinc-500">
                   Color
                 </p>
                 <div className="flex flex-wrap gap-2">
@@ -2567,18 +2959,24 @@ export default function PointOfSalePanel({
                             ? variant.color
                             : `${variant.color} sin stock`
                         }
-                        className={`inline-flex h-10 items-center gap-2 rounded-xl border px-3 text-sm font-bold transition ${
+                        className={`inline-flex h-10 cursor-pointer items-center gap-2 rounded-lg border px-3 text-sm font-bold transition disabled:cursor-not-allowed ${
                           hasColorAvailability && isSelected
                             ? "border-white bg-white text-black"
                             : hasColorAvailability
-                              ? "border-zinc-700 bg-zinc-900 text-zinc-300 hover:border-zinc-400"
-                              : "cursor-not-allowed border-zinc-900 bg-black/40 text-zinc-600 opacity-45"
+                              ? "border-transparent bg-transparent text-zinc-300 hover:bg-zinc-900"
+                              : "cursor-not-allowed border-transparent bg-black/20 text-zinc-600 opacity-45"
                         }`}
                       >
                         {variant.color}
                         {colorQuantity > 0 && (
-                          <span className="rounded-md bg-emerald-900/80 px-1.5 py-0.5 text-xs font-black text-emerald-100">
-                            {colorQuantity}
+                          <span
+                            className={`text-xs font-black ${
+                              isSelected
+                                ? "text-emerald-700"
+                                : "text-emerald-300"
+                            }`}
+                          >
+                            {colorQuantity} u.
                           </span>
                         )}
                       </button>
@@ -2587,33 +2985,42 @@ export default function PointOfSalePanel({
                 </div>
               </div>
 
-              <div>
-                <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+              <div className="mx-auto w-full max-w-[520px]">
+                <div className="mb-1 flex flex-wrap items-center justify-between gap-2">
                   <p className="text-xs font-semibold uppercase text-zinc-500">
                     Talles de {selectedVariant?.color ?? "color"}
                   </p>
 
                   <div className="flex gap-2">
-                    <button
-                      type="button"
-                      onClick={fillCurveQuantities}
-                      className="h-8 rounded-lg bg-zinc-900 px-3 text-xs font-bold text-zinc-300 transition hover:bg-zinc-800 hover:text-white"
-                    >
-                      Curva color
-                    </button>
+                    {selectedProduct.curveEnabled && (
+                      <button
+                        type="button"
+                        onClick={fillCurveQuantities}
+                        disabled={!canAddSelectedCurve}
+                        title={
+                          canAddSelectedCurve
+                            ? "Agregar una unidad de cada talle"
+                            : "Falta stock en uno o mas talles"
+                        }
+                        className="inline-flex h-8 cursor-pointer items-center gap-1.5 rounded-lg bg-emerald-400 px-3 text-xs font-black text-black transition hover:bg-emerald-300 disabled:cursor-not-allowed disabled:opacity-40"
+                      >
+                        <Plus size={14} />
+                        1 curva
+                      </button>
+                    )}
                     <button
                       type="button"
                       onClick={clearSizeQuantities}
-                      className="h-8 rounded-lg bg-zinc-900 px-3 text-xs font-bold text-zinc-300 transition hover:bg-zinc-800 hover:text-white"
+                      className="h-8 cursor-pointer px-2 text-xs font-bold text-zinc-400 transition hover:text-white"
                     >
                       Limpiar color
                     </button>
                   </div>
                 </div>
 
-                <div className="overflow-hidden rounded-2xl border border-zinc-800 bg-zinc-900">
-                  <div className="grid grid-cols-[minmax(72px,1fr)_92px_128px] gap-2 border-b border-zinc-800 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-zinc-500">
-                    <span>Talle</span>
+                <div className="overflow-hidden border-y border-zinc-800">
+                  <div className="grid grid-cols-[100px_110px_128px] justify-center gap-5 border-b border-zinc-800 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-zinc-500">
+                    <span className="text-center">Talle</span>
                     <span className="text-center">Stock</span>
                     <span className="text-center">Cantidad</span>
                   </div>
@@ -2622,26 +3029,26 @@ export default function PointOfSalePanel({
                     {selectedSizeRows.map((size) => (
                       <div
                         key={size.quantityKey}
-                        className="grid grid-cols-[minmax(72px,1fr)_92px_128px] items-center gap-2 px-3 py-2"
+                        className="grid grid-cols-[100px_110px_128px] items-center justify-center gap-5 px-3 py-1.5"
                       >
-                        <span className="text-sm font-bold text-white">
-                          {size.size}
-                        </span>
-
                         <span className="text-center">
-                          <span
-                            className={`inline-flex min-w-8 justify-center rounded-md px-1.5 py-0.5 text-xs font-black ${
-                              size.available > 0
-                                ? "bg-emerald-900/80 text-emerald-100"
-                                : "bg-red-950 text-red-100"
-                            }`}
-                          >
-                            {size.available}
+                          <span className="inline-flex h-7 min-w-9 items-center justify-center rounded-md border border-zinc-700 bg-zinc-900 px-2 text-sm font-bold text-zinc-200">
+                            {size.size}
                           </span>
                         </span>
 
+                        <span
+                          className={`text-center text-sm font-black tabular-nums ${
+                            size.available > 0
+                              ? "text-emerald-300"
+                              : "text-red-300/70"
+                          }`}
+                        >
+                          {size.available} u.
+                        </span>
+
                         <div className="flex items-center justify-center">
-                          <div className="flex h-9 items-center rounded-xl border border-zinc-700 bg-zinc-950">
+                          <div className="flex h-8 items-center rounded-lg border border-zinc-700 bg-zinc-950">
                             <button
                               type="button"
                               onClick={() =>
@@ -2652,7 +3059,7 @@ export default function PointOfSalePanel({
                                 )
                               }
                               disabled={size.quantity <= 0}
-                              className="flex h-full w-9 items-center justify-center text-zinc-300 transition hover:text-white disabled:cursor-not-allowed disabled:opacity-30"
+                              className="flex h-full w-9 cursor-pointer items-center justify-center text-zinc-300 transition hover:text-white disabled:cursor-not-allowed disabled:opacity-30"
                             >
                               <Minus size={14} />
                             </button>
@@ -2669,7 +3076,7 @@ export default function PointOfSalePanel({
                                 )
                               }
                               disabled={size.quantity >= size.available}
-                              className="flex h-full w-9 items-center justify-center text-zinc-300 transition hover:text-white disabled:cursor-not-allowed disabled:opacity-30"
+                              className="flex h-full w-9 cursor-pointer items-center justify-center text-zinc-300 transition hover:text-white disabled:cursor-not-allowed disabled:opacity-30"
                             >
                               <Plus size={14} />
                             </button>
@@ -2681,7 +3088,7 @@ export default function PointOfSalePanel({
                 </div>
               </div>
 
-              <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-zinc-800 bg-zinc-900 p-3">
+              <div className="mx-auto flex w-full max-w-[520px] flex-wrap items-center justify-between gap-3 border-t border-zinc-800 pt-2">
                 <div>
                   <p className="text-xs font-semibold uppercase text-zinc-500">
                     Seleccionado
@@ -2695,7 +3102,7 @@ export default function PointOfSalePanel({
                   type="button"
                   onClick={addSelectedProduct}
                   disabled={selectedQuantityTotal === 0}
-                  className="h-10 rounded-xl bg-white px-5 text-sm font-bold text-black transition hover:bg-zinc-200 disabled:cursor-not-allowed disabled:opacity-50"
+                  className="h-10 cursor-pointer rounded-xl bg-white px-5 text-sm font-bold text-black transition hover:bg-zinc-200 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   Agregar seleccionados
                 </button>
@@ -2730,49 +3137,47 @@ export default function PointOfSalePanel({
                   Cargando productos...
                 </p>
               ) : (
-                <div className="grid gap-2">
-                  <div className="grid grid-cols-[80px_minmax(0,1fr)_96px_96px_96px_76px_92px] gap-2 px-3 text-xs font-semibold uppercase tracking-wide text-zinc-500">
+                <div className="grid">
+                  <div className="grid grid-cols-[80px_minmax(0,1fr)_104px_104px_76px_92px] gap-2 border-b border-zinc-700 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-zinc-500">
                     <span>SKU</span>
                     <span>Nombre</span>
                     <span className="text-center">Mayorista</span>
-                    <span className="text-center">Curva</span>
                     <span className="text-center">Local</span>
                     <span className="text-center">Stock</span>
                     <span />
                   </div>
 
-                  {productListItems.map((product, index) => (
+                  {productListItems.map((product) => (
                     <div
                       key={product.id}
-                      className={`rounded-xl border border-zinc-800 transition hover:border-zinc-500 ${
-                        index % 2 === 0 ? "bg-zinc-950/80" : "bg-zinc-900"
-                      }`}
+                      className="border-b border-zinc-800 transition last:border-b-0 hover:bg-zinc-900/50"
                     >
-                      <div className="grid grid-cols-[80px_minmax(0,1fr)_96px_96px_96px_76px_92px] items-center gap-2 px-3 py-2">
-                        <button
-                          type="button"
-                          onClick={() => selectProduct(product)}
-                          className="cursor-pointer rounded-lg bg-zinc-950 px-2 py-1 text-left text-xs font-bold text-zinc-200 transition hover:bg-zinc-800"
-                        >
-                          {getShortSku(product.sku)}
-                        </button>
+                      <div
+                        role="button"
+                        tabIndex={0}
+                        onClick={() => toggleInlineProduct(product)}
+                        onKeyDown={(event) => {
+                          if (event.target !== event.currentTarget) return;
 
-                        <button
-                          type="button"
-                          onClick={() => selectProduct(product)}
-                          className="min-w-0 cursor-pointer text-left"
-                        >
+                          if (event.key === "Enter" || event.key === " ") {
+                            event.preventDefault();
+                            toggleInlineProduct(product);
+                          }
+                        }}
+                        className="grid cursor-pointer grid-cols-[80px_minmax(0,1fr)_104px_104px_76px_92px] items-center gap-2 px-3 py-2 outline-none transition hover:bg-zinc-800/70 focus-visible:bg-zinc-800/70"
+                      >
+                        <span className="w-fit rounded-md bg-zinc-900 px-2 py-1 text-left font-mono text-xs font-bold text-zinc-200">
+                          {getShortSku(product.sku)}
+                        </span>
+
+                        <span className="min-w-0 text-left">
                           <span className="block truncate text-sm font-bold text-white">
                             {product.name}
                           </span>
-                        </button>
+                        </span>
 
                         <span className="flex h-full items-center justify-center text-center text-sm font-bold tabular-nums text-zinc-100">
                           {formatPrice(product.price)}
-                        </span>
-
-                        <span className="flex h-full items-center justify-center text-center text-sm font-bold tabular-nums text-sky-100">
-                          {formatPrice(product.curvePrice || product.price)}
                         </span>
 
                         <span className="flex h-full items-center justify-center text-center text-sm font-bold tabular-nums text-emerald-100">
@@ -2785,16 +3190,212 @@ export default function PointOfSalePanel({
 
                         <button
                           type="button"
-                          onClick={() =>
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            setSelectedProductId(null);
+                            setSelectedColor("");
+                            setSizeQuantities({});
                             setExpandedStockProductId((currentId) =>
                               currentId === product.id ? null : product.id
-                            )
-                          }
-                          className="h-8 rounded-lg bg-zinc-950 px-2 text-xs font-bold text-zinc-300 transition hover:bg-zinc-800 hover:text-white"
+                            );
+                          }}
+                          className="inline-flex h-8 cursor-pointer items-center justify-center gap-1.5 rounded-lg bg-zinc-900 px-2 text-xs font-bold text-zinc-200 transition hover:bg-zinc-800 hover:text-white"
                         >
-                          Ver stock
+                          {expandedStockProductId === product.id ? (
+                            <EyeOff size={14} />
+                          ) : (
+                            <Eye size={14} />
+                          )}
+                          {expandedStockProductId === product.id
+                            ? "Ocultar"
+                            : "Ver stock"}
                         </button>
                       </div>
+
+                      {selectedProductId === product.id &&
+                        selectedProduct &&
+                        !isVariantPickerOpen && (
+                          <div className="border-t border-zinc-700 bg-zinc-900/35 px-4 py-3">
+                            <div className="grid grid-cols-[68px_minmax(0,1fr)] gap-4">
+                              <div className="relative h-24 w-[68px] overflow-hidden rounded-lg bg-zinc-900">
+                                <Image
+                                  src={getProductImage(selectedProduct)}
+                                  alt={selectedProduct.name}
+                                  fill
+                                  sizes="68px"
+                                  className="object-contain"
+                                />
+                              </div>
+
+                              <div className="min-w-0">
+                                <div className="mb-2 flex flex-wrap items-center gap-2">
+                                  <span className="text-xs font-semibold uppercase text-zinc-500">
+                                    Color
+                                  </span>
+                                  {selectedProduct.variants.map((variant) => {
+                                    const hasColorAvailability = selectedAllRows
+                                      .filter((row) => row.color === variant.color)
+                                      .some((row) => row.available > 0);
+                                    const colorQuantity = selectedAllRows
+                                      .filter((row) => row.color === variant.color)
+                                      .reduce((total, row) => total + row.quantity, 0);
+                                    const isSelected =
+                                      selectedVariant?.color === variant.color;
+
+                                    return (
+                                      <button
+                                        key={variant.color}
+                                        type="button"
+                                        onClick={() => {
+                                          if (hasColorAvailability) {
+                                            setSelectedColor(variant.color);
+                                          }
+                                        }}
+                                        disabled={!hasColorAvailability}
+                                        className={`inline-flex h-8 cursor-pointer items-center gap-1.5 rounded-lg border px-2.5 text-xs font-bold transition disabled:cursor-not-allowed ${
+                                          hasColorAvailability && isSelected
+                                            ? "border-white bg-white text-black"
+                                            : hasColorAvailability
+                                              ? "border-zinc-700 text-zinc-300 hover:bg-zinc-800"
+                                              : "border-zinc-800 text-zinc-600 opacity-45"
+                                        }`}
+                                      >
+                                        {variant.color}
+                                        {colorQuantity > 0 && (
+                                          <span
+                                            className={
+                                              isSelected
+                                                ? "text-emerald-700"
+                                                : "text-emerald-300"
+                                            }
+                                          >
+                                            {colorQuantity} u.
+                                          </span>
+                                        )}
+                                      </button>
+                                    );
+                                  })}
+                                </div>
+
+                                <div className="overflow-hidden border-y border-zinc-800">
+                                  <div className="grid grid-cols-[80px_90px_128px] justify-center gap-4 border-b border-zinc-800 px-2 py-1.5 text-[11px] font-semibold uppercase text-zinc-500">
+                                    <span className="text-center">Talle</span>
+                                    <span className="text-center">Stock</span>
+                                    <span className="text-center">Cantidad</span>
+                                  </div>
+                                  <div className="divide-y divide-zinc-800">
+                                    {selectedSizeRows.map((size) => (
+                                      <div
+                                        key={size.quantityKey}
+                                        className="grid grid-cols-[80px_90px_128px] items-center justify-center gap-4 px-2 py-1"
+                                      >
+                                        <span className="text-center">
+                                          <span className="inline-flex h-7 min-w-9 items-center justify-center rounded-md border border-zinc-700 bg-zinc-950 px-2 text-xs font-bold text-zinc-200">
+                                            {size.size}
+                                          </span>
+                                        </span>
+                                        <span
+                                          className={`text-center text-xs font-black tabular-nums ${
+                                            size.available > 0
+                                              ? "text-emerald-300"
+                                              : "text-red-300/70"
+                                          }`}
+                                        >
+                                          {size.available} u.
+                                        </span>
+                                        <div className="flex h-8 items-center rounded-lg border border-zinc-700 bg-zinc-950">
+                                          <button
+                                            type="button"
+                                            onClick={() =>
+                                              updateSizeQuantity(
+                                                size.color,
+                                                size.size,
+                                                size.quantity - 1
+                                              )
+                                            }
+                                            disabled={size.quantity <= 0}
+                                            className="flex h-full w-9 cursor-pointer items-center justify-center text-zinc-300 transition hover:text-white disabled:cursor-not-allowed disabled:opacity-30"
+                                          >
+                                            <Minus size={14} />
+                                          </button>
+                                          <span className="min-w-9 text-center text-sm font-bold">
+                                            {size.quantity}
+                                          </span>
+                                          <button
+                                            type="button"
+                                            onClick={() =>
+                                              updateSizeQuantity(
+                                                size.color,
+                                                size.size,
+                                                size.quantity + 1
+                                              )
+                                            }
+                                            disabled={size.quantity >= size.available}
+                                            className="flex h-full w-9 cursor-pointer items-center justify-center text-zinc-300 transition hover:text-white disabled:cursor-not-allowed disabled:opacity-30"
+                                          >
+                                            <Plus size={14} />
+                                          </button>
+                                        </div>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+
+                                <div className="mt-3 flex flex-wrap items-center justify-between gap-3 border-t border-zinc-800 pt-3">
+                                  <div className="flex flex-wrap items-center gap-2">
+                                    {selectedProduct.curveEnabled && (
+                                      <button
+                                        type="button"
+                                        onClick={fillCurveQuantities}
+                                        disabled={!canAddSelectedCurve}
+                                        title={
+                                          canAddSelectedCurve
+                                            ? "Agregar una unidad de cada talle"
+                                            : "Falta stock en uno o mas talles"
+                                        }
+                                        className="inline-flex h-9 cursor-pointer items-center gap-1.5 rounded-lg bg-emerald-400 px-3 text-xs font-black text-black transition hover:bg-emerald-300 disabled:cursor-not-allowed disabled:opacity-40"
+                                      >
+                                        <Plus size={14} />
+                                        1 curva
+                                      </button>
+                                    )}
+                                    <button
+                                      type="button"
+                                      onClick={clearSizeQuantities}
+                                      disabled={selectedQuantityTotal === 0}
+                                      className="h-9 cursor-pointer rounded-lg border border-zinc-700 px-3 text-xs font-bold text-zinc-300 transition hover:bg-zinc-800 hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
+                                    >
+                                      Limpiar
+                                    </button>
+                                    {selectedColorCurveCount > 0 && (
+                                      <span className="rounded-lg bg-zinc-800 px-2.5 py-1.5 text-xs font-black text-emerald-200">
+                                        {selectedColorCurveCount} {selectedColorCurveCount === 1 ? "curva" : "curvas"}
+                                      </span>
+                                    )}
+                                  </div>
+                                  <div className="flex items-center gap-3">
+                                    <div className="min-w-[92px] text-right">
+                                      <p className="text-[10px] font-bold uppercase text-zinc-500">
+                                        Seleccionadas
+                                      </p>
+                                      <p className="text-base font-black tabular-nums text-white">
+                                        {selectedQuantityTotal} prendas
+                                      </p>
+                                    </div>
+                                    <button
+                                      type="button"
+                                      onClick={addSelectedProduct}
+                                      disabled={selectedQuantityTotal === 0}
+                                      className="h-10 cursor-pointer rounded-lg bg-white px-4 text-xs font-black text-black transition hover:bg-zinc-200 disabled:cursor-not-allowed disabled:opacity-50"
+                                    >
+                                      Agregar al ticket
+                                    </button>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        )}
 
                       {expandedStockProductId === product.id && (
                         <div className="border-t border-zinc-800 px-3 pb-3 pt-2">
@@ -2829,27 +3430,25 @@ export default function PointOfSalePanel({
                                       return (
                                         <span
                                           key={`${variant.color}-${size.size}`}
-                                          className={`inline-flex items-center gap-1.5 rounded-lg px-2 py-1 text-xs font-semibold ${
-                                            hasStock
-                                              ? "bg-zinc-900 text-zinc-300"
-                                              : "bg-zinc-950 text-zinc-600 ring-1 ring-zinc-900"
-                                          }`}
+                                          className="inline-flex items-center gap-1.5 text-xs font-semibold"
                                         >
                                           <span
-                                            className={
-                                              hasStock ? "" : "line-through"
-                                            }
+                                            className={`inline-flex h-7 min-w-8 items-center justify-center rounded-md border px-1.5 font-bold ${
+                                              hasStock
+                                                ? "border-zinc-700 bg-zinc-900 text-zinc-200"
+                                                : "border-zinc-800 bg-zinc-950 text-zinc-600 line-through"
+                                            }`}
                                           >
                                             {size.size}
                                           </span>
                                           <span
-                                            className={`rounded-md px-1.5 py-0.5 font-black ${
+                                            className={`font-black tabular-nums ${
                                               hasStock
-                                                ? "bg-emerald-900/80 text-emerald-100"
-                                                : "bg-zinc-900 text-zinc-600"
+                                                ? "text-emerald-300"
+                                                : "text-red-300/70"
                                             }`}
                                           >
-                                            {size.stock}
+                                            {size.stock} u.
                                           </span>
                                         </span>
                                       );

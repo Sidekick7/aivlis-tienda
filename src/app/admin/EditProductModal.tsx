@@ -289,25 +289,33 @@ export default function EditProductModal({
                   <div className="inline-flex rounded-xl bg-zinc-900 p-1">
                     <button
                       type="button"
-                      onClick={() => updateProduct({ saleMode: "unit" })}
+                      onClick={() =>
+                        updateProduct({
+                          saleMode: "unit",
+                        })
+                      }
                       className={`h-8 rounded-lg px-3 text-xs font-bold transition ${
                         product.saleMode === "unit"
                           ? "bg-white text-black"
                           : "text-zinc-400 hover:text-white"
                       }`}
                     >
-                      Unidad
+                      Sin curva web
                     </button>
                     <button
                       type="button"
-                      onClick={() => updateProduct({ saleMode: "curve" })}
+                      onClick={() =>
+                        updateProduct({
+                          saleMode: "curve",
+                        })
+                      }
                       className={`h-8 rounded-lg px-3 text-xs font-bold transition ${
                         product.saleMode === "curve"
                           ? "bg-white text-black"
                           : "text-zinc-400 hover:text-white"
                       }`}
                     >
-                      Unidad + curva
+                      Mostrar curva web
                     </button>
                   </div>
                 </div>

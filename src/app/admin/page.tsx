@@ -844,7 +844,10 @@ const handleLogout = async () => {
 
 if (isAuthLoading || isAdminCheckLoading) {
   return (
-    <main className="min-h-screen bg-black text-white px-6 pb-10 pt-10 md:px-10 flex items-center justify-center">
+    <main
+      className="gestion-theme min-h-screen bg-[#090909] px-6 pb-10 pt-10 text-white md:px-10 flex items-center justify-center"
+      data-gestion-tone="light"
+    >
       <p className="text-zinc-400">
         Cargando admin...
       </p>
@@ -854,7 +857,10 @@ if (isAuthLoading || isAdminCheckLoading) {
 
 if (!session) {
   return (
-    <main className="min-h-screen bg-black text-white px-6 pb-10 pt-10 flex items-center justify-center">
+    <main
+      className="gestion-theme min-h-screen bg-[#090909] px-6 pb-10 pt-10 text-white flex items-center justify-center"
+      data-gestion-tone="light"
+    >
       <form
         onSubmit={handleLogin}
         className="w-full max-w-md bg-zinc-900 rounded-3xl p-8"
@@ -904,7 +910,10 @@ if (!session) {
 }
 
   return (
-    <main className="min-h-screen bg-black text-white px-6 pb-10 pt-4 md:px-10">
+    <main
+      className="gestion-theme min-h-screen bg-[#090909] px-6 pb-10 pt-4 text-white md:px-10"
+      data-gestion-tone="light"
+    >
 
       <div className="mb-4 grid gap-3 lg:grid-cols-[1fr_auto_1fr] lg:items-center">
         <div className="flex w-full flex-wrap rounded-2xl bg-zinc-900 p-1 lg:w-fit">

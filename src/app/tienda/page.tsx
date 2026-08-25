@@ -146,7 +146,7 @@ function ShopPageContent() {
               </h1>
             </div>
 
-            <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
+            <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-end">
               <div className="flex flex-col gap-1.5">
                 <span className="font-brand text-base uppercase text-zinc-500">
                   Filtro
@@ -191,22 +191,23 @@ function ShopPageContent() {
                 </div>
               </div>
 
-              <div className="flex flex-col gap-1.5">
+              <div className="grid min-w-0 grid-cols-2 gap-2 sm:contents">
+              <div className="flex min-w-0 flex-col gap-1.5">
                 <label
                   htmlFor="shop-category"
-                  className="font-brand text-base uppercase text-zinc-500"
+                  className="font-brand text-sm uppercase text-zinc-500 sm:text-base"
                 >
                   Categoria
                 </label>
 
-                <div className="relative w-full sm:w-auto">
+                <div className="relative min-w-0 w-full sm:w-auto">
                   <select
                     id="shop-category"
                     value={categoryFilter}
                     onChange={(event) =>
                       updateCategory(event.target.value)
                     }
-                    className="font-brand h-10 w-full appearance-none rounded-full border border-zinc-300 bg-white py-0 pl-3 pr-8 text-base outline-none sm:w-auto sm:min-w-[140px] sm:max-w-[180px] sm:[field-sizing:content]"
+                    className="font-brand h-10 w-full appearance-none rounded-full border border-zinc-300 bg-white py-0 pl-3 pr-8 text-sm outline-none sm:w-auto sm:min-w-[140px] sm:max-w-[180px] sm:text-base sm:[field-sizing:content]"
                   >
                     <option value="all">Categorias</option>
                     <option value={saleCategoryValue}>SALE</option>
@@ -227,22 +228,22 @@ function ShopPageContent() {
                 </div>
               </div>
 
-              <div className="flex flex-col gap-1.5">
+              <div className="flex min-w-0 flex-col gap-1.5">
                 <label
                   htmlFor="shop-sort"
-                  className="font-brand text-base uppercase text-zinc-500"
+                  className="font-brand text-sm uppercase text-zinc-500 sm:text-base"
                 >
                   Ordenar
                 </label>
 
-                <div className="relative w-full sm:w-auto">
+                <div className="relative min-w-0 w-full sm:w-auto">
                   <select
                     id="shop-sort"
                     value={sortBy}
                     onChange={(event) =>
                       setSortBy(event.target.value as ShopSort)
                     }
-                    className="font-brand h-10 w-full appearance-none rounded-full border border-zinc-300 bg-white py-0 pl-3 pr-8 text-base outline-none sm:w-auto sm:min-w-[140px] sm:max-w-[170px] sm:[field-sizing:content]"
+                    className="font-brand h-10 w-full appearance-none rounded-full border border-zinc-300 bg-white py-0 pl-3 pr-8 text-sm outline-none sm:w-auto sm:min-w-[140px] sm:max-w-[170px] sm:text-base sm:[field-sizing:content]"
                   >
                     {sortOptions.map((option) => (
                       <option
@@ -259,6 +260,7 @@ function ShopPageContent() {
                     className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-black"
                   />
                 </div>
+              </div>
               </div>
             </div>
           </div>

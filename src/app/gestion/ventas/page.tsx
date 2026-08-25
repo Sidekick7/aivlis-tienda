@@ -3,7 +3,9 @@
 import { type FormEvent, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import {
+  ArrowLeftRight,
   BarChart3,
+  Banknote,
   Boxes,
   ClipboardList,
   Copy,
@@ -138,6 +140,13 @@ const dateFilters: Array<{
   { label: "7 dias", value: "last_7_days" },
 ];
 
+const salesTableColumns =
+  "grid-cols-[82px_96px_minmax(150px,1fr)_118px_106px_120px_126px_76px_88px_42px]";
+const salesHeaderCellClass =
+  "flex min-h-9 items-center px-2";
+const salesRowCellClass =
+  "flex h-full min-h-[52px] items-center px-2";
+
 const paymentLabels: Record<LocalSale["paymentMethod"], string> = {
   cash: "Efectivo",
   transfer: "Transferencia",
@@ -208,6 +217,27 @@ function getPaymentLabel(sale: UnifiedSale) {
   }
 
   return paymentLabels[sale.payment];
+}
+
+function PaymentBadge({ label }: { label: string }) {
+  const normalizedLabel = label.trim().toLowerCase();
+  const isCash = normalizedLabel.includes("efectivo");
+  const isTransfer = normalizedLabel.includes("transfer");
+  const Icon = isCash ? Banknote : isTransfer ? ArrowLeftRight : CreditCard;
+  const colorClass = isCash
+    ? "border-emerald-400/30 bg-emerald-500/15 text-emerald-200"
+    : isTransfer
+      ? "border-sky-400/30 bg-sky-500/15 text-sky-200"
+      : "border-zinc-600 bg-zinc-800 text-zinc-200";
+
+  return (
+    <span
+      className={`inline-flex h-7 w-fit items-center gap-1.5 whitespace-nowrap rounded-full border px-2.5 text-[11px] font-bold ${colorClass}`}
+    >
+      <Icon size={13} strokeWidth={2.2} />
+      {label}
+    </span>
+  );
 }
 
 function getWebPaymentLabel(order: AdminOrder) {
@@ -1162,20 +1192,19 @@ export default function GestionVentasPage() {
           </header>
 
           <section className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border border-zinc-800 bg-[#070707] shadow-2xl shadow-black/20">
-            <div className="grid shrink-0 grid-cols-[82px_96px_minmax(150px,1fr)_118px_106px_104px_126px_76px_88px_42px] gap-2 border-b border-zinc-800 bg-zinc-900/90 px-3 py-2 text-xs font-bold uppercase text-zinc-400">
-              <span className="text-center">Origen</span>
-              <span>Nro</span>
-              <span>Cliente</span>
-              <span className="text-center">Fecha</span>
-              <span className="text-center">Total</span>
-              <span className="text-center">Pago</span>
-              <span className="text-center">Estado</span>
-              <span className="text-center">Prendas</span>
-              <span className="text-center">Detalle</span>
-              <span></span>
-            </div>
-
             <div className="min-h-0 flex-1 overflow-y-auto [scrollbar-gutter:stable]">
+            <div className={`sticky top-0 z-10 grid shrink-0 ${salesTableColumns} divide-x divide-zinc-600 border-b border-zinc-700 bg-zinc-900 px-2 text-xs font-bold uppercase text-zinc-300`}>
+              <span className={`${salesHeaderCellClass} justify-center`}>Origen</span>
+              <span className={salesHeaderCellClass}>Nro</span>
+              <span className={salesHeaderCellClass}>Cliente</span>
+              <span className={`${salesHeaderCellClass} justify-center`}>Fecha</span>
+              <span className={`${salesHeaderCellClass} justify-center`}>Total</span>
+              <span className={`${salesHeaderCellClass} justify-center`}>Pago</span>
+              <span className={`${salesHeaderCellClass} justify-center`}>Estado</span>
+              <span className={`${salesHeaderCellClass} justify-center`}>Prendas</span>
+              <span className={`${salesHeaderCellClass} justify-center`}>Detalle</span>
+              <span className={salesHeaderCellClass}></span>
+            </div>
               {isLoadingSales && (
                 <p className="p-4 text-sm text-zinc-400">
                   Cargando ventas...
@@ -1201,35 +1230,39 @@ export default function GestionVentasPage() {
                 visibleSales.map((sale, index) => (
                   <div
                     key={`${sale.source}-${sale.id}`}
-                    className={`grid grid-cols-[82px_96px_minmax(150px,1fr)_118px_106px_104px_126px_76px_88px_42px] items-center gap-2 border-b border-zinc-900/80 px-3 py-2 text-sm transition hover:bg-zinc-800/45 ${
+                    className={`grid ${salesTableColumns} items-stretch divide-x divide-zinc-700 border-b border-zinc-800 px-2 text-sm transition hover:bg-zinc-800/45 ${
                       index % 2 === 0 ? "bg-zinc-950/45" : "bg-zinc-900/20"
                     }`}
                   >
                     <span
-                      className={`mx-auto flex h-6 w-fit items-center rounded-full px-2 text-[11px] font-black ${
-                        sale.source === "web"
-                          ? "bg-sky-500/15 text-sky-200"
-                          : "bg-emerald-500/15 text-emerald-200"
-                      }`}
+                      className={`${salesRowCellClass} justify-center`}
                     >
-                      {sale.source === "web" ? "WEB" : "LOCAL"}
+                      <span
+                        className={`flex h-6 w-fit items-center rounded-full px-2 text-[11px] font-black ${
+                          sale.source === "web"
+                            ? "bg-sky-500/15 text-sky-200"
+                            : "bg-emerald-500/15 text-emerald-200"
+                        }`}
+                      >
+                        {sale.source === "web" ? "WEB" : "LOCAL"}
+                      </span>
                     </span>
-                    <span className="font-bold text-white">
+                    <span className={`${salesRowCellClass} font-bold text-white`}>
                       {getSaleNumber(sale)}
                     </span>
-                    <span className="truncate text-zinc-200">
+                    <span className={`${salesRowCellClass} min-w-0 truncate text-zinc-200`}>
                       {sale.customer}
                     </span>
-                    <span className="flex h-full items-center justify-center text-center text-xs text-zinc-400">
+                    <span className={`${salesRowCellClass} justify-center text-center text-xs text-zinc-400`}>
                       {formatSaleTableDate(sale.createdAt)}
                     </span>
-                    <span className="flex h-full items-center justify-center text-center font-black tabular-nums text-white">
+                    <span className={`${salesRowCellClass} justify-center text-center font-black tabular-nums text-white`}>
                       {formatPrice(sale.total)}
                     </span>
-                    <span className="flex h-full items-center justify-center text-center text-xs font-semibold text-zinc-400">
-                      {getPaymentLabel(sale)}
+                    <span className={`${salesRowCellClass} justify-center text-center`}>
+                      <PaymentBadge label={getPaymentLabel(sale)} />
                     </span>
-                    <div className="flex h-full items-center justify-center">
+                    <div className={`${salesRowCellClass} justify-center`}>
                       <select
                         aria-label={`Estado de venta ${getSaleNumber(sale)}`}
                         value={sale.status}
@@ -1267,20 +1300,22 @@ export default function GestionVentasPage() {
                             )}
                       </select>
                     </div>
-                    <span className="flex h-full items-center justify-center text-center text-zinc-300">
+                    <span className={`${salesRowCellClass} justify-center text-center text-zinc-300`}>
                       {sale.itemsCount}
                     </span>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setDetailSale(sale);
-                        setWebInfoModal(null);
-                      }}
-                      className="mx-auto h-9 cursor-pointer rounded-lg bg-zinc-800 px-3 text-xs font-bold text-zinc-200 transition hover:bg-zinc-700"
-                    >
-                      Detalle
-                    </button>
-                    <div className="flex h-full items-center justify-center">
+                    <div className={`${salesRowCellClass} justify-center`}>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setDetailSale(sale);
+                          setWebInfoModal(null);
+                        }}
+                        className="h-9 cursor-pointer rounded-lg bg-zinc-800 px-3 text-xs font-bold text-zinc-200 transition hover:bg-zinc-700"
+                      >
+                        Detalle
+                      </button>
+                    </div>
+                    <div className={`${salesRowCellClass} justify-center`}>
                       <button
                         type="button"
                         onClick={() => requestDeleteSale(sale)}
@@ -1354,10 +1389,15 @@ export default function GestionVentasPage() {
                 <h2 className="mt-1 text-2xl font-black text-white">
                   {detailSale.customer}
                 </h2>
-                <p className="mt-1 text-sm text-zinc-400">
-                  {new Date(detailSale.createdAt).toLocaleString("es-AR")} ·{" "}
-                  {getPaymentLabel(detailSale)} · {formatPrice(detailSale.total)}
-                </p>
+                <div className="mt-2 flex flex-wrap items-center gap-2 text-sm text-zinc-400">
+                  <span>
+                    {new Date(detailSale.createdAt).toLocaleString("es-AR")}
+                  </span>
+                  <span className="text-zinc-600">·</span>
+                  <PaymentBadge label={getPaymentLabel(detailSale)} />
+                  <span className="text-zinc-600">·</span>
+                  <span>{formatPrice(detailSale.total)}</span>
+                </div>
               </div>
 
               <div className="flex shrink-0 items-center gap-2">
@@ -1512,7 +1552,7 @@ export default function GestionVentasPage() {
                           <span className="font-bold text-zinc-500">
                             Pago
                           </span>
-                          <span>{getWebPaymentLabel(detailOrder)}</span>
+                          <PaymentBadge label={getWebPaymentLabel(detailOrder)} />
                         </div>
                         <div className="grid gap-1 sm:grid-cols-[130px_1fr]">
                           <span className="font-bold text-zinc-500">

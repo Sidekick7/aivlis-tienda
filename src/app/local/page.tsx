@@ -39,140 +39,116 @@ export default async function LocalPage() {
 
   return (
     <main className="home-main-offset min-h-screen bg-zinc-100 text-black">
-      <section className="mx-auto grid max-w-7xl gap-5 px-6 pb-8 pt-4 md:px-10 lg:grid-cols-[minmax(0,520px)_1fr] lg:items-stretch lg:pb-10 lg:pt-5">
-        <div className="overflow-hidden rounded-2xl bg-white shadow-sm lg:h-full">
-          <Image
-            src="/showroom-door.png"
-            alt="Puerta del showroom AIVLIS"
-            width={962}
-            height={1357}
-            priority
-            sizes="(min-width: 1024px) 540px, 100vw"
-            className="h-auto w-full object-cover lg:h-full"
-          />
-        </div>
+      <section className="mx-auto max-w-6xl px-5 pb-10 pt-6 md:px-8 md:pt-8">
+        <header className="mb-5 border-b border-zinc-300 pb-4">
+          <p className="font-brand text-base uppercase text-zinc-500">
+            Showroom
+          </p>
+          <h1 className="font-brand mt-1 text-4xl leading-none md:text-5xl">
+            AIVLIS
+          </h1>
+        </header>
 
-        <div className="flex flex-col gap-3 lg:h-full">
-          <div>
-            <p className="font-brand mb-2 text-lg uppercase text-zinc-500">
-              Showroom
-            </p>
-
-            <h1 className="font-brand text-5xl leading-none md:text-7xl">
-              AIVLIS
-            </h1>
+        <div className="grid gap-6 lg:grid-cols-[340px_minmax(0,1fr)] lg:gap-10">
+          <div className="overflow-hidden rounded-lg bg-zinc-200">
+            <Image
+              src="/showroom-door.png"
+              alt="Puerta del showroom AIVLIS"
+              width={962}
+              height={1357}
+              priority
+              sizes="(min-width: 1024px) 340px, 100vw"
+              className="h-[340px] w-full object-cover sm:h-[420px] lg:h-[480px]"
+            />
           </div>
 
-          <div className="rounded-2xl border border-zinc-200 bg-white p-4">
-            <div className="flex items-start gap-3">
-              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-black text-white">
-                <MapPin size={20} />
-              </span>
-
+          <div className="min-w-0">
+            <div className="flex items-start gap-3 border-b border-zinc-300 pb-5">
+              <MapPin size={21} className="mt-0.5 shrink-0" />
               <div>
-                <p className="font-brand text-lg uppercase text-zinc-500">
+                <p className="text-xs font-bold uppercase text-zinc-500">
                   Direccion
                 </p>
-                <h2 className="font-brand mt-1 text-3xl leading-none md:text-4xl">
+                <h2 className="mt-1 text-xl font-bold md:text-2xl">
                   {showroomAddress}
                 </h2>
-                <p className="mt-2 text-base font-semibold text-zinc-500">
+                <p className="mt-1 text-sm text-zinc-600">
                   Flores / zona Avellaneda comercial
                 </p>
               </div>
             </div>
+
+            <div className="divide-y divide-zinc-300">
+              {localDetails.map((detail) => {
+                const Icon = detail.icon;
+
+                return (
+                  <article
+                    key={detail.title}
+                    className="grid gap-2 py-4 sm:grid-cols-[180px_1fr] sm:gap-5"
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <Icon size={18} className="shrink-0 text-zinc-500" />
+                      <h2 className="text-base font-bold">{detail.title}</h2>
+                    </div>
+                    <p className="whitespace-pre-line text-sm leading-6 text-zinc-600">
+                      {detail.body}
+                    </p>
+                  </article>
+                );
+              })}
+            </div>
           </div>
+        </div>
 
-          <div className="grid flex-1 gap-3 sm:grid-cols-2">
-            {localDetails.map((detail) => {
-              const Icon = detail.icon;
+        <div className="mt-7 grid border-y border-zinc-300 sm:grid-cols-2">
+          <article className="py-5 sm:pr-7">
+            <div className="flex items-center gap-2.5">
+              <Package size={19} className="text-zinc-500" />
+              <h2 className="text-lg font-bold">Retiro de pedidos</h2>
+            </div>
+            <p className="mt-2 max-w-md text-sm leading-6 text-zinc-600">
+              Despues de enviar el pedido por WhatsApp, coordinamos dia y
+              horario de retiro.
+            </p>
+          </article>
 
-              return (
-                <article
-                  key={detail.title}
-                  className="rounded-2xl border border-zinc-200 bg-white p-4"
-                >
-                  <Icon
-                    size={23}
-                    className="text-zinc-500"
-                  />
-
-                  <h2 className="font-brand mt-3 text-3xl leading-none">
-                    {detail.title}
-                  </h2>
-
-                  <p className="mt-2 whitespace-pre-line text-base font-semibold leading-6 text-zinc-600">
-                    {detail.body}
-                  </p>
-                </article>
-              );
-            })}
-          </div>
-
-          <div className="grid gap-3 sm:grid-cols-2">
-            <article className="rounded-2xl border border-zinc-200 bg-white p-4">
-              <Package
-                size={23}
-                className="text-zinc-500"
-              />
-
-              <h2 className="font-brand mt-3 text-3xl leading-none">
-                Retiro de pedidos
-              </h2>
-
-              <p className="mt-2 text-base font-semibold leading-6 text-zinc-600">
-                Despues de enviar el pedido por WhatsApp, coordinamos dia y
-                horario de retiro.
-              </p>
-            </article>
-
-            <article className="rounded-2xl border border-zinc-200 bg-white p-4">
-              <h2 className="font-brand text-3xl leading-none">
-                Antes de venir
-              </h2>
-
-              <p className="mt-2 text-base font-semibold leading-6 text-zinc-600">
-                Si buscas un talle o color puntual, escribinos antes para
-                confirmar disponibilidad.
-              </p>
-
-              <Link
-                href="/tienda"
-                className="font-brand mt-4 inline-flex h-11 items-center justify-center rounded-xl bg-zinc-100 px-5 text-lg text-zinc-800 transition hover:bg-zinc-200"
-              >
-                Ver productos
-              </Link>
-            </article>
-          </div>
+          <article className="border-t border-zinc-300 py-5 sm:border-l sm:border-t-0 sm:pl-7">
+            <h2 className="text-lg font-bold">Antes de venir</h2>
+            <p className="mt-2 max-w-md text-sm leading-6 text-zinc-600">
+              Si buscas un talle o color puntual, escribinos antes para
+              confirmar disponibilidad.
+            </p>
+            <Link
+              href="/tienda"
+              className="mt-3 inline-flex h-9 items-center justify-center bg-black px-4 text-sm font-bold text-white transition hover:bg-zinc-800"
+            >
+              Ver productos
+            </Link>
+          </article>
         </div>
       </section>
 
-      <section className="mx-auto max-w-7xl px-6 pb-12 md:px-10">
-        <div className="grid overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm lg:grid-cols-[.9fr_1.35fr]">
-          <div className="border-b border-zinc-100 p-4 lg:border-b-0 lg:border-r">
-            <p className="font-brand text-lg uppercase text-zinc-500">
+      <section className="border-t border-zinc-300 bg-white">
+        <div className="mx-auto grid max-w-6xl md:grid-cols-[minmax(280px,0.8fr)_1.2fr]">
+          <div className="px-5 py-7 md:px-8 md:py-8">
+            <p className="text-xs font-bold uppercase text-zinc-500">
               Ubicacion
             </p>
-
-            <h2 className="font-brand mt-1 text-3xl leading-none md:text-4xl">
+            <h2 className="mt-1 text-2xl font-bold">
               Como llegar al showroom
             </h2>
-
-            <p className="mt-2 text-base font-semibold leading-6 text-zinc-600">
-              Estamos en {showroomAddress}, dentro de la zona comercial
-              de Av. Avellaneda.
+            <p className="mt-2 text-sm leading-6 text-zinc-600">
+              Estamos en {showroomAddress}, dentro de la zona comercial de Av.
+              Avellaneda.
             </p>
 
-            <div className="mt-4 grid gap-2 text-base font-semibold leading-6 text-zinc-700">
-              <p className="rounded-xl bg-zinc-100 px-4 py-3">
-                A 2 cuadras de estacion San Pedrito.
-              </p>
-              <p className="rounded-xl bg-zinc-100 px-4 py-3">
+            <div className="mt-5 divide-y divide-zinc-200 border-y border-zinc-200 text-sm text-zinc-700">
+              <p className="py-2.5">A 2 cuadras de estacion San Pedrito.</p>
+              <p className="py-2.5">
                 A 2 cuadras de Av. Nazca y Av. Avellaneda.
               </p>
-              <p className="rounded-xl bg-zinc-100 px-4 py-3">
-                A 1 cuadra de Av. Rivadavia.
-              </p>
+              <p className="py-2.5">A 1 cuadra de Av. Rivadavia.</p>
             </div>
           </div>
 
@@ -184,7 +160,7 @@ export default async function LocalPage() {
             allowFullScreen
             loading="lazy"
             referrerPolicy="no-referrer-when-downgrade"
-            className="h-[300px] w-full border-0 md:h-[380px]"
+            className="h-[300px] w-full border-0 md:h-full md:min-h-[340px]"
           />
         </div>
       </section>

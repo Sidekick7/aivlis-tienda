@@ -5,6 +5,13 @@ export type LocalSalePaymentMethod =
   | "transfer"
   | "mixed";
 
+export type LocalSaleAdjustmentType =
+  | "none"
+  | "discount-percent"
+  | "discount-amount"
+  | "surcharge-percent"
+  | "surcharge-amount";
+
 export type LocalSaleItemInput = {
   productId: number;
   productSlug: string;
@@ -14,6 +21,9 @@ export type LocalSaleItemInput = {
   size: string;
   quantity: number;
   unitPrice: number;
+  baseUnitPrice?: number;
+  adjustmentType?: LocalSaleAdjustmentType;
+  adjustmentValue?: number;
   unitCost?: number;
   subtotal: number;
   imageUrl?: string;
@@ -62,6 +72,9 @@ export type SupabaseLocalSaleItemRow = {
   size: string;
   quantity: number;
   unit_price: number | string;
+  base_unit_price?: number | string | null;
+  adjustment_type?: LocalSaleAdjustmentType | null;
+  adjustment_value?: number | string | null;
   unit_cost?: number | string | null;
   subtotal: number | string;
   image_url?: string | null;

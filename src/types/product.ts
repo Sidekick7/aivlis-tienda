@@ -19,6 +19,7 @@ export type Product = {
   name: string;
   price: number;
   curvePrice: number;
+  curveEnabled: boolean;
   retailPrice: number;
   saleActive: boolean;
   salePrice: number;
@@ -33,6 +34,7 @@ export type Product = {
   details: string[];
   featured: boolean;
   active: boolean;
+  archivedAt?: string | null;
   images: string[];
   stock?: number;
   variants: ProductVariant[];
@@ -46,11 +48,13 @@ export type SupabaseProductRow = Partial<
   details?: unknown;
   featured?: boolean | null;
   active?: boolean | null;
+  archived_at?: string | null;
   images?: unknown;
   sizes?: unknown;
   stock?: number | null;
   cost?: number | string | null;
   curve_price?: number | string | null;
+  curve_enabled?: boolean | null;
   retail_price?: number | string | null;
   sale_active?: boolean | null;
   sale_price?: number | string | null;
