@@ -9,6 +9,7 @@ import {
   CreditCard,
   Images,
   LogOut,
+  RefreshCw,
   Settings,
   ShoppingBag,
   TrendingUp,
@@ -17,107 +18,49 @@ import {
 import { getLocalSales } from "@/lib/localSales";
 import { getAdminOrders } from "@/lib/orders";
 import { formatPrice } from "@/lib/pricing";
+import {
+  buildCompletedSales,
+  isSaleWithinPeriod,
+  type SalesPeriod,
+} from "@/lib/salesAnalytics";
 import { supabase } from "@/lib/supabase";
 import type { LocalSale } from "@/types/localSale";
 import type { AdminOrder } from "@/types/order";
 import type { Session } from "@supabase/supabase-js";
 
-type StatsRange = "7" | "30" | "all";
-type StatsTab = "summary" | "products" | "payments" | "planned";
-
-type UnifiedCompletedSale = {
-  id: string;
-  source: "web" | "local";
-  total: number;
-  createdAt: string;
-  payment: string;
-  items: Array<{
-    productSku?: string | null;
-    productName: string;
-    quantity: number;
-    subtotal: number;
-  }>;
-};
+type StatsTab = "summary" | "products" | "payments";
 
 const navItems = [
-  {
-    title: "Punto de venta",
-    href: "/gestion/puntoventa",
-    icon: ShoppingBag,
-    featured: true,
-  },
-  {
-    title: "Ventas",
-    href: "/gestion/ventas",
-    icon: ClipboardList,
-  },
-  {
-    title: "Envios",
-    href: "/gestion/envios",
-    icon: Truck,
-  },
-  {
-    title: "Inventario",
-    href: "/gestion/inventario",
-    icon: Boxes,
-  },
-  {
-    title: "Caja",
-    href: "/gestion",
-    icon: CreditCard,
-  },
-  {
-    title: "Estadisticas",
-    href: "/gestion/estadisticas",
-    icon: BarChart3,
-    active: true,
-  },
-  {
-    title: "Catalogo",
-    href: "/gestion/catalogo",
-    icon: Images,
-  },
+  { title: "Punto de venta", href: "/gestion/puntoventa", icon: ShoppingBag, featured: true },
+  { title: "Ventas", href: "/gestion/ventas", icon: ClipboardList },
+  { title: "Envios", href: "/gestion/envios", icon: Truck },
+  { title: "Inventario", href: "/gestion/inventario", icon: Boxes },
+  { title: "Caja", href: "/gestion/caja", icon: CreditCard },
+  { title: "Estadisticas", href: "/gestion/estadisticas", icon: BarChart3, active: true },
+  { title: "Catalogo", href: "/gestion/catalogo", icon: Images },
 ];
 
-const rangeLabels: Record<StatsRange, string> = {
-  "7": "7 dias",
-  "30": "30 dias",
-  all: "Todo",
-};
-
-const statsTabs: Array<{
-  label: string;
-  value: StatsTab;
-}> = [
-  { label: "Resumen", value: "summary" },
-  { label: "Productos", value: "products" },
-  { label: "Cobros", value: "payments" },
-  { label: "Preparado", value: "planned" },
+const tabs: Array<{ value: StatsTab; label: string }> = [
+  { value: "summary", label: "Resumen" },
+  { value: "products", label: "Productos" },
+  { value: "payments", label: "Cobros" },
 ];
 
-const localPaymentLabels: Record<LocalSale["paymentMethod"], string> = {
-  cash: "Efectivo",
-  transfer: "Transferencia",
-  mixed: "Mixto",
-};
+const periods: Array<{ value: SalesPeriod; label: string }> = [
+  { value: "7", label: "7 dias" },
+  { value: "30", label: "30 dias" },
+  { value: "all", label: "Todo" },
+];
 
-function isWithinRange(value: string, range: StatsRange) {
-  if (range === "all") return true;
-
-  const date = new Date(value);
-  const start = new Date();
-  start.setHours(0, 0, 0, 0);
-  start.setDate(start.getDate() - (Number(range) - 1));
-
-  return date >= start;
+function getShortSku(value?: string | null) {
+  return value?.startsWith("AIV-") ? value.slice(4) : value || "-";
 }
 
-function formatDayKey(value: Date) {
-  return value.toISOString().slice(0, 10);
-}
-
-function getShortSku(sku?: string | null) {
-  return sku?.startsWith("AIV-") ? sku.slice(4) : sku || "-";
+function getDayKey(value: Date) {
+  const year = value.getFullYear();
+  const month = `${value.getMonth() + 1}`.padStart(2, "0");
+  const day = `${value.getDate()}`.padStart(2, "0");
+  return `${year}-${month}-${day}`;
 }
 
 export default function GestionEstadisticasPage() {
@@ -131,9 +74,9 @@ export default function GestionEstadisticasPage() {
   const [isSendingLogin, setIsSendingLogin] = useState(false);
   const [orders, setOrders] = useState<AdminOrder[]>([]);
   const [localSales, setLocalSales] = useState<LocalSale[]>([]);
-  const [isLoadingStats, setIsLoadingStats] = useState(false);
-  const [statsError, setStatsError] = useState("");
-  const [range, setRange] = useState<StatsRange>("30");
+  const [isLoading, setIsLoading] = useState(false);
+  const [loadError, setLoadError] = useState("");
+  const [period, setPeriod] = useState<SalesPeriod>("30");
   const [activeTab, setActiveTab] = useState<StatsTab>("summary");
 
   useEffect(() => {
@@ -141,301 +84,191 @@ export default function GestionEstadisticasPage() {
       setSession(data.session);
       setIsAuthLoading(false);
     });
-
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, nextSession) => {
       setSession(nextSession);
       setIsAuthLoading(false);
     });
-
     return () => subscription.unsubscribe();
   }, []);
 
   useEffect(() => {
     let isCurrent = true;
-
     const checkAccess = async () => {
       if (!session) {
         setIsAllowed(false);
         setIsCheckingAccess(false);
         return;
       }
-
       setIsAllowed(false);
       setIsCheckingAccess(true);
-
       const { data, error } = await supabase.rpc("is_admin");
-
       if (!isCurrent) return;
-
       if (error || data !== true) {
         await supabase.auth.signOut();
-
         if (!isCurrent) return;
-
         setSession(null);
         setAuthMessage("Este usuario no tiene permisos para Gestion.");
-        setIsAllowed(false);
         setIsCheckingAccess(false);
         return;
       }
-
       setIsAllowed(true);
       setIsCheckingAccess(false);
     };
-
     void checkAccess();
-
     return () => {
       isCurrent = false;
     };
   }, [session]);
 
-  const refreshStats = async () => {
-    setIsLoadingStats(true);
-    setStatsError("");
-
+  const refreshData = async () => {
+    setIsLoading(true);
+    setLoadError("");
     try {
       const [nextOrders, nextLocalSales] = await Promise.all([
         getAdminOrders(),
         getLocalSales(),
       ]);
-
       setOrders(nextOrders);
       setLocalSales(nextLocalSales);
     } catch (error) {
-      setStatsError(
+      setLoadError(
         error instanceof Error
           ? error.message
           : "No se pudieron cargar las estadisticas."
       );
     } finally {
-      setIsLoadingStats(false);
+      setIsLoading(false);
     }
   };
 
   useEffect(() => {
     if (!session || !isAllowed) return;
-
-    queueMicrotask(() => {
-      void refreshStats();
-    });
+    queueMicrotask(() => void refreshData());
   }, [session, isAllowed]);
 
   const handleLogin = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-
     setAuthMessage("");
     setIsSendingLogin(true);
-
     const { error } = await supabase.auth.signInWithPassword({
       email: authEmail.trim(),
       password: authPassword,
     });
-
     setIsSendingLogin(false);
-
     if (error) {
       setAuthMessage(`No se pudo iniciar sesion: ${error.message}`);
       return;
     }
-
     setAuthPassword("");
   };
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
     setSession(null);
-    setOrders([]);
-    setLocalSales([]);
   };
 
-  const completedSales = useMemo<UnifiedCompletedSale[]>(() => {
-    const webSales = orders
-      .filter((order) => order.status === "confirmed")
-      .map<UnifiedCompletedSale>((order) => ({
-        id: order.id,
-        source: "web",
-        total: order.total,
-        createdAt: order.createdAt,
-        payment: "Web",
-        items: order.items,
-      }));
-    const localCompletedSales = localSales
-      .filter((sale) => sale.status === "completed")
-      .map<UnifiedCompletedSale>((sale) => ({
-        id: sale.id,
-        source: "local",
-        total: sale.total,
-        createdAt: sale.createdAt,
-        payment: localPaymentLabels[sale.paymentMethod],
-        items: sale.items,
-      }));
-
-    return [...webSales, ...localCompletedSales].sort(
-      (firstSale, secondSale) =>
-        new Date(secondSale.createdAt).getTime() -
-        new Date(firstSale.createdAt).getTime()
-    );
-  }, [localSales, orders]);
-
-  const filteredSales = completedSales.filter((sale) =>
-    isWithinRange(sale.createdAt, range)
+  const completedSales = useMemo(
+    () => buildCompletedSales(orders, localSales),
+    [orders, localSales]
   );
-  const webSales = filteredSales.filter((sale) => sale.source === "web");
-  const localCompletedSales = filteredSales.filter(
-    (sale) => sale.source === "local"
+  const filteredSales = useMemo(
+    () =>
+      completedSales.filter((sale) =>
+        isSaleWithinPeriod(sale.createdAt, period)
+      ),
+    [completedSales, period]
   );
-  const totalRevenue = filteredSales.reduce(
-    (total, sale) => total + sale.total,
-    0
-  );
-  const totalItems = filteredSales.reduce(
-    (total, sale) =>
-      total +
-      sale.items.reduce((itemTotal, item) => itemTotal + item.quantity, 0),
-    0
-  );
-  const averageTicket =
-    filteredSales.length > 0 ? totalRevenue / filteredSales.length : 0;
-  const pendingOrders = orders.filter(
-    (order) => order.status === "pending_payment"
-  ).length;
+  const totalRevenue = filteredSales.reduce((sum, sale) => sum + sale.total, 0);
+  const totalCost = filteredSales.reduce((sum, sale) => sum + sale.cost, 0);
+  const totalProfit = filteredSales.reduce((sum, sale) => sum + sale.profit, 0);
+  const totalUnits = filteredSales.reduce((sum, sale) => sum + sale.units, 0);
+  const averageTicket = filteredSales.length
+    ? totalRevenue / filteredSales.length
+    : 0;
+  const grossMargin = totalRevenue > 0 ? (totalProfit / totalRevenue) * 100 : 0;
 
   const dailySales = Array.from({ length: 7 }, (_, index) => {
     const date = new Date();
     date.setHours(0, 0, 0, 0);
     date.setDate(date.getDate() - (6 - index));
-    const key = formatDayKey(date);
-    const daySales = completedSales.filter(
-      (sale) => formatDayKey(new Date(sale.createdAt)) === key
+    const key = getDayKey(date);
+    const sales = completedSales.filter(
+      (sale) => getDayKey(new Date(sale.createdAt)) === key
     );
-    const total = daySales.reduce((sum, sale) => sum + sale.total, 0);
-
     return {
       key,
-      label: date.toLocaleDateString("es-AR", {
-        day: "2-digit",
-        month: "2-digit",
-      }),
-      total,
-      count: daySales.length,
+      label: date.toLocaleDateString("es-AR", { weekday: "short" }).slice(0, 3),
+      total: sales.reduce((sum, sale) => sum + sale.total, 0),
     };
   });
-  const maxDailyTotal = Math.max(
-    1,
-    ...dailySales.map((day) => day.total)
-  );
+  const maxDailyRevenue = Math.max(1, ...dailySales.map((day) => day.total));
 
   const productRanking = Array.from(
     filteredSales
       .flatMap((sale) => sale.items)
       .reduce((products, item) => {
-        const key = `${item.productSku ?? ""}-${item.productName}`;
+        const key = `${item.productSku || ""}-${item.productName}`;
         const current = products.get(key) ?? {
           sku: item.productSku,
           name: item.productName,
-          quantity: 0,
+          units: 0,
           revenue: 0,
+          cost: 0,
         };
-
-        current.quantity += item.quantity;
+        current.units += item.quantity;
         current.revenue += item.subtotal;
+        current.cost += item.unitCost * item.quantity;
         products.set(key, current);
-
         return products;
-      }, new Map<string, { sku?: string | null; name: string; quantity: number; revenue: number }>())
+      }, new Map<string, { sku?: string | null; name: string; units: number; revenue: number; cost: number }>())
       .values()
-  )
-    .sort((firstProduct, secondProduct) => {
-      if (secondProduct.quantity !== firstProduct.quantity) {
-        return secondProduct.quantity - firstProduct.quantity;
-      }
-
-      return secondProduct.revenue - firstProduct.revenue;
-    })
-    .slice(0, 8);
+  ).sort(
+    (first, second) =>
+      second.units - first.units || second.revenue - first.revenue
+  );
 
   const paymentSummary = Array.from(
     filteredSales
       .reduce((payments, sale) => {
         const current = payments.get(sale.payment) ?? {
           label: sale.payment,
-          count: 0,
+          operations: 0,
           revenue: 0,
         };
-
-        current.count += 1;
+        current.operations += 1;
         current.revenue += sale.total;
         payments.set(sale.payment, current);
-
         return payments;
-      }, new Map<string, { label: string; count: number; revenue: number }>())
+      }, new Map<string, { label: string; operations: number; revenue: number }>())
       .values()
-  ).sort((firstPayment, secondPayment) => secondPayment.revenue - firstPayment.revenue);
+  ).sort((first, second) => second.revenue - first.revenue);
+
+  const channelSummary = (["web", "local"] as const).map((source) => {
+    const sales = filteredSales.filter((sale) => sale.source === source);
+    return {
+      source,
+      label: source === "web" ? "Web" : "Local",
+      operations: sales.length,
+      revenue: sales.reduce((sum, sale) => sum + sale.total, 0),
+    };
+  });
 
   if (isAuthLoading || isCheckingAccess) {
-    return (
-      <main className="flex min-h-screen items-center justify-center bg-[#090909] px-6 text-white">
-        <p className="text-sm font-semibold text-zinc-400">
-          Cargando estadisticas...
-        </p>
-      </main>
-    );
+    return <main className="flex min-h-screen items-center justify-center bg-[#090909] text-white"><p className="text-sm text-zinc-500">Cargando estadisticas...</p></main>;
   }
 
   if (!session || !isAllowed) {
     return (
       <main className="flex min-h-screen items-center justify-center bg-[#090909] px-6 text-white">
-        <form
-          onSubmit={handleLogin}
-          className="w-full max-w-md rounded-3xl border border-zinc-800 bg-zinc-950 p-8 shadow-2xl"
-        >
-          <p className="text-xs font-semibold uppercase tracking-[0.35em] text-zinc-500">
-            AIVLIS
-          </p>
-
-          <h1 className="mt-3 text-4xl font-bold">
-            Estadisticas
-          </h1>
-
-          <p className="mt-3 text-sm leading-6 text-zinc-400">
-            Entra con las mismas credenciales de Gestion para ver ventas,
-            rankings y reportes.
-          </p>
-
-          <input
-            type="email"
-            placeholder="tu@email.com"
-            value={authEmail}
-            onChange={(event) => setAuthEmail(event.target.value)}
-            required
-            className="mt-8 h-12 w-full rounded-xl bg-zinc-900 px-4 text-white outline-none ring-1 ring-zinc-800 transition focus:ring-white"
-          />
-
-          <input
-            type="password"
-            placeholder="Contrasena"
-            value={authPassword}
-            onChange={(event) => setAuthPassword(event.target.value)}
-            required
-            className="mt-4 h-12 w-full rounded-xl bg-zinc-900 px-4 text-white outline-none ring-1 ring-zinc-800 transition focus:ring-white"
-          />
-
-          <button
-            type="submit"
-            disabled={isSendingLogin}
-            className="mt-4 h-12 w-full rounded-xl bg-white font-semibold text-black transition hover:bg-zinc-200 disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            {isSendingLogin ? "Entrando..." : "Entrar a Gestion"}
-          </button>
-
-          {authMessage && (
-            <p className="mt-4 text-sm text-zinc-400">
-              {authMessage}
-            </p>
-          )}
+        <form onSubmit={handleLogin} className="w-full max-w-md border border-zinc-800 bg-zinc-950 p-8 shadow-2xl">
+          <p className="text-xs font-semibold uppercase tracking-[0.35em] text-zinc-500">AIVLIS</p>
+          <h1 className="mt-3 text-4xl font-bold">Estadisticas</h1>
+          <input type="email" placeholder="tu@email.com" value={authEmail} onChange={(event) => setAuthEmail(event.target.value)} required className="mt-8 h-12 w-full border border-zinc-700 bg-zinc-900 px-4 text-white outline-none focus:border-white" />
+          <input type="password" placeholder="Contrasena" value={authPassword} onChange={(event) => setAuthPassword(event.target.value)} required className="mt-4 h-12 w-full border border-zinc-700 bg-zinc-900 px-4 text-white outline-none focus:border-white" />
+          <button type="submit" disabled={isSendingLogin} className="mt-4 h-12 w-full cursor-pointer bg-white font-semibold text-black disabled:cursor-not-allowed disabled:opacity-60">{isSendingLogin ? "Entrando..." : "Entrar a Gestion"}</button>
+          {authMessage && <p className="mt-4 text-sm text-zinc-500">{authMessage}</p>}
         </form>
       </main>
     );
@@ -446,363 +279,82 @@ export default function GestionEstadisticasPage() {
       <div className="grid h-full min-h-0 lg:grid-cols-[190px_minmax(0,1fr)]">
         <aside className="border-b border-zinc-800 bg-zinc-950 px-2 py-3 lg:border-b-0 lg:border-r lg:overflow-y-auto">
           <div className="flex items-center justify-between gap-3 lg:block">
-            <Link
-              href="/"
-              className="block text-xl font-bold tracking-[0.35em] transition hover:opacity-70"
-            >
-              AIVLIS
-            </Link>
-
-            <button
-              type="button"
-              onClick={handleLogout}
-              className="inline-flex h-10 items-center gap-2 rounded-xl bg-zinc-900 px-3 text-sm font-semibold text-zinc-300 transition hover:bg-zinc-800 lg:hidden"
-            >
-              <LogOut size={16} />
-              Salir
-            </button>
+            <Link href="/" className="block text-xl font-bold tracking-[0.35em] text-white transition hover:opacity-70">AIVLIS</Link>
+            <button type="button" onClick={handleLogout} className="inline-flex h-10 cursor-pointer items-center gap-2 bg-zinc-900 px-3 text-sm font-semibold text-zinc-300 lg:hidden"><LogOut size={16} />Salir</button>
           </div>
-
           <nav className="mt-3 flex gap-2 overflow-x-auto pb-1 lg:grid lg:overflow-visible lg:pb-0">
             {navItems.map((item) => {
               const Icon = item.icon;
-
-              return (
-                <Link
-                  key={item.title}
-                  href={item.href}
-                  className={`flex h-11 shrink-0 items-center gap-3 rounded-xl px-3 text-left text-sm font-semibold transition lg:w-full ${
-                    item.active
-                      ? "bg-white text-black"
-                      : item.featured
-                        ? "bg-emerald-400 text-black hover:bg-emerald-300"
-                        : "text-zinc-400 hover:bg-zinc-900 hover:text-white"
-                  }`}
-                >
-                  <Icon size={18} />
-                  {item.title}
-                </Link>
-              );
+              return <Link key={item.title} href={item.href} className={`flex h-11 shrink-0 items-center gap-3 px-3 text-sm font-semibold transition lg:w-full ${item.active ? "bg-white text-black" : item.featured ? "bg-emerald-400 text-black hover:bg-emerald-300" : "text-zinc-400 hover:bg-zinc-900 hover:text-white"}`}><Icon size={18} />{item.title}</Link>;
             })}
           </nav>
-
-          <div className="mt-6 hidden grid-cols-1 gap-2 lg:grid">
-            <Link
-              href="/admin"
-              className="flex h-11 items-center gap-3 rounded-xl bg-zinc-900 px-3 text-sm font-semibold text-zinc-300 transition hover:bg-zinc-800"
-            >
-              <Settings size={18} />
-              Admin catalogo
-            </Link>
-
-            <button
-              type="button"
-              onClick={handleLogout}
-              className="flex h-11 items-center gap-3 rounded-xl bg-zinc-900 px-3 text-sm font-semibold text-zinc-300 transition hover:bg-zinc-800"
-            >
-              <LogOut size={18} />
-              Salir
-            </button>
+          <div className="mt-6 hidden gap-2 lg:grid">
+            <Link href="/admin" className="flex h-11 items-center gap-3 bg-zinc-900 px-3 text-sm font-semibold text-zinc-300 hover:bg-zinc-800"><Settings size={18} />Admin catalogo</Link>
+            <button type="button" onClick={handleLogout} className="flex h-11 cursor-pointer items-center gap-3 bg-zinc-900 px-3 text-sm font-semibold text-zinc-300 hover:bg-zinc-800"><LogOut size={18} />Salir</button>
           </div>
         </aside>
 
-        <section className="flex min-h-0 min-w-0 flex-col overflow-hidden px-3 py-3">
-          <header className="mb-3 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-zinc-800 bg-zinc-950 px-3 py-3">
+        <section className="flex min-h-0 min-w-0 flex-col overflow-hidden p-3">
+          <header className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-b border-zinc-800 bg-zinc-950 px-4 py-3">
             <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-zinc-500">
-                Gestion
-              </p>
-              <h1 className="text-2xl font-black text-white">
-                Estadisticas
-              </h1>
+              <h1 className="text-xl font-black">Estadisticas</h1>
+              <p className="text-xs text-zinc-500">Lectura de ventas confirmadas</p>
             </div>
-
-            <div className="flex flex-wrap items-center gap-2">
-              {(["7", "30", "all"] as StatsRange[]).map((nextRange) => (
-                <button
-                  key={nextRange}
-                  type="button"
-                  onClick={() => setRange(nextRange)}
-                  className={`h-9 rounded-xl px-3 text-xs font-bold transition ${
-                    range === nextRange
-                      ? "bg-white text-black"
-                      : "bg-zinc-900 text-zinc-400 hover:bg-zinc-800 hover:text-white"
-                  }`}
-                >
-                  {rangeLabels[nextRange]}
-                </button>
-              ))}
-
-              <button
-                type="button"
-                onClick={() => void refreshStats()}
-                disabled={isLoadingStats}
-                className="h-9 rounded-xl bg-zinc-900 px-3 text-xs font-bold text-zinc-300 transition hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                {isLoadingStats ? "Cargando..." : "Actualizar"}
-              </button>
+            <div className="flex items-center gap-2">
+              <div className="flex border border-zinc-700 bg-zinc-900 p-1">
+                {tabs.map((tab) => <button key={tab.value} type="button" onClick={() => setActiveTab(tab.value)} className={`h-8 cursor-pointer px-3 text-xs font-black transition ${activeTab === tab.value ? "bg-white text-black" : "text-zinc-400 hover:text-white"}`}>{tab.label}</button>)}
+              </div>
+              <select value={period} onChange={(event) => setPeriod(event.target.value as SalesPeriod)} className="h-10 cursor-pointer border border-zinc-700 bg-zinc-900 px-3 text-sm font-bold text-white outline-none focus:border-white">{periods.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}</select>
+              <button type="button" onClick={() => void refreshData()} disabled={isLoading} title="Actualizar" className="flex h-10 w-10 cursor-pointer items-center justify-center bg-white text-black hover:bg-zinc-200 disabled:cursor-not-allowed disabled:opacity-60"><RefreshCw size={16} className={isLoading ? "animate-spin" : ""} /></button>
             </div>
           </header>
 
-          {statsError && (
-            <div className="mb-3 rounded-2xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm font-semibold text-red-200">
-              {statsError}
-            </div>
-          )}
+          {loadError && <p className="fixed left-1/2 top-4 z-50 -translate-x-1/2 border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 shadow-lg">{loadError}</p>}
 
-          <div className="mb-3 flex shrink-0 gap-2 overflow-x-auto">
-            {statsTabs.map((tab) => (
-              <button
-                key={tab.value}
-                type="button"
-                onClick={() => setActiveTab(tab.value)}
-                className={`h-10 shrink-0 rounded-xl px-4 text-sm font-bold transition ${
-                  activeTab === tab.value
-                    ? "bg-white text-black"
-                    : "bg-zinc-950 text-zinc-400 ring-1 ring-zinc-800 hover:bg-zinc-900 hover:text-white"
-                }`}
-              >
-                {tab.label}
-              </button>
-            ))}
-          </div>
-
-          <section className="min-h-0 flex-1 overflow-hidden rounded-2xl border border-zinc-800 bg-zinc-950 p-3">
+          <section className="min-h-0 flex-1 overflow-hidden bg-[#080808]">
             {activeTab === "summary" && (
-              <div className="grid h-full min-h-0 gap-3 xl:grid-cols-[minmax(0,1.35fr)_minmax(320px,0.65fr)]">
-                <div className="flex min-h-0 flex-col gap-3">
-                  <section className="grid shrink-0 gap-3 md:grid-cols-2 xl:grid-cols-4">
-                    <article className="rounded-2xl border border-zinc-800 bg-zinc-900 p-4">
-                      <p className="text-xs font-semibold uppercase text-zinc-500">
-                        Facturacion
-                      </p>
-                      <p className="mt-2 text-2xl font-black text-white">
-                        {formatPrice(totalRevenue)}
-                      </p>
-                    </article>
-                    <article className="rounded-2xl border border-zinc-800 bg-zinc-900 p-4">
-                      <p className="text-xs font-semibold uppercase text-zinc-500">
-                        Ventas
-                      </p>
-                      <p className="mt-2 text-2xl font-black text-white">
-                        {filteredSales.length}
-                      </p>
-                    </article>
-                    <article className="rounded-2xl border border-zinc-800 bg-zinc-900 p-4">
-                      <p className="text-xs font-semibold uppercase text-zinc-500">
-                        Ticket promedio
-                      </p>
-                      <p className="mt-2 text-2xl font-black text-white">
-                        {formatPrice(averageTicket)}
-                      </p>
-                    </article>
-                    <article className="rounded-2xl border border-zinc-800 bg-zinc-900 p-4">
-                      <p className="text-xs font-semibold uppercase text-zinc-500">
-                        Prendas
-                      </p>
-                      <p className="mt-2 text-2xl font-black text-white">
-                        {totalItems}
-                      </p>
-                    </article>
-                  </section>
-
-                  <article className="min-h-0 flex-1 rounded-2xl border border-zinc-800 bg-zinc-900 p-4">
-                    <div className="flex items-center justify-between gap-3">
-                      <div>
-                        <p className="text-xs font-semibold uppercase text-zinc-500">
-                          Ultimos 7 dias
-                        </p>
-                        <h2 className="text-lg font-black text-white">
-                          Evolucion de ventas
-                        </h2>
-                      </div>
-                      <TrendingUp size={20} className="text-emerald-300" />
-                    </div>
-
-                    <div className="mt-5 grid h-[calc(100%-64px)] min-h-48 grid-cols-7 items-end gap-2">
-                      {dailySales.map((day) => (
-                        <div
-                          key={day.key}
-                          className="flex h-full flex-col justify-end"
-                        >
-                          <div className="flex min-h-0 flex-1 items-end">
-                            <div
-                              className="w-full rounded-t-xl bg-emerald-400/80"
-                              style={{
-                                height: `${Math.max(
-                                  6,
-                                  (day.total / maxDailyTotal) * 100
-                                )}%`,
-                              }}
-                              title={`${day.label}: ${formatPrice(day.total)}`}
-                            />
-                          </div>
-                          <p className="mt-2 text-center text-[11px] font-bold text-zinc-500">
-                            {day.label}
-                          </p>
-                          <p className="text-center text-[11px] text-zinc-600">
-                            {day.count}
-                          </p>
-                        </div>
-                      ))}
-                    </div>
-                  </article>
+              <div className="flex h-full min-h-0 flex-col">
+                <div className="grid shrink-0 grid-cols-2 border-b border-zinc-800 md:grid-cols-5">
+                  {[
+                    ["Facturacion", formatPrice(totalRevenue)],
+                    ["Resultado bruto", formatPrice(totalProfit)],
+                    ["Ventas", `${filteredSales.length}`],
+                    ["Ticket promedio", formatPrice(averageTicket)],
+                    ["Prendas", `${totalUnits}`],
+                  ].map(([label, value], index) => <div key={label} className="border-r border-zinc-800 px-4 py-4 last:border-r-0"><p className="text-[10px] font-bold uppercase text-zinc-500">{label}</p><p className={`mt-1 text-xl font-black ${index === 1 ? "text-emerald-300" : "text-white"}`}>{value}</p></div>)}
                 </div>
 
-                <div className="grid min-h-0 gap-3">
-                  <article className="rounded-2xl border border-yellow-500/20 bg-yellow-500/10 p-4">
-                    <p className="text-xs font-semibold uppercase text-yellow-200/70">
-                      Web pendientes
-                    </p>
-                    <p className="mt-2 text-2xl font-black text-yellow-100">
-                      {pendingOrders}
-                    </p>
-                  </article>
-
-                  <article className="rounded-2xl border border-zinc-800 bg-zinc-900 p-4">
-                    <p className="text-xs font-semibold uppercase text-zinc-500">
-                      Canales
-                    </p>
-                    <div className="mt-4 grid gap-2">
-                      <div className="rounded-2xl bg-zinc-950 p-3">
-                        <div className="flex items-center justify-between gap-3">
-                          <span className="font-bold text-white">Web</span>
-                          <span className="text-sm font-black text-white">
-                            {formatPrice(
-                              webSales.reduce((sum, sale) => sum + sale.total, 0)
-                            )}
-                          </span>
-                        </div>
-                        <p className="mt-1 text-xs font-semibold text-zinc-500">
-                          {webSales.length} ventas confirmadas
-                        </p>
-                      </div>
-                      <div className="rounded-2xl bg-zinc-950 p-3">
-                        <div className="flex items-center justify-between gap-3">
-                          <span className="font-bold text-white">Local</span>
-                          <span className="text-sm font-black text-white">
-                            {formatPrice(
-                              localCompletedSales.reduce(
-                                (sum, sale) => sum + sale.total,
-                                0
-                              )
-                            )}
-                          </span>
-                        </div>
-                        <p className="mt-1 text-xs font-semibold text-zinc-500">
-                          {localCompletedSales.length} ventas completadas
-                        </p>
-                      </div>
+                <div className="grid min-h-0 flex-1 xl:grid-cols-[minmax(0,1.45fr)_340px]">
+                  <section className="flex min-h-[300px] flex-col border-b border-zinc-800 p-5 xl:border-b-0 xl:border-r">
+                    <div className="flex items-center justify-between"><div><p className="text-[10px] font-bold uppercase text-zinc-500">Actividad reciente</p><h2 className="text-base font-black">Ventas de los ultimos 7 dias</h2></div><TrendingUp size={19} className="text-emerald-600" /></div>
+                    <div className="mt-4 grid min-h-[210px] flex-1 grid-cols-7 items-end gap-3">
+                      {dailySales.map((day) => <div key={day.key} className="flex h-full min-w-0 flex-col justify-end"><p className="mb-1 truncate text-center text-[10px] font-bold text-zinc-500" title={formatPrice(day.total)}>{day.total > 0 ? formatPrice(day.total) : "-"}</p><div className="flex min-h-0 flex-1 items-end border-b border-zinc-700 bg-[linear-gradient(to_top,#3f3f46_1px,transparent_1px)] bg-[size:100%_25%]"><div className="w-full bg-emerald-500" style={{ height: `${day.total > 0 ? Math.max(8, (day.total / maxDailyRevenue) * 100) : 2}%` }} /></div><p className="mt-2 text-center text-[11px] font-bold uppercase text-zinc-500">{day.label}</p></div>)}
                     </div>
-                  </article>
+                  </section>
+
+                  <aside className="divide-y divide-zinc-800 overflow-y-auto">
+                    <section className="p-5"><div className="flex items-end justify-between gap-3"><div><p className="text-[10px] font-bold uppercase text-zinc-500">Rentabilidad</p><h2 className="text-base font-black">Resumen del periodo</h2></div><strong className="text-xl text-emerald-300">{grossMargin.toFixed(1)}%</strong></div><dl className="mt-4 divide-y divide-zinc-800 border-y border-zinc-800 text-sm"><div className="flex justify-between py-3"><dt className="text-zinc-500">Facturacion</dt><dd className="font-bold">{formatPrice(totalRevenue)}</dd></div><div className="flex justify-between py-3"><dt className="text-zinc-500">Costo vendido</dt><dd className="font-bold">{formatPrice(totalCost)}</dd></div><div className="flex justify-between py-3"><dt className="text-zinc-500">Resultado bruto</dt><dd className="font-black text-emerald-300">{formatPrice(totalProfit)}</dd></div></dl></section>
+                    <section className="p-5"><p className="text-[10px] font-bold uppercase text-zinc-500">Origen de las ventas</p><div className="mt-3 divide-y divide-zinc-800 border-y border-zinc-800">{channelSummary.map((channel) => <div key={channel.source} className="grid grid-cols-[1fr_auto] items-center gap-3 py-3 text-sm"><span><strong>{channel.label}</strong><small className="ml-2 text-zinc-500">{channel.operations} ventas</small></span><strong>{formatPrice(channel.revenue)}</strong></div>)}</div></section>
+                  </aside>
                 </div>
               </div>
             )}
 
             {activeTab === "products" && (
-              <article className="flex h-full min-h-0 flex-col rounded-2xl border border-zinc-800 bg-zinc-900 p-4">
-                <p className="text-xs font-semibold uppercase text-zinc-500">
-                  Ranking
-                </p>
-                <h2 className="text-lg font-black text-white">
-                  Productos mas vendidos
-                </h2>
-
-                <div className="mt-4 min-h-0 flex-1 overflow-hidden rounded-2xl border border-zinc-800">
-                  <div className="grid grid-cols-[70px_minmax(0,1fr)_80px_120px] gap-3 bg-zinc-950 px-3 py-2 text-xs font-bold uppercase text-zinc-500">
-                    <span>SKU</span>
-                    <span>Producto</span>
-                    <span>Cant.</span>
-                    <span className="text-right">Importe</span>
-                  </div>
-                  <div className="h-full overflow-y-auto divide-y divide-zinc-800">
-                    {productRanking.length === 0 ? (
-                      <p className="px-3 py-5 text-sm text-zinc-500">
-                        Todavia no hay ventas confirmadas en este periodo.
-                      </p>
-                    ) : (
-                      productRanking.map((product) => (
-                        <div
-                          key={`${product.sku}-${product.name}`}
-                          className="grid grid-cols-[70px_minmax(0,1fr)_80px_120px] items-center gap-3 px-3 py-2 text-sm"
-                        >
-                          <span className="w-fit rounded-lg bg-zinc-800 px-2 py-1 text-xs font-bold text-zinc-300">
-                            {getShortSku(product.sku)}
-                          </span>
-                          <span className="truncate font-semibold text-white">
-                            {product.name}
-                          </span>
-                          <span className="font-black text-zinc-200">
-                            x{product.quantity}
-                          </span>
-                          <span className="text-right font-black text-white">
-                            {formatPrice(product.revenue)}
-                          </span>
-                        </div>
-                      ))
-                    )}
-                  </div>
-                </div>
-              </article>
+              <div className="flex h-full min-h-0 flex-col">
+                <div className="grid shrink-0 grid-cols-[90px_minmax(180px,1fr)_90px_130px_130px_130px] border-b border-zinc-700 bg-zinc-900 text-[11px] font-bold uppercase text-zinc-400">{["SKU", "Producto", "Prendas", "Venta", "Costo", "Resultado"].map((label) => <span key={label} className="border-r border-zinc-800 px-3 py-3 last:border-r-0">{label}</span>)}</div>
+                <div className="min-h-0 flex-1 overflow-y-auto [scrollbar-gutter:stable]">{productRanking.length === 0 ? <p className="p-8 text-center text-sm text-zinc-500">Sin ventas para este periodo.</p> : productRanking.map((product, index) => <div key={`${product.sku}-${product.name}`} className="grid grid-cols-[90px_minmax(180px,1fr)_90px_130px_130px_130px] border-b border-zinc-800 text-sm hover:bg-zinc-900/50"><span className="border-r border-zinc-800 px-3 py-3 font-bold text-zinc-400">{getShortSku(product.sku)}</span><span className="truncate border-r border-zinc-800 px-3 py-3 font-bold"><span className="mr-2 text-xs text-zinc-500">{index + 1}</span>{product.name}</span><span className="border-r border-zinc-800 px-3 py-3 font-black">{product.units}</span><span className="border-r border-zinc-800 px-3 py-3 font-bold">{formatPrice(product.revenue)}</span><span className="border-r border-zinc-800 px-3 py-3 text-zinc-400">{formatPrice(product.cost)}</span><span className="px-3 py-3 font-black text-emerald-300">{formatPrice(product.revenue - product.cost)}</span></div>)}</div>
+              </div>
             )}
 
             {activeTab === "payments" && (
-              <article className="flex h-full min-h-0 flex-col rounded-2xl border border-zinc-800 bg-zinc-900 p-4">
-                <p className="text-xs font-semibold uppercase text-zinc-500">
-                  Cobros
-                </p>
-                <h2 className="text-lg font-black text-white">
-                  Metodos de pago
-                </h2>
-                <div className="mt-4 min-h-0 flex-1 overflow-y-auto">
-                  <div className="grid gap-2 lg:grid-cols-2 xl:grid-cols-3">
-                    {paymentSummary.length === 0 ? (
-                      <p className="rounded-2xl bg-zinc-950 p-3 text-sm text-zinc-500">
-                        Sin cobros para mostrar.
-                      </p>
-                    ) : (
-                      paymentSummary.map((payment) => (
-                        <div
-                          key={payment.label}
-                          className="rounded-2xl bg-zinc-950 p-4"
-                        >
-                          <div className="flex items-center justify-between gap-3">
-                            <span className="font-bold text-white">
-                              {payment.label}
-                            </span>
-                            <span className="font-black text-white">
-                              {formatPrice(payment.revenue)}
-                            </span>
-                          </div>
-                          <p className="mt-1 text-xs font-semibold text-zinc-500">
-                            {payment.count} operaciones
-                          </p>
-                        </div>
-                      ))
-                    )}
-                  </div>
-                </div>
-              </article>
-            )}
-
-            {activeTab === "planned" && (
-              <section className="grid h-full min-h-0 gap-3 md:grid-cols-3">
-                {[
-                  ["Stock", "Faltantes, rotacion y alertas por talle/color."],
-                  ["Clientes", "Frecuencia de compra y mejores clientes."],
-                  ["Envios", "Pedidos por preparar, despachados y pendientes."],
-                ].map(([title, detail]) => (
-                  <article
-                    key={title}
-                    className="rounded-2xl border border-dashed border-zinc-800 bg-zinc-900 p-4"
-                  >
-                    <p className="font-black text-white">{title}</p>
-                    <p className="mt-2 text-sm leading-6 text-zinc-500">
-                      {detail}
-                    </p>
-                  </article>
-                ))}
-              </section>
+              <div className="flex h-full min-h-0 flex-col">
+                <div className="grid grid-cols-[minmax(180px,1fr)_140px_170px_minmax(180px,1fr)] border-b border-zinc-700 bg-zinc-900 text-[11px] font-bold uppercase text-zinc-400">{["Medio de pago", "Operaciones", "Importe", "Participacion"].map((label) => <span key={label} className="border-r border-zinc-800 px-3 py-3 last:border-r-0">{label}</span>)}</div>
+                <div className="min-h-0 flex-1 overflow-y-auto">{paymentSummary.length === 0 ? <p className="p-8 text-center text-sm text-zinc-500">Sin cobros para este periodo.</p> : paymentSummary.map((payment) => {
+                  const share = totalRevenue > 0 ? (payment.revenue / totalRevenue) * 100 : 0;
+                  return <div key={payment.label} className="grid grid-cols-[minmax(180px,1fr)_140px_170px_minmax(180px,1fr)] items-center border-b border-zinc-800 text-sm hover:bg-zinc-900/50"><strong className="border-r border-zinc-800 px-3 py-4">{payment.label}</strong><span className="border-r border-zinc-800 px-3 py-4">{payment.operations}</span><strong className="border-r border-zinc-800 px-3 py-4">{formatPrice(payment.revenue)}</strong><div className="px-3 py-4"><div className="h-2 overflow-hidden bg-zinc-800"><div className="h-full bg-emerald-500" style={{ width: `${share}%` }} /></div><p className="mt-1 text-xs font-bold text-zinc-500">{share.toFixed(1)}%</p></div></div>;
+                })}</div>
+              </div>
             )}
           </section>
         </section>

@@ -4,6 +4,7 @@ create table if not exists public.orders (
   id uuid primary key default gen_random_uuid(),
   order_number text not null unique,
   status text not null default 'pending_payment',
+  customer_user_id uuid references auth.users(id) on delete set null,
   customer_name text not null,
   customer_dni text not null,
   customer_whatsapp text not null,
@@ -44,8 +45,15 @@ create table if not exists public.order_items (
   created_at timestamptz not null default now()
 );
 
+alter table public.orders
+  add column if not exists customer_user_id uuid
+  references auth.users(id) on delete set null;
+
 create index if not exists order_items_order_id_idx
   on public.order_items(order_id);
+
+create index if not exists orders_customer_user_id_idx
+  on public.orders(customer_user_id, created_at desc);
 
 create index if not exists order_items_line_group_id_idx
   on public.order_items(line_group_id);

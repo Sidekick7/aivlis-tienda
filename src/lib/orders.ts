@@ -1,4 +1,5 @@
 import { supabase } from "@/lib/supabase";
+import { assertSaleHasNoExchanges } from "@/lib/saleExchanges";
 import {
   getCartItemSubtotal,
   getCartItemUnitPrice,
@@ -472,6 +473,8 @@ export async function updateOrderStatus(
 ) {
   if (order.status === status) return;
 
+  await assertSaleHasNoExchanges("web", order.id);
+
   const wasReserved = order.status !== "cancelled";
   const shouldBeReserved = status !== "cancelled";
 
@@ -544,6 +547,8 @@ export async function updateOrderFulfillment(
 }
 
 export async function deleteOrder(order: AdminOrder) {
+  await assertSaleHasNoExchanges("web", order.id);
+
   if (order.status !== "cancelled") {
     await adjustStockForOrder(order, 1);
   }

@@ -106,6 +106,7 @@ export type SupabaseOrderRow = {
   id: string;
   order_number: string;
   status: OrderStatus;
+  customer_user_id?: string | null;
   customer_name: string;
   customer_dni: string;
   customer_whatsapp: string;

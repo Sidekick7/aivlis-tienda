@@ -91,10 +91,10 @@ const modules = [
   },
   {
     title: "Caja",
-    description: "Efectivo, transferencia, Mercado Pago y cierre diario.",
-    status: "Preparado",
+    description: "Ingresos, medios de cobro, costos y resultado bruto.",
+    status: "Activo",
     icon: CreditCard,
-    section: "cash" as const,
+    href: "/gestion/caja",
   },
   {
     title: "Estadisticas",
@@ -131,11 +131,11 @@ const workQueues = [
   },
   {
     title: "Caja",
-    detail: "Cierre diario y metodos de cobro.",
+    detail: "Ingresos confirmados y metodos de cobro.",
     metric: "-",
     label: "hoy",
     icon: CreditCard,
-    section: "cash" as const,
+    href: "/gestion/caja",
   },
 ];
 
@@ -166,8 +166,7 @@ export default function GestionPage() {
   const [authPassword, setAuthPassword] = useState("");
   const [authMessage, setAuthMessage] = useState("");
   const [isSendingLogin, setIsSendingLogin] = useState(false);
-  const [activeSection, setActiveSection] =
-    useState<GestionSection>("shipping");
+  const [activeSection] = useState<GestionSection>("shipping");
   const [activeSalesTab, setActiveSalesTab] =
     useState<SalesTab>("pending");
   const [orders, setOrders] = useState<AdminOrder[]>([]);
@@ -474,8 +473,6 @@ export default function GestionPage() {
           <nav className="mt-3 flex gap-2 overflow-x-auto pb-1 lg:grid lg:overflow-visible lg:pb-0">
             {modules.map((module) => {
               const Icon = module.icon;
-              const isActive =
-                "section" in module && activeSection === module.section;
 
               if (module.featured) {
                 return (
@@ -516,25 +513,7 @@ export default function GestionPage() {
                 );
               }
 
-              return (
-                <button
-                  key={module.title}
-                  type="button"
-                  onClick={() => {
-                    if ("section" in module && module.section) {
-                      setActiveSection(module.section);
-                    }
-                  }}
-                  className={`flex h-11 shrink-0 items-center gap-3 rounded-xl px-3 text-left text-sm font-semibold transition lg:w-full ${
-                    isActive
-                      ? "bg-white text-black"
-                      : "bg-transparent text-zinc-400 hover:bg-zinc-900 hover:text-white"
-                  }`}
-                >
-                  <Icon size={18} />
-                  {module.title}
-                </button>
-              );
+              return null;
             })}
           </nav>
 
@@ -719,16 +698,7 @@ export default function GestionPage() {
                       );
                     }
 
-                    return (
-                      <button
-                        key={queue.title}
-                        type="button"
-                        onClick={() => setActiveSection(queue.section)}
-                        className="grid w-full gap-3 px-4 py-4 text-left transition hover:bg-zinc-900/80 md:grid-cols-[44px_minmax(0,1fr)_120px] md:items-center"
-                      >
-                        {content}
-                      </button>
-                    );
+                    return null;
                   })}
                 </div>
               </div>
@@ -805,20 +775,19 @@ export default function GestionPage() {
                       );
                     }
 
-                    return (
-                      <button
-                        key={module.title}
-                        type="button"
-                        onClick={() => {
-                          if ("section" in module && module.section) {
-                            setActiveSection(module.section);
-                          }
-                        }}
-                        className={cardClassName}
-                      >
-                        {content}
-                      </button>
-                    );
+                    if ("href" in module && typeof module.href === "string") {
+                      return (
+                        <Link
+                          key={module.title}
+                          href={module.href}
+                          className={cardClassName}
+                        >
+                          {content}
+                        </Link>
+                      );
+                    }
+
+                    return null;
                   })}
                 </div>
               </div>

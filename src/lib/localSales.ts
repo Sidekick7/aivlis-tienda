@@ -1,4 +1,5 @@
 import { supabase } from "@/lib/supabase";
+import { assertSaleHasNoExchanges } from "@/lib/saleExchanges";
 import { getProductsByIds } from "@/lib/products";
 import { findVariantSize } from "@/lib/stock";
 import type { Product } from "@/types/product";
@@ -303,6 +304,8 @@ export async function updateLocalSaleStatus(
 ) {
   if (sale.status === nextStatus) return;
 
+  await assertSaleHasNoExchanges("local", sale.id);
+
   const wasReserved = isReservedLocalSaleStatus(sale.status);
   const shouldBeReserved = isReservedLocalSaleStatus(nextStatus);
 
@@ -325,6 +328,8 @@ export async function updateLocalSaleStatus(
 
 export async function deleteLocalSale(sale: LocalSale | string) {
   const saleId = typeof sale === "string" ? sale : sale.id;
+
+  await assertSaleHasNoExchanges("local", saleId);
 
   const { error } = await supabase
     .from("local_sales")

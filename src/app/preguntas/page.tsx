@@ -41,7 +41,7 @@ function getQuestions(showroomAddress: string) {
     },
     {
       title: "Cuando se reserva stock?",
-      body: "Cuando se crea el pedido. Una vez que nos comunicamos, hay 24 hs para abonarlo. De lo contrario, se cancela y se pierde la reserva de las prendas.",
+      body: "Cuando se crea el pedido. Una vez que nos comunicamos, hay 48 hs para abonarlo. De lo contrario, se cancela y se pierde la reserva de las prendas.",
     },
   ];
 }

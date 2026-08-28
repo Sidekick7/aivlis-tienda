@@ -25,8 +25,13 @@ import {
   createOrderNumber,
   createOrderTicket,
 } from "@/lib/orders";
+import {
+  getCustomerProfile,
+  saveCustomerProfile,
+} from "@/lib/customerProfiles";
 import { getProductsByIds } from "@/lib/products";
 import { formatOrderNumber } from "@/lib/orderNumber";
+import { supabase } from "@/lib/supabase";
 import {
   fulfillmentOptions,
   fulfillmentStorageKey,
@@ -85,6 +90,9 @@ export default function CheckoutPage() {
     useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [rememberCustomer, setRememberCustomer] = useState(false);
+  const [accountUserId, setAccountUserId] = useState("");
+  const [isAccountLoading, setIsAccountLoading] = useState(true);
+  const [accountMessage, setAccountMessage] = useState("");
   const [fulfillmentOption, setFulfillmentOption] =
     useState<FulfillmentOption | "">("");
   const [paymentMethod, setPaymentMethod] =
@@ -127,6 +135,79 @@ export default function CheckoutPage() {
       }
     });
 
+  }, []);
+
+  useEffect(() => {
+    let isCurrent = true;
+
+    const loadAccountProfile = async (
+      user: { id: string; email?: string } | null
+    ) => {
+      if (!isCurrent) return;
+
+      if (!user) {
+        setAccountUserId("");
+        setIsAccountLoading(false);
+        return;
+      }
+
+      setAccountUserId(user.id);
+      setIsAccountLoading(true);
+
+      try {
+        const profile = await getCustomerProfile(user.id);
+
+        if (!isCurrent || !profile) return;
+
+        setName(profile.name);
+        setDni(profile.dni);
+        setWhatsapp(profile.whatsapp);
+        setAddress(profile.address);
+        setCity(profile.city);
+        setProvince(profile.province);
+        setZip(profile.zip);
+        setEmail(profile.email || user.email || "");
+      } catch {
+        if (isCurrent) {
+          setAccountMessage(
+            "No se pudieron cargar los datos de tu cuenta."
+          );
+        }
+      } finally {
+        if (isCurrent) setIsAccountLoading(false);
+      }
+    };
+
+    supabase.auth.getSession().then(({ data }) => {
+      void loadAccountProfile(
+        data.session?.user
+          ? {
+              id: data.session.user.id,
+              email: data.session.user.email,
+            }
+          : null
+      );
+    });
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+      window.setTimeout(() => {
+        void loadAccountProfile(
+          nextSession?.user
+            ? {
+                id: nextSession.user.id,
+                email: nextSession.user.email,
+              }
+            : null
+        );
+      }, 0);
+    });
+
+    return () => {
+      isCurrent = false;
+      subscription.unsubscribe();
+    };
   }, []);
 
   const total = getCartTotal(cart);
@@ -223,18 +304,31 @@ export default function CheckoutPage() {
     };
   }, [cart, isCartReady]);
 
-  const syncSavedCustomer = () => {
+  const syncSavedCustomer = async () => {
+    const customerToSave: SavedCheckoutCustomer = {
+      name,
+      dni,
+      whatsapp,
+      address,
+      city,
+      province,
+      zip,
+      email,
+    };
+
+    if (accountUserId) {
+      try {
+        await saveCustomerProfile(accountUserId, customerToSave);
+        setAccountMessage("Tus datos se actualizaron en tu cuenta.");
+      } catch {
+        setAccountMessage(
+          "El pedido puede continuar, pero no se actualizaron los datos de tu cuenta."
+        );
+      }
+      return;
+    }
+
     if (rememberCustomer) {
-      const customerToSave: SavedCheckoutCustomer = {
-        name,
-        dni,
-        whatsapp,
-        address,
-        city,
-        province,
-        zip,
-        email,
-      };
 
       localStorage.setItem(
         checkoutCustomerStorageKey,
@@ -264,7 +358,7 @@ export default function CheckoutPage() {
     setOrderError("");
     isSubmittingRef.current = true;
     setIsSubmitting(true);
-    syncSavedCustomer();
+    await syncSavedCustomer();
 
     let currentProducts: Product[] = [];
 
@@ -586,17 +680,53 @@ export default function CheckoutPage() {
             />
           </div>
 
-          <label className="flex items-center gap-3 rounded-2xl bg-zinc-100 p-3 text-sm text-zinc-700">
-            <input
-              type="checkbox"
-              checked={rememberCustomer}
-              onChange={(e) =>
-                setRememberCustomer(e.target.checked)
-              }
-              className="h-4 w-4 accent-black"
-            />
-            Recordar mis datos para próximos pedidos
-          </label>
+          {!isAccountLoading && accountUserId ? (
+            <div className="flex items-center justify-between gap-4 border-y border-zinc-300 py-3 text-sm">
+              <div>
+                <p className="font-bold text-black">
+                  Datos vinculados a tu cuenta
+                </p>
+                <p className="mt-0.5 text-zinc-600">
+                  Los cambios se guardan al crear el pedido.
+                </p>
+              </div>
+              <Link
+                href="/cuenta"
+                className="shrink-0 font-bold underline underline-offset-4"
+              >
+                Mi cuenta
+              </Link>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              <label className="flex items-center gap-3 rounded-2xl bg-zinc-100 p-3 text-sm text-zinc-700">
+                <input
+                  type="checkbox"
+                  checked={rememberCustomer}
+                  onChange={(e) =>
+                    setRememberCustomer(e.target.checked)
+                  }
+                  className="h-4 w-4 accent-black"
+                />
+                Recordar mis datos en este dispositivo
+              </label>
+              <p className="text-sm text-zinc-600">
+                <Link
+                  href="/cuenta"
+                  className="font-bold text-black underline underline-offset-4"
+                >
+                  Iniciá sesión o creá una cuenta
+                </Link>{" "}
+                para recuperar tus datos en cualquier dispositivo.
+              </p>
+            </div>
+          )}
+
+          {accountMessage && (
+            <p className="text-sm font-semibold text-zinc-600">
+              {accountMessage}
+            </p>
+          )}
 
         </div>
 

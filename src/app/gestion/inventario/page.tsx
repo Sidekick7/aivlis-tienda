@@ -137,7 +137,7 @@ const navItems = [
   },
   {
     title: "Caja",
-    href: "/gestion",
+    href: "/gestion/caja",
     icon: CreditCard,
   },
   {

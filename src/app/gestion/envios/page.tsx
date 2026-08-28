@@ -6,20 +6,20 @@ import Link from "next/link";
 import {
   BarChart3,
   Boxes,
-  Clipboard,
   ClipboardList,
   Copy,
   CreditCard,
   Images,
   LogOut,
-  MapPin,
   PackageCheck,
-  Phone,
   Printer,
+  RefreshCw,
   Save,
   Search,
   ShoppingBag,
   Truck,
+  UserRound,
+  X,
 } from "lucide-react";
 import { printWebOrderReceipt } from "@/lib/localSaleReceipt";
 import {
@@ -32,18 +32,14 @@ import { supabase } from "@/lib/supabase";
 import type {
   AdminOrder,
   OrderFulfillmentStatus,
-  OrderStatus,
 } from "@/types/order";
 import type { Session } from "@supabase/supabase-js";
 
 type ShippingFilter =
+  | "active"
   | "to_prepare"
   | "prepared"
-  | "shipped"
-  | "delivered"
-  | "pickup"
-  | "pending"
-  | "all";
+  | "completed";
 
 type FulfillmentDraft = {
   fulfillmentStatus: OrderFulfillmentStatus;
@@ -77,7 +73,7 @@ const navItems = [
   },
   {
     title: "Caja",
-    href: "/gestion",
+    href: "/gestion/caja",
     icon: CreditCard,
   },
   {
@@ -96,37 +92,36 @@ const shippingFilters: Array<{
   label: string;
   value: ShippingFilter;
 }> = [
-  { label: "Por preparar", value: "to_prepare" },
-  { label: "Preparados", value: "prepared" },
-  { label: "Despachados", value: "shipped" },
-  { label: "Entregados", value: "delivered" },
-  { label: "Retiros", value: "pickup" },
-  { label: "Pendientes", value: "pending" },
-  { label: "Todos", value: "all" },
+  { label: "En curso", value: "active" },
+  { label: "Por armar", value: "to_prepare" },
+  { label: "Preparado", value: "prepared" },
+  { label: "Finalizados", value: "completed" },
 ];
 
-const fulfillmentStatuses: Array<{
+const shippingFulfillmentStatuses: Array<{
   label: string;
   value: OrderFulfillmentStatus;
 }> = [
-  { label: "Por preparar", value: "to_prepare" },
+  { label: "Por armar", value: "to_prepare" },
   { label: "Preparado", value: "prepared" },
   { label: "Despachado", value: "shipped" },
-  { label: "Entregado", value: "delivered" },
 ];
 
-const fulfillmentStatusLabels: Record<OrderFulfillmentStatus, string> = {
-  to_prepare: "Por preparar",
-  prepared: "Preparado",
-  shipped: "Despachado",
-  delivered: "Entregado",
-};
+const pickupFulfillmentStatuses: Array<{
+  label: string;
+  value: OrderFulfillmentStatus;
+}> = [
+  { label: "Por armar", value: "to_prepare" },
+  { label: "Preparado", value: "prepared" },
+  { label: "Retirado", value: "delivered" },
+];
 
-const orderStatusLabels: Record<OrderStatus, string> = {
-  pending_payment: "Pendiente",
-  confirmed: "Confirmado",
-  cancelled: "Anulado",
-};
+const shippingTableColumns =
+  "grid-cols-[112px_minmax(140px,1fr)_82px_minmax(170px,1.3fr)_68px_112px]";
+const shippingHeaderCellClass =
+  "flex min-h-10 items-center border-r border-zinc-800 px-2 last:border-r-0";
+const shippingRowCellClass =
+  "flex min-h-[58px] items-center border-r border-zinc-800 px-2 last:border-r-0";
 
 function getShortOrderNumber(orderNumber: string) {
   return formatOrderNumber(orderNumber);
@@ -137,15 +132,22 @@ function getOrderItemsCount(order: AdminOrder) {
 }
 
 function getOrderDate(value: string) {
-  return new Date(value).toLocaleString("es-AR", {
+  return new Date(value).toLocaleDateString("es-AR", {
     day: "2-digit",
     month: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
+    year: "numeric",
   });
 }
 
-function toDateTimeLocalValue(value?: string | null) {
+function getOrderTime(value: string) {
+  return `${new Date(value).toLocaleTimeString("es-AR", {
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  })} hs`;
+}
+
+function toDateLocalValue(value?: string | null) {
   if (!value) return "";
 
   const date = new Date(value);
@@ -154,7 +156,7 @@ function toDateTimeLocalValue(value?: string | null) {
 
   const offsetMs = date.getTimezoneOffset() * 60_000;
 
-  return new Date(date.getTime() - offsetMs).toISOString().slice(0, 16);
+  return new Date(date.getTime() - offsetMs).toISOString().slice(0, 10);
 }
 
 function getWebDeliveryType(order: AdminOrder) {
@@ -181,6 +183,16 @@ function isShippingOrder(order: AdminOrder) {
   return getWebDeliveryType(order) === "Envio";
 }
 
+function getFulfillmentStatusLabel(
+  status: OrderFulfillmentStatus,
+  isPickup: boolean
+) {
+  if (status === "to_prepare") return "Por armar";
+  if (status === "prepared") return "Preparado";
+  if (status === "delivered") return isPickup ? "Retirado" : "Despachado";
+  return isPickup ? "Preparado" : "Despachado";
+}
+
 function getOrderAddress(order: AdminOrder) {
   if (!isShippingOrder(order)) {
     return "Yerbal 3160, Flores, CABA";
@@ -194,18 +206,6 @@ function getOrderAddress(order: AdminOrder) {
   ]
     .filter(Boolean)
     .join(", ");
-}
-
-function getOrderStatusClassName(order: AdminOrder) {
-  if (order.status === "cancelled") {
-    return "border-red-500/30 bg-red-500/15 text-red-200";
-  }
-
-  if (order.status === "pending_payment") {
-    return "border-yellow-500/30 bg-yellow-500/15 text-yellow-200";
-  }
-
-  return "border-emerald-500/30 bg-emerald-500/15 text-emerald-200";
 }
 
 function getFulfillmentStatusClassName(status: OrderFulfillmentStatus) {
@@ -255,11 +255,18 @@ function getCustomerText(order: AdminOrder) {
 }
 
 function getOrderFulfillmentDraft(order: AdminOrder): FulfillmentDraft {
+  const isPickup = !isShippingOrder(order);
+
   return {
-    fulfillmentStatus: order.fulfillmentStatus,
-    shippingCarrier: order.shippingCarrier || "",
-    trackingNumber: order.trackingNumber || "",
-    shippedAt: toDateTimeLocalValue(order.shippedAt),
+    fulfillmentStatus:
+      isPickup && order.fulfillmentStatus === "shipped"
+        ? "prepared"
+        : !isPickup && order.fulfillmentStatus === "delivered"
+        ? "shipped"
+        : order.fulfillmentStatus,
+    shippingCarrier: isPickup ? "" : order.shippingCarrier || "",
+    trackingNumber: isPickup ? "" : order.trackingNumber || "",
+    shippedAt: isPickup ? "" : toDateLocalValue(order.shippedAt),
   };
 }
 
@@ -276,18 +283,38 @@ export default function GestionEnviosPage() {
   const [isOrdersLoading, setIsOrdersLoading] = useState(false);
   const [ordersError, setOrdersError] = useState("");
   const [activeFilter, setActiveFilter] =
-    useState<ShippingFilter>("to_prepare");
+    useState<ShippingFilter>("active");
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
-  const [copiedAction, setCopiedAction] = useState<"customer" | "message" | null>(
-    null
-  );
+  const [isCustomerDetailsOpen, setIsCustomerDetailsOpen] = useState(false);
+  const [isCustomerDataCopied, setIsCustomerDataCopied] = useState(false);
   const [fulfillmentDraftOrderId, setFulfillmentDraftOrderId] =
     useState<string | null>(null);
   const [fulfillmentDraft, setFulfillmentDraft] =
     useState<FulfillmentDraft | null>(null);
   const [isSavingFulfillment, setIsSavingFulfillment] = useState(false);
   const [fulfillmentNotice, setFulfillmentNotice] = useState("");
+
+  useEffect(() => {
+    if (!fulfillmentNotice) return;
+
+    const timeoutId = window.setTimeout(() => {
+      setFulfillmentNotice("");
+    }, 3000);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [fulfillmentNotice]);
+
+  useEffect(() => {
+    if (!isCustomerDetailsOpen) return;
+
+    const closeWithEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setIsCustomerDetailsOpen(false);
+    };
+
+    window.addEventListener("keydown", closeWithEscape);
+    return () => window.removeEventListener("keydown", closeWithEscape);
+  }, [isCustomerDetailsOpen]);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
@@ -402,35 +429,54 @@ export default function GestionEnviosPage() {
     (order) => order.status === "confirmed"
   );
   const filterCounts: Record<ShippingFilter, number> = {
+    active: confirmedOrders.filter(
+      (order) =>
+        order.fulfillmentStatus === "to_prepare" ||
+        order.fulfillmentStatus === "prepared" ||
+        (!isShippingOrder(order) && order.fulfillmentStatus === "shipped")
+    ).length,
     to_prepare: confirmedOrders.filter(
       (order) => order.fulfillmentStatus === "to_prepare"
     ).length,
     prepared: confirmedOrders.filter(
-      (order) => order.fulfillmentStatus === "prepared"
+      (order) =>
+        order.fulfillmentStatus === "prepared" ||
+        (!isShippingOrder(order) &&
+          order.fulfillmentStatus === "shipped")
     ).length,
-    shipped: confirmedOrders.filter(
-      (order) => order.fulfillmentStatus === "shipped"
+    completed: confirmedOrders.filter(
+      (order) =>
+        (isShippingOrder(order) &&
+          (order.fulfillmentStatus === "shipped" ||
+            order.fulfillmentStatus === "delivered")) ||
+        (!isShippingOrder(order) && order.fulfillmentStatus === "delivered")
     ).length,
-    delivered: confirmedOrders.filter(
-      (order) => order.fulfillmentStatus === "delivered"
-    ).length,
-    pickup: confirmedOrders.filter((order) => !isShippingOrder(order)).length,
-    pending: orders.filter((order) => order.status === "pending_payment").length,
-    all: orders.filter((order) => order.status !== "cancelled").length,
   };
   const normalizedSearch = searchQuery.trim().toLowerCase();
   const visibleOrders = useMemo(() => {
     return orders
       .filter((order) => {
         const matchesFilter =
-          activeFilter === "all"
-            ? order.status !== "cancelled"
-            : activeFilter === "pending"
-              ? order.status === "pending_payment"
-              : activeFilter === "pickup"
-                ? order.status === "confirmed" && !isShippingOrder(order)
-                : order.status === "confirmed" &&
-                  order.fulfillmentStatus === activeFilter;
+          activeFilter === "active"
+            ? order.status === "confirmed" &&
+              (order.fulfillmentStatus === "to_prepare" ||
+                order.fulfillmentStatus === "prepared" ||
+                (!isShippingOrder(order) &&
+                  order.fulfillmentStatus === "shipped"))
+            : activeFilter === "completed"
+              ? order.status === "confirmed" &&
+                ((isShippingOrder(order) &&
+                  (order.fulfillmentStatus === "shipped" ||
+                    order.fulfillmentStatus === "delivered")) ||
+                  (!isShippingOrder(order) &&
+                    order.fulfillmentStatus === "delivered"))
+              : activeFilter === "prepared"
+                ? order.status === "confirmed" &&
+                  (order.fulfillmentStatus === "prepared" ||
+                    (!isShippingOrder(order) &&
+                      order.fulfillmentStatus === "shipped"))
+              : order.status === "confirmed" &&
+                order.fulfillmentStatus === activeFilter;
         const matchesSearch =
           !normalizedSearch || getOrderSearchText(order).includes(normalizedSearch);
 
@@ -470,17 +516,12 @@ export default function GestionEnviosPage() {
     );
   };
 
-  const copyText = async (
-    order: AdminOrder,
-    action: "customer" | "message"
-  ) => {
-    const text = action === "customer" ? getCustomerText(order) : order.whatsappMessage;
-
-    await navigator.clipboard.writeText(text);
-    setCopiedAction(action);
+  const copyCustomerData = async (order: AdminOrder) => {
+    await navigator.clipboard.writeText(getCustomerText(order));
+    setIsCustomerDataCopied(true);
 
     window.setTimeout(() => {
-      setCopiedAction(null);
+      setIsCustomerDataCopied(false);
     }, 1800);
   };
 
@@ -510,7 +551,9 @@ export default function GestionEnviosPage() {
       if (!selectedFulfillmentDraft) return;
 
       const shippedAtValue = selectedFulfillmentDraft.shippedAt
-        ? new Date(selectedFulfillmentDraft.shippedAt).toISOString()
+        ? new Date(
+            `${selectedFulfillmentDraft.shippedAt.slice(0, 10)}T12:00:00`
+          ).toISOString()
         : "";
 
       await updateOrderFulfillment(selectedOrder.id, {
@@ -650,15 +693,6 @@ export default function GestionEnviosPage() {
             })}
           </nav>
 
-          <div className="mt-4 hidden rounded-2xl border border-zinc-800 bg-zinc-900/50 p-3 lg:block">
-            <p className="text-xs font-semibold uppercase text-zinc-500">
-              Operacion
-            </p>
-            <p className="mt-1 text-sm text-zinc-300">
-              Preparacion de pedidos web, retiros y despachos.
-            </p>
-          </div>
-
           <button
             type="button"
             onClick={handleLogout}
@@ -669,107 +703,105 @@ export default function GestionEnviosPage() {
           </button>
         </aside>
 
-        <section className="flex min-h-0 min-w-0 flex-col p-3">
-          <header className="shrink-0 rounded-2xl border border-zinc-800 bg-zinc-950 p-3">
-            <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-zinc-500">
-                  Gestion
-                </p>
-                <h1 className="text-2xl font-black text-white">Envios</h1>
-              </div>
-
-              <div className="grid gap-2 md:grid-cols-[minmax(260px,420px)_auto]">
-                <label className="relative block">
-                  <Search
-                    size={16}
-                    className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500"
-                  />
-                  <input
-                    type="search"
-                    value={searchQuery}
-                    onChange={(event) => setSearchQuery(event.target.value)}
-                    placeholder="Buscar pedido, cliente, telefono o producto"
-                    className="h-10 w-full rounded-xl border border-zinc-800 bg-zinc-950 pl-10 pr-3 text-sm font-semibold text-white outline-none transition placeholder:text-zinc-500 focus:border-zinc-500"
-                  />
-                </label>
-
-                <button
-                  type="button"
-                  onClick={() => void refreshOrders()}
-                  disabled={isOrdersLoading}
-                  className="h-10 rounded-xl bg-white px-4 text-sm font-black text-black transition hover:bg-zinc-200 disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  {isOrdersLoading ? "Cargando..." : "Actualizar"}
-                </button>
+        <section className="relative flex min-h-0 min-w-0 flex-col overflow-hidden px-2 py-2">
+          <header className="flex shrink-0 flex-col gap-2 border border-zinc-800 bg-zinc-950 px-3 py-2 lg:flex-row lg:items-center lg:justify-between">
+            <div className="flex flex-wrap items-center gap-3">
+              <h1 className="text-xl font-black text-white">Envios</h1>
+              <div
+                className="flex items-center gap-1 border-l border-zinc-800 pl-3"
+                role="group"
+                aria-label="Filtrar envios"
+              >
+                {shippingFilters.map((filter) => (
+                  <button
+                    key={filter.value}
+                    type="button"
+                    onClick={() => setActiveFilter(filter.value)}
+                    className={`inline-flex h-8 cursor-pointer items-center gap-1.5 px-2.5 text-xs font-black transition ${
+                      filter.value === "to_prepare"
+                        ? activeFilter === filter.value
+                          ? "rounded-full border border-amber-300 bg-amber-300 text-black"
+                          : "rounded-full border border-amber-400/40 bg-amber-400/15 text-amber-200 hover:bg-amber-400/25"
+                        : filter.value === "prepared"
+                          ? activeFilter === filter.value
+                            ? "rounded-full border border-violet-300 bg-violet-300 text-black"
+                            : "rounded-full border border-violet-400/40 bg-violet-400/15 text-violet-200 hover:bg-violet-400/25"
+                          : activeFilter === filter.value
+                            ? "rounded-md bg-white text-black"
+                            : "rounded-md text-zinc-400 hover:bg-zinc-900 hover:text-white"
+                    }`}
+                  >
+                    {filter.label}
+                    <span className="opacity-75">
+                      {filterCounts[filter.value]}
+                    </span>
+                  </button>
+                ))}
               </div>
             </div>
 
-            <div className="mt-3 grid gap-2 xl:grid-cols-[minmax(0,1fr)_auto]">
-              <div className="flex flex-wrap gap-2">
-                {shippingFilters.map((filter) => {
-                  const isActive = activeFilter === filter.value;
+            <div className="flex min-w-0 flex-1 flex-wrap items-center justify-end gap-2">
+              <label className="relative min-w-[240px] max-w-[380px] flex-1 lg:flex-none lg:w-[360px]">
+                <Search
+                  size={16}
+                  className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500"
+                />
+                <input
+                  type="search"
+                  value={searchQuery}
+                  onChange={(event) => setSearchQuery(event.target.value)}
+                  placeholder="Buscar pedido, cliente, SKU o producto"
+                  className="h-10 w-full rounded-lg border border-zinc-700 bg-zinc-900 pl-10 pr-3 text-sm font-semibold text-white outline-none transition placeholder:text-zinc-500 focus:border-zinc-400"
+                />
+              </label>
 
-                  return (
-                    <button
-                      key={filter.value}
-                      type="button"
-                      onClick={() => setActiveFilter(filter.value)}
-                      className={`h-9 rounded-xl px-3 text-xs font-black transition ${
-                        isActive
-                          ? "bg-emerald-400 text-black"
-                          : "bg-zinc-900 text-zinc-400 hover:bg-zinc-800 hover:text-white"
-                      }`}
-                    >
-                      {filter.label}
-                      <span className="ml-2 opacity-70">
-                        {filterCounts[filter.value]}
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
-
-              <div className="grid grid-cols-4 gap-2 text-center text-xs font-bold">
-                <div className="rounded-xl bg-zinc-900 px-3 py-2">
-                  <p className="text-zinc-500">Preparar</p>
-                  <p className="text-lg text-white">{filterCounts.to_prepare}</p>
-                </div>
-                <div className="rounded-xl bg-zinc-900 px-3 py-2">
-                  <p className="text-zinc-500">Listos</p>
-                  <p className="text-lg text-white">{filterCounts.prepared}</p>
-                </div>
-                <div className="rounded-xl bg-zinc-900 px-3 py-2">
-                  <p className="text-zinc-500">Desp.</p>
-                  <p className="text-lg text-white">{filterCounts.shipped}</p>
-                </div>
-                <div className="rounded-xl bg-zinc-900 px-3 py-2">
-                  <p className="text-zinc-500">Retiro</p>
-                  <p className="text-lg text-white">{filterCounts.pickup}</p>
-                </div>
-              </div>
+              <button
+                type="button"
+                onClick={() => void refreshOrders()}
+                disabled={isOrdersLoading}
+                title="Actualizar pedidos"
+                className="flex h-10 w-10 cursor-pointer items-center justify-center rounded-lg bg-white text-black transition hover:bg-zinc-200 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                <RefreshCw
+                  size={17}
+                  className={isOrdersLoading ? "animate-spin" : ""}
+                />
+              </button>
             </div>
           </header>
 
           {ordersError && (
-            <p className="mt-3 rounded-2xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm font-semibold text-red-200">
+            <p className="fixed left-1/2 top-4 z-50 w-[min(92vw,520px)] -translate-x-1/2 rounded-xl border border-red-500/30 bg-red-950/95 px-4 py-3 text-center text-sm font-semibold text-red-100 shadow-2xl">
               {ordersError}
             </p>
           )}
 
-          <div className="mt-3 grid min-h-0 flex-1 gap-3 xl:grid-cols-[minmax(0,1fr)_390px]">
-            <section className="flex min-h-0 flex-col overflow-hidden rounded-2xl border border-zinc-800 bg-[#070707]">
-              <div className="grid shrink-0 grid-cols-[92px_minmax(140px,1fr)_96px_minmax(160px,1.1fr)_82px_116px_92px] gap-2 border-b border-zinc-800 bg-zinc-900/90 px-3 py-2 text-xs font-bold uppercase text-zinc-400">
-                <span>Pedido</span>
-                <span>Cliente</span>
-                <span className="text-center">Tipo</span>
-                <span>Destino</span>
-                <span className="text-center">Prendas</span>
-                <span className="text-center">Logistica</span>
-                <span className="text-center">Pedido</span>
-              </div>
+          {fulfillmentNotice && (
+            <p className="pointer-events-none fixed left-1/2 top-4 z-50 w-[min(92vw,420px)] -translate-x-1/2 rounded-xl border border-emerald-400/30 bg-emerald-950/95 px-4 py-3 text-center text-sm font-semibold text-emerald-100 shadow-2xl">
+              {fulfillmentNotice}
+            </p>
+          )}
 
+          <div className="grid min-h-0 flex-1 overflow-hidden border-x border-b border-zinc-800 bg-[#080808] xl:grid-cols-[minmax(0,1fr)_340px]">
+            <section className="flex min-h-0 min-w-0 flex-col overflow-hidden xl:border-r xl:border-zinc-800">
               <div className="min-h-0 flex-1 overflow-y-auto [scrollbar-gutter:stable]">
+                <div
+                  className={`sticky top-0 z-10 grid ${shippingTableColumns} border-b border-zinc-800 bg-zinc-900 text-[11px] font-bold uppercase text-zinc-400`}
+                >
+                  <span className={shippingHeaderCellClass}>Pedido</span>
+                  <span className={shippingHeaderCellClass}>Cliente</span>
+                  <span className={`${shippingHeaderCellClass} justify-center`}>
+                    Tipo
+                  </span>
+                  <span className={shippingHeaderCellClass}>Destino</span>
+                  <span className={`${shippingHeaderCellClass} justify-center`}>
+                    Prendas
+                  </span>
+                  <span className={`${shippingHeaderCellClass} justify-center`}>
+                    Logistica
+                  </span>
+                </div>
+
                 {isOrdersLoading && (
                   <p className="p-5 text-sm font-semibold text-zinc-500">
                     Cargando pedidos...
@@ -785,152 +817,166 @@ export default function GestionEnviosPage() {
                 {visibleOrders.map((order) => {
                   const isSelected = selectedOrder?.id === order.id;
                   const deliveryType = getWebDeliveryType(order);
+                  const visibleFulfillmentStatus =
+                    !isShippingOrder(order) &&
+                    order.fulfillmentStatus === "shipped"
+                      ? "prepared"
+                      : isShippingOrder(order) &&
+                          order.fulfillmentStatus === "delivered"
+                        ? "shipped"
+                        : order.fulfillmentStatus;
 
                   return (
                     <button
                       key={order.id}
                       type="button"
                       onClick={() => setSelectedOrderId(order.id)}
-                      className={`grid w-full grid-cols-[92px_minmax(140px,1fr)_96px_minmax(160px,1.1fr)_82px_116px_92px] items-center gap-2 border-b border-zinc-900 px-3 py-2 text-left transition ${
+                      className={`grid w-full cursor-pointer ${shippingTableColumns} border-b border-zinc-800 text-left transition ${
                         isSelected
                           ? "bg-emerald-400/10"
-                          : "bg-[#080808] hover:bg-zinc-950"
+                          : "bg-[#0b0b0b] hover:bg-zinc-900"
                       }`}
                     >
-                      <div>
-                        <p className="text-sm font-black text-white">
-                          {getShortOrderNumber(order.orderNumber)}
-                        </p>
-                        <p className="text-[11px] font-semibold text-zinc-500">
-                          {getOrderDate(order.createdAt)}
+                      <div className={shippingRowCellClass}>
+                        <div className="min-w-0">
+                          <p className="text-sm font-black text-white">
+                            {getShortOrderNumber(order.orderNumber)}
+                          </p>
+                          <p className="mt-0.5 flex items-center gap-1 whitespace-nowrap text-[10px] font-semibold">
+                            <span className="text-zinc-500">Fecha</span>
+                            <span className="text-zinc-300">
+                              {getOrderDate(order.createdAt)}
+                            </span>
+                          </p>
+                          <p className="flex items-center gap-1 whitespace-nowrap text-[10px] font-semibold">
+                            <span className="text-zinc-500">Hora</span>
+                            <span className="text-zinc-300">
+                              {getOrderTime(order.createdAt)}
+                            </span>
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className={`${shippingRowCellClass} min-w-0`}>
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-bold text-white">
+                            {order.customerName || "Cliente"}
+                          </p>
+                          <p className="truncate text-xs font-semibold text-zinc-500">
+                            {order.customerWhatsapp || "Sin telefono"}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className={`${shippingRowCellClass} justify-center`}>
+                        <span
+                          className={`rounded-full px-2 py-1 text-[11px] font-black ${
+                            deliveryType === "Envio"
+                              ? "bg-sky-400/15 text-sky-200"
+                              : "bg-emerald-400/15 text-emerald-200"
+                          }`}
+                        >
+                          {deliveryType}
+                        </span>
+                      </div>
+
+                      <div className={`${shippingRowCellClass} min-w-0`}>
+                        <p className="truncate text-xs font-semibold text-zinc-300">
+                          {getOrderAddress(order)}
                         </p>
                       </div>
 
-                      <div className="min-w-0">
-                        <p className="truncate text-sm font-bold text-white">
-                          {order.customerName || "Cliente"}
-                        </p>
-                        <p className="truncate text-xs font-semibold text-zinc-500">
-                          {order.customerWhatsapp || "Sin telefono"}
-                        </p>
+                      <div className={`${shippingRowCellClass} justify-center`}>
+                        <span className="text-sm font-black text-white">
+                          {getOrderItemsCount(order)}
+                        </span>
                       </div>
 
-                      <span
-                        className={`justify-self-center rounded-full px-2.5 py-1 text-xs font-black ${
-                          deliveryType === "Envio"
-                            ? "bg-sky-400/15 text-sky-200"
-                            : "bg-emerald-400/15 text-emerald-200"
-                        }`}
-                      >
-                        {deliveryType}
-                      </span>
+                      <div className={`${shippingRowCellClass} justify-center`}>
+                        <span
+                          className={`rounded-full border px-2 py-1 text-[10px] font-black ${getFulfillmentStatusClassName(visibleFulfillmentStatus)}`}
+                        >
+                          {getFulfillmentStatusLabel(
+                            visibleFulfillmentStatus,
+                            !isShippingOrder(order)
+                          )}
+                        </span>
+                      </div>
 
-                      <p className="truncate text-sm font-semibold text-zinc-300">
-                        {getOrderAddress(order)}
-                      </p>
-
-                      <p className="text-center text-sm font-black text-white">
-                        {getOrderItemsCount(order)}
-                      </p>
-
-                      <span
-                        className={`justify-self-center rounded-full border px-2 py-1 text-[11px] font-black ${getFulfillmentStatusClassName(order.fulfillmentStatus)}`}
-                      >
-                        {fulfillmentStatusLabels[order.fulfillmentStatus]}
-                      </span>
-
-                      <span
-                        className={`justify-self-center rounded-full border px-2 py-1 text-[11px] font-black ${getOrderStatusClassName(order)}`}
-                      >
-                        {orderStatusLabels[order.status]}
-                      </span>
                     </button>
                   );
                 })}
               </div>
             </section>
 
-            <aside className="flex min-h-0 flex-col overflow-hidden rounded-2xl border border-zinc-800 bg-zinc-950">
+            <aside className="flex min-h-0 flex-col overflow-hidden bg-zinc-950">
               {!selectedOrder ? (
                 <div className="flex min-h-0 flex-1 items-center justify-center p-6 text-center">
                   <div>
-                    <PackageCheck
-                      size={34}
-                      className="mx-auto text-zinc-700"
-                    />
-                    <p className="mt-3 text-sm font-semibold text-zinc-500">
-                      Selecciona un pedido para ver el detalle.
+                    <PackageCheck size={30} className="mx-auto text-zinc-700" />
+                    <p className="mt-2 text-sm font-semibold text-zinc-500">
+                      Selecciona un pedido.
                     </p>
                   </div>
                 </div>
               ) : (
                 <>
-                  <div className="shrink-0 border-b border-zinc-800 p-4">
-                    <div className="flex items-start justify-between gap-3">
-                      <div>
-                        <p className="text-xs font-bold uppercase tracking-[0.2em] text-zinc-500">
-                          Pedido
-                        </p>
-                        <h2 className="mt-1 text-2xl font-black text-white">
+                  <div className="flex shrink-0 items-center justify-between gap-3 border-b border-zinc-800 px-3 py-2.5">
+                      <div className="min-w-0">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <h2 className="text-xl font-black text-white">
                           {getShortOrderNumber(selectedOrder.orderNumber)}
-                        </h2>
+                          </h2>
+                          <span
+                            className={`rounded-full px-2 py-1 text-[10px] font-black ${
+                              isShippingOrder(selectedOrder)
+                                ? "bg-sky-400/15 text-sky-200"
+                                : "bg-emerald-400/15 text-emerald-200"
+                            }`}
+                          >
+                            {getWebDeliveryType(selectedOrder)}
+                          </span>
+                        </div>
+                        <p className="mt-0.5 truncate text-xs font-semibold text-zinc-500">
+                          {selectedOrder.customerName}
+                        </p>
                       </div>
 
-                      <span
-                        className={`rounded-full px-3 py-1 text-xs font-black ${
-                          isShippingOrder(selectedOrder)
-                            ? "bg-sky-400/15 text-sky-200"
-                            : "bg-emerald-400/15 text-emerald-200"
-                        }`}
-                      >
-                        {getWebDeliveryType(selectedOrder)}
-                      </span>
-                    </div>
-
-                    <div className="mt-3 grid grid-cols-2 gap-2">
+                    <div className="flex shrink-0 items-center gap-1.5">
                       <button
                         type="button"
-                        onClick={() => void copyText(selectedOrder, "customer")}
-                        className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-zinc-900 text-sm font-bold text-zinc-300 transition hover:bg-zinc-800"
+                        onClick={() => setIsCustomerDetailsOpen(true)}
+                        className="inline-flex h-9 cursor-pointer items-center justify-center gap-1.5 rounded-lg bg-zinc-900 px-3 text-xs font-black text-zinc-200 transition hover:bg-zinc-800 hover:text-white"
                       >
-                        <Copy size={15} />
-                        {copiedAction === "customer" ? "Copiado" : "Datos"}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => void copyText(selectedOrder, "message")}
-                        className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-zinc-900 text-sm font-bold text-zinc-300 transition hover:bg-zinc-800"
-                      >
-                        <Clipboard size={15} />
-                        {copiedAction === "message" ? "Copiado" : "Mensaje"}
+                        <UserRound size={15} />
+                        Cliente
                       </button>
                       <button
                         type="button"
                         onClick={() => printOrder(selectedOrder)}
-                        className="col-span-2 inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-white text-sm font-black text-black transition hover:bg-zinc-200"
+                        title="Imprimir comprobante"
+                        className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg bg-white text-black transition hover:bg-zinc-200"
                       >
                         <Printer size={15} />
-                        Imprimir comprobante
                       </button>
                     </div>
                   </div>
 
-                  <div className="min-h-0 flex-1 overflow-y-auto p-4">
-                    <div className="grid gap-3">
-                      <section className="rounded-2xl border border-zinc-800 bg-zinc-900/50 p-3">
-                        <div className="mb-3 flex items-center justify-between gap-3">
+                  <div className="min-h-0 flex-1 overflow-y-auto">
+                    <div>
+                      <section className="border-b border-zinc-800 px-3 py-3">
+                        <div className="mb-2 flex items-center justify-between gap-3">
                           <p className="text-xs font-black uppercase text-zinc-500">
                             Logistica
                           </p>
                           {selectedFulfillmentDraft && (
                             <span
-                              className={`rounded-full border px-2.5 py-1 text-xs font-black ${getFulfillmentStatusClassName(selectedFulfillmentDraft.fulfillmentStatus)}`}
+                              className={`rounded-full border px-2 py-1 text-[10px] font-black ${getFulfillmentStatusClassName(selectedFulfillmentDraft.fulfillmentStatus)}`}
                             >
-                              {
-                                fulfillmentStatusLabels[
-                                  selectedFulfillmentDraft.fulfillmentStatus
-                                ]
-                              }
+                              {getFulfillmentStatusLabel(
+                                selectedFulfillmentDraft.fulfillmentStatus,
+                                !isShippingOrder(selectedOrder)
+                              )}
                             </span>
                           )}
                         </div>
@@ -952,9 +998,12 @@ export default function GestionEnviosPage() {
                                     .value as OrderFulfillmentStatus,
                                 }))
                               }
-                              className="h-10 rounded-xl border border-zinc-700 bg-zinc-950 px-3 text-sm font-bold text-white outline-none transition focus:border-zinc-400"
+                              className="h-9 cursor-pointer rounded-lg border border-zinc-700 bg-zinc-900 px-2 text-sm font-bold text-white outline-none transition focus:border-zinc-400"
                             >
-                              {fulfillmentStatuses.map((status) => (
+                              {(isShippingOrder(selectedOrder)
+                                ? shippingFulfillmentStatuses
+                                : pickupFulfillmentStatuses
+                              ).map((status) => (
                                 <option
                                   key={status.value}
                                   value={status.value}
@@ -965,7 +1014,8 @@ export default function GestionEnviosPage() {
                             </select>
                           </label>
 
-                          <div className="grid gap-2 sm:grid-cols-2">
+                          {isShippingOrder(selectedOrder) && (
+                            <div className="grid gap-2 sm:grid-cols-2">
                             <label className="grid gap-1">
                               <span className="text-[11px] font-bold uppercase text-zinc-500">
                                 Transporte
@@ -981,12 +1031,8 @@ export default function GestionEnviosPage() {
                                     shippingCarrier: event.target.value,
                                   }))
                                 }
-                                placeholder={
-                                  isShippingOrder(selectedOrder)
-                                    ? "Correo / expreso"
-                                    : "Retiro showroom"
-                                }
-                                className="h-10 rounded-xl border border-zinc-700 bg-zinc-950 px-3 text-sm font-semibold text-white outline-none transition placeholder:text-zinc-600 focus:border-zinc-400"
+                                placeholder="Correo / expreso"
+                                className="h-9 min-w-0 rounded-lg border border-zinc-700 bg-zinc-900 px-2 text-sm font-semibold text-white outline-none transition placeholder:text-zinc-600 focus:border-zinc-400"
                               />
                             </label>
 
@@ -1005,76 +1051,62 @@ export default function GestionEnviosPage() {
                                     trackingNumber: event.target.value,
                                   }))
                                 }
-                                placeholder="Codigo / comprobante"
-                                className="h-10 rounded-xl border border-zinc-700 bg-zinc-950 px-3 text-sm font-semibold text-white outline-none transition placeholder:text-zinc-600 focus:border-zinc-400"
+                                placeholder="Codigo"
+                                className="h-9 min-w-0 rounded-lg border border-zinc-700 bg-zinc-900 px-2 text-sm font-semibold text-white outline-none transition placeholder:text-zinc-600 focus:border-zinc-400"
                               />
                             </label>
+                            </div>
+                          )}
+
+                          <div
+                            className={
+                              isShippingOrder(selectedOrder)
+                                ? "grid grid-cols-[150px_minmax(0,1fr)] items-end gap-2"
+                                : "grid"
+                            }
+                          >
+                            {isShippingOrder(selectedOrder) && (
+                              <label className="grid gap-1">
+                                <span className="text-[11px] font-bold uppercase text-zinc-500">
+                                  Fecha de despacho
+                                </span>
+                                <input
+                                  type="date"
+                                  value={selectedFulfillmentDraft?.shippedAt ?? ""}
+                                  onChange={(event) =>
+                                    updateSelectedFulfillmentDraft(
+                                      (currentDraft) => ({
+                                        ...currentDraft,
+                                        shippedAt: event.target.value,
+                                      })
+                                    )
+                                  }
+                                  className="h-9 cursor-pointer rounded-lg border border-zinc-700 bg-zinc-900 px-2 text-sm font-semibold text-white outline-none [color-scheme:dark] focus:border-zinc-400"
+                                />
+                              </label>
+                            )}
+
+                            <button
+                              type="button"
+                              onClick={() => void saveFulfillment()}
+                              disabled={
+                                isSavingFulfillment ||
+                                selectedOrder.status === "pending_payment"
+                              }
+                              className="inline-flex h-9 cursor-pointer items-center justify-center gap-2 rounded-lg bg-emerald-400 text-sm font-black text-black transition hover:bg-emerald-300 disabled:cursor-not-allowed disabled:opacity-50"
+                            >
+                              <Save size={15} />
+                              {isSavingFulfillment
+                                ? "Guardando..."
+                                : "Guardar"}
+                            </button>
                           </div>
 
-                          <label className="grid gap-1">
-                            <span className="text-[11px] font-bold uppercase text-zinc-500">
-                              Fecha de despacho
-                            </span>
-                            <input
-                              type="datetime-local"
-                              value={selectedFulfillmentDraft?.shippedAt ?? ""}
-                              onChange={(event) =>
-                                updateSelectedFulfillmentDraft((currentDraft) => ({
-                                  ...currentDraft,
-                                  shippedAt: event.target.value,
-                                }))
-                              }
-                              className="h-10 rounded-xl border border-zinc-700 bg-zinc-950 px-3 text-sm font-semibold text-white outline-none transition focus:border-zinc-400"
-                            />
-                          </label>
-
-                          <button
-                            type="button"
-                            onClick={() => void saveFulfillment()}
-                            disabled={
-                              isSavingFulfillment ||
-                              selectedOrder.status === "pending_payment"
-                            }
-                            className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-emerald-400 text-sm font-black text-black transition hover:bg-emerald-300 disabled:cursor-not-allowed disabled:opacity-50"
-                          >
-                            <Save size={15} />
-                            {isSavingFulfillment
-                              ? "Guardando..."
-                              : "Guardar logistica"}
-                          </button>
-
-                          {fulfillmentNotice && (
-                            <p className="rounded-xl bg-emerald-400/15 px-3 py-2 text-sm font-bold text-emerald-200">
-                              {fulfillmentNotice}
-                            </p>
-                          )}
                         </div>
                       </section>
 
-                      <section className="rounded-2xl border border-zinc-800 bg-zinc-900/50 p-3">
-                        <p className="mb-2 text-xs font-black uppercase text-zinc-500">
-                          Cliente
-                        </p>
-                        <div className="grid gap-2 text-sm">
-                          <p className="font-black text-white">
-                            {selectedOrder.customerName || "Sin nombre"}
-                          </p>
-                          <p className="flex items-center gap-2 font-semibold text-zinc-300">
-                            <Phone size={15} />
-                            {selectedOrder.customerWhatsapp || "Sin telefono"}
-                          </p>
-                          <p className="flex items-start gap-2 font-semibold text-zinc-300">
-                            <MapPin
-                              size={15}
-                              className="mt-0.5 shrink-0"
-                            />
-                            <span>{getOrderAddress(selectedOrder)}</span>
-                          </p>
-                        </div>
-                      </section>
-
-                      <section className="rounded-2xl border border-zinc-800 bg-zinc-900/50 p-3">
-                        <div className="mb-2 flex items-center justify-between gap-3">
+                      <section className="border-b border-zinc-800">
+                        <div className="flex items-center justify-between gap-3 px-3 py-2">
                           <p className="text-xs font-black uppercase text-zinc-500">
                             Productos
                           </p>
@@ -1083,19 +1115,19 @@ export default function GestionEnviosPage() {
                           </p>
                         </div>
 
-                        <div className="grid gap-2">
+                        <div className="border-t border-zinc-800">
                           {selectedOrder.items.map((item) => (
                             <div
                               key={item.id}
-                              className="grid grid-cols-[44px_minmax(0,1fr)_36px] items-center gap-2 rounded-xl bg-zinc-950 p-2"
+                              className="grid grid-cols-[42px_minmax(0,1fr)_44px] items-center border-b border-zinc-800 px-3 py-2 last:border-b-0"
                             >
-                              <div className="relative h-12 w-11 overflow-hidden rounded-lg bg-zinc-900">
+                              <div className="relative h-11 w-9 overflow-hidden rounded bg-zinc-900">
                                 {item.imageUrl ? (
                                   <Image
                                     src={item.imageUrl}
                                     alt={item.productName}
                                     fill
-                                    sizes="44px"
+                                    sizes="36px"
                                     className="object-cover"
                                   />
                                 ) : (
@@ -1105,17 +1137,20 @@ export default function GestionEnviosPage() {
                                 )}
                               </div>
 
-                              <div className="min-w-0">
+                              <div className="min-w-0 px-2">
                                 <p className="truncate text-sm font-bold text-white">
                                   {item.productName}
                                 </p>
                                 <p className="truncate text-xs font-semibold text-zinc-500">
-                                  {item.productSku?.replace("AIV-", "") || "-"} ·{" "}
-                                  {item.variantColor || "-"} · {item.size || "-"}
+                                  SKU {item.productSku?.replace("AIV-", "") || "-"}
+                                  {" / "}
+                                  {item.variantColor || "-"}
+                                  {" / Talle "}
+                                  {item.size || "-"}
                                 </p>
                               </div>
 
-                              <p className="text-center text-sm font-black text-white">
+                              <p className="flex h-full items-center justify-center border-l border-zinc-800 text-center text-sm font-black text-white">
                                 x{item.quantity}
                               </p>
                             </div>
@@ -1124,7 +1159,7 @@ export default function GestionEnviosPage() {
                       </section>
 
                       {selectedOrder.notes && (
-                        <section className="rounded-2xl border border-zinc-800 bg-zinc-900/50 p-3">
+                        <section className="px-3 py-3">
                           <p className="mb-1 text-xs font-black uppercase text-zinc-500">
                             Notas
                           </p>
@@ -1141,6 +1176,103 @@ export default function GestionEnviosPage() {
           </div>
         </section>
       </div>
+
+      {isCustomerDetailsOpen && selectedOrder && (
+        <div
+          className="fixed inset-0 z-[70] flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) {
+              setIsCustomerDetailsOpen(false);
+            }
+          }}
+        >
+          <section
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="customer-details-title"
+            className="w-full max-w-xl overflow-hidden rounded-xl border border-zinc-700 bg-zinc-950 shadow-2xl"
+          >
+            <header className="flex items-center justify-between gap-4 border-b border-zinc-800 px-4 py-3">
+              <div>
+                <h2
+                  id="customer-details-title"
+                  className="text-lg font-black text-white"
+                >
+                  Datos del cliente
+                </h2>
+                <p className="text-xs font-semibold text-zinc-500">
+                  Pedido {getShortOrderNumber(selectedOrder.orderNumber)}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsCustomerDetailsOpen(false)}
+                title="Cerrar"
+                className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg text-zinc-400 transition hover:bg-zinc-800 hover:text-white"
+              >
+                <X size={18} />
+              </button>
+            </header>
+
+            <div className="grid sm:grid-cols-2">
+              {[
+                ["Nombre", selectedOrder.customerName || "Sin nombre"],
+                ["DNI / CUIT", selectedOrder.customerDni || "Sin dato"],
+                [
+                  "WhatsApp",
+                  selectedOrder.customerWhatsapp || "Sin telefono",
+                ],
+                ["Correo", selectedOrder.customerEmail || "Sin correo"],
+                ["Localidad", selectedOrder.customerCity || "Sin dato"],
+                ["Provincia", selectedOrder.customerProvince || "Sin dato"],
+                ["Codigo postal", selectedOrder.customerZip || "Sin dato"],
+                ["Entrega", getWebDeliveryType(selectedOrder)],
+              ].map(([label, value]) => (
+                <div
+                  key={label}
+                  className="border-b border-zinc-800 px-4 py-3 sm:odd:border-r"
+                >
+                  <p className="text-[10px] font-bold uppercase text-zinc-500">
+                    {label}
+                  </p>
+                  <p className="mt-1 break-words text-sm font-semibold text-zinc-100">
+                    {value}
+                  </p>
+                </div>
+              ))}
+
+              <div className="border-b border-zinc-800 px-4 py-3 sm:col-span-2">
+                <p className="text-[10px] font-bold uppercase text-zinc-500">
+                  Direccion
+                </p>
+                <p className="mt-1 break-words text-sm font-semibold text-zinc-100">
+                  {selectedOrder.customerAddress || "Sin direccion"}
+                </p>
+              </div>
+
+              <div className="px-4 py-3 sm:col-span-2">
+                <p className="text-[10px] font-bold uppercase text-zinc-500">
+                  Notas
+                </p>
+                <p className="mt-1 whitespace-pre-wrap text-sm font-semibold text-zinc-100">
+                  {selectedOrder.notes || "Sin notas"}
+                </p>
+              </div>
+            </div>
+
+            <footer className="flex justify-end border-t border-zinc-800 px-4 py-3">
+              <button
+                type="button"
+                onClick={() => void copyCustomerData(selectedOrder)}
+                className="inline-flex h-10 cursor-pointer items-center justify-center gap-2 rounded-lg bg-white px-4 text-sm font-black text-black transition hover:bg-zinc-200"
+              >
+                <Copy size={16} />
+                {isCustomerDataCopied ? "Datos copiados" : "Copiar datos"}
+              </button>
+            </footer>
+          </section>
+        </div>
+      )}
     </main>
   );
 }

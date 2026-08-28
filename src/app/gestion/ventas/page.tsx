@@ -14,12 +14,16 @@ import {
   Images,
   LogOut,
   Printer,
+  Repeat2,
   Search,
   Settings,
   ShoppingBag,
   Trash2,
   Truck,
 } from "lucide-react";
+import SaleExchangeModal, {
+  SaleExchangeHistory,
+} from "@/app/gestion/ventas/SaleExchangeModal";
 import {
   deleteLocalSale,
   getLocalSales,
@@ -40,9 +44,11 @@ import {
 import { formatOrderNumber } from "@/lib/orderNumber";
 import { formatPrice } from "@/lib/pricing";
 import { groupSaleItems } from "@/lib/saleItemGroups";
+import { getSaleExchanges } from "@/lib/saleExchanges";
 import { supabase } from "@/lib/supabase";
 import type { AdminOrder, OrderStatus } from "@/types/order";
 import type { LocalSale } from "@/types/localSale";
+import type { SaleExchange } from "@/types/saleExchange";
 import type { Session } from "@supabase/supabase-js";
 
 type SaleSource = "all" | "web" | "local" | "pending" | "cancelled";
@@ -104,7 +110,7 @@ const navItems = [
   },
   {
     title: "Caja",
-    href: "/gestion",
+    href: "/gestion/caja",
     icon: CreditCard,
   },
   {
@@ -469,6 +475,8 @@ export default function GestionVentasPage() {
   const [webInfoModal, setWebInfoModal] = useState<
     "customer" | "message" | null
   >(null);
+  const [isExchangeModalOpen, setIsExchangeModalOpen] = useState(false);
+  const [saleExchanges, setSaleExchanges] = useState<SaleExchange[]>([]);
   const [activeFilter, setActiveFilter] = useState<SaleSource>("all");
   const [activeDateFilter, setActiveDateFilter] =
     useState<SaleDateFilter>("all");
@@ -570,6 +578,36 @@ export default function GestionVentasPage() {
       void refreshSales();
     });
   }, [session, isAllowed]);
+
+  useEffect(() => {
+    let isCurrent = true;
+
+    if (!detailSale) {
+      queueMicrotask(() => setSaleExchanges([]));
+      return () => {
+        isCurrent = false;
+      };
+    }
+
+    const loadExchanges = async () => {
+      try {
+        const nextExchanges = await getSaleExchanges(
+          detailSale.source,
+          detailSale.id
+        );
+
+        if (isCurrent) setSaleExchanges(nextExchanges);
+      } catch {
+        if (isCurrent) setSaleExchanges([]);
+      }
+    };
+
+    void loadExchanges();
+
+    return () => {
+      isCurrent = false;
+    };
+  }, [detailSale]);
 
   const handleLogin = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -931,6 +969,24 @@ export default function GestionVentasPage() {
   const detailLocalSaleCharges = detailLocalSale
     ? getLocalSaleChargeBreakdown(detailLocalSale)
     : null;
+  const detailItems = detailOrder?.items ?? detailLocalSale?.items ?? [];
+  const canRegisterExchange = Boolean(
+    detailSale &&
+      ((detailSale.source === "web" && detailSale.status === "confirmed") ||
+        (detailSale.source === "local" && detailSale.status === "completed"))
+  );
+
+  const handleExchangeSaved = async () => {
+    if (!detailSale) return;
+
+    const [nextExchanges] = await Promise.all([
+      getSaleExchanges(detailSale.source, detailSale.id),
+      refreshSales(),
+    ]);
+
+    setSaleExchanges(nextExchanges);
+    setSalesNotice(`Cambio registrado en ${getSaleNumber(detailSale)}.`);
+  };
 
   if (isAuthLoading || isCheckingAccess) {
     return (
@@ -1401,6 +1457,17 @@ export default function GestionVentasPage() {
               </div>
 
               <div className="flex shrink-0 items-center gap-2">
+                {canRegisterExchange && (
+                  <button
+                    type="button"
+                    onClick={() => setIsExchangeModalOpen(true)}
+                    className="inline-flex h-9 cursor-pointer items-center gap-2 rounded-xl bg-sky-400 px-3 text-xs font-black text-black transition hover:bg-sky-300"
+                  >
+                    <Repeat2 size={15} />
+                    Cambio
+                  </button>
+                )}
+
                 {detailOrder && (
                   <button
                     type="button"
@@ -1441,6 +1508,7 @@ export default function GestionVentasPage() {
                   onClick={() => {
                     setDetailSale(null);
                     setWebInfoModal(null);
+                    setIsExchangeModalOpen(false);
                   }}
                   className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-xl bg-zinc-900 text-sm font-black text-zinc-300 transition hover:bg-zinc-800"
                   aria-label="Cerrar detalle"
@@ -1683,9 +1751,23 @@ export default function GestionVentasPage() {
                   </div>
                 </>
               )}
+
+              <SaleExchangeHistory exchanges={saleExchanges} />
             </div>
           </div>
         </div>
+      )}
+
+      {isExchangeModalOpen && detailSale && detailItems.length > 0 && (
+        <SaleExchangeModal
+          sourceType={detailSale.source}
+          saleId={detailSale.id}
+          saleNumber={getSaleNumber(detailSale)}
+          items={detailItems}
+          exchanges={saleExchanges}
+          onClose={() => setIsExchangeModalOpen(false)}
+          onSaved={handleExchangeSaved}
+        />
       )}
     </main>
   );

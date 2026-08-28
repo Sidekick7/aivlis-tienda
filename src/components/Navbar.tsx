@@ -1,6 +1,6 @@
 "use client";
 
-import { Menu, Search, ShoppingBag, X } from "lucide-react";
+import { Menu, Search, ShoppingBag, UserRound, X } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
@@ -251,6 +251,15 @@ export default function Navbar() {
               <Search size={23} />
             </button>
 
+            <Link
+              href="/cuenta"
+              className="hidden text-zinc-300 transition hover:text-white sm:flex"
+              aria-label="Mi cuenta"
+              title="Mi cuenta"
+            >
+              <UserRound size={23} />
+            </Link>
+
             <button
               type="button"
               onClick={() => setIsCartOpen(true)}
@@ -393,6 +402,15 @@ export default function Navbar() {
           </div>
 
           <div className="mb-8 flex flex-col gap-6 text-lg">
+            <Link
+              href="/cuenta"
+              onClick={() => setIsMenuOpen(false)}
+              className="font-brand flex w-fit items-center gap-2 transition hover:text-zinc-400"
+            >
+              <UserRound size={19} />
+              Mi cuenta
+            </Link>
+
             {infoNavLinks.map((link) => (
               <Link
                 key={link.href}
