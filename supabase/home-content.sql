@@ -6,6 +6,7 @@ set public = excluded.public;
 create table if not exists public.home_content (
   id integer primary key default 1,
   hero_images text[] not null default '{}',
+  category_images jsonb not null default '{}'::jsonb,
   trust_items text[] not null default '{}',
   store_title text not null default 'TIENDA',
   store_description text not null default 'Explora productos por categoria, ordena por precio o novedades, y elegi talle y color con stock actualizado.',
@@ -28,6 +29,9 @@ create table if not exists public.home_content (
   updated_at timestamptz not null default now(),
   constraint home_content_singleton check (id = 1)
 );
+
+alter table public.home_content
+add column if not exists category_images jsonb not null default '{}'::jsonb;
 
 alter table public.home_content
 add column if not exists social_links jsonb not null default '{

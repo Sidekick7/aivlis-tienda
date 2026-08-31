@@ -1731,7 +1731,9 @@ export default function GestionVentasPage() {
 
                     {detailOrderCharges.transferSurcharge > 0 && (
                       <div className="mt-2 flex items-center justify-between gap-4 text-sm text-zinc-400">
-                        <span>Transferencia 5%</span>
+                        <span>
+                          {detailOrderCharges.transferSurchargeLabel}
+                        </span>
                         <strong className="text-zinc-200">
                           {formatPrice(
                             detailOrderCharges.transferSurcharge

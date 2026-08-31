@@ -1,7 +1,14 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { ArrowDown, ArrowUp } from "lucide-react";
+import {
+  ArrowDown,
+  ArrowUp,
+  Plus,
+  RefreshCw,
+  Save,
+  Trash2,
+} from "lucide-react";
 import {
   slugifyCategoryValue,
 } from "@/lib/categories";
@@ -99,30 +106,33 @@ export default function AdminCategoriesSection({
   };
 
   return (
-    <div className="mx-auto mt-4 max-w-6xl rounded-3xl bg-zinc-900 p-4 md:p-5">
-      <div className="mb-4 flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
-        <div>
-          <h2 className="text-2xl font-black leading-none">
-            Categorias
-          </h2>
+    <section className="min-w-0 rounded-lg border border-zinc-700 bg-zinc-900 p-3">
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+        <div className="flex items-baseline gap-2">
+          <h3 className="text-base font-black text-zinc-100">Categorias</h3>
+          <span className="text-xs font-semibold text-zinc-500">
+            {sortedCategories.length}
+          </span>
         </div>
 
-        <div className="grid gap-2 sm:grid-cols-[minmax(220px,1fr)_auto_auto] xl:w-[560px]">
+        <div className="flex min-w-0 items-center gap-1.5">
           <input
             type="text"
             placeholder="Nueva categoria"
             value={newLabel}
             onChange={(event) => setNewLabel(event.target.value)}
-            className="h-10 min-w-0 rounded-xl bg-zinc-950 px-4 text-sm outline-none"
+            className="h-8 w-40 min-w-0 rounded-md border border-zinc-700 bg-zinc-950 px-2.5 text-xs outline-none transition focus:border-zinc-500"
           />
 
           <button
             type="button"
             onClick={createNewCategory}
             disabled={isSaving || !newLabel.trim() || Boolean(error)}
-            className="h-10 rounded-xl bg-white px-5 text-sm font-semibold text-black transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+            aria-label="Crear categoria"
+            title="Crear categoria"
+            className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-md bg-white text-black transition hover:bg-zinc-200 disabled:cursor-not-allowed disabled:opacity-40"
           >
-            Crear
+            <Plus size={16} strokeWidth={2.5} />
           </button>
 
           <button
@@ -133,29 +143,22 @@ export default function AdminCategoriesSection({
               Boolean(error) ||
               categories.some((category) => !category.id)
             }
-            className="h-10 rounded-xl border border-zinc-700 px-4 text-sm font-semibold text-zinc-300 transition hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-50"
+            aria-label="Reparar orden"
+            title="Reparar orden"
+            className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-md border border-zinc-700 text-zinc-300 transition hover:bg-zinc-800 hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
           >
-            Reparar
+            <RefreshCw size={15} strokeWidth={2.5} />
           </button>
         </div>
       </div>
 
       {error && (
-        <div className="mb-6 rounded-2xl border border-yellow-500/30 bg-yellow-500/10 p-4 text-sm text-yellow-100">
+        <div className="mb-2 border-l-4 border-yellow-400 bg-yellow-500/10 px-3 py-2 text-xs text-yellow-100">
           {error}
         </div>
       )}
 
-      <div className="overflow-hidden rounded-2xl border border-zinc-800 bg-zinc-950">
-        <div className="hidden grid-cols-[72px_minmax(0,1fr)_92px_82px_142px] gap-3 border-b border-zinc-800 px-4 py-3 text-xs font-semibold uppercase text-zinc-500 lg:grid">
-          <span>Orden</span>
-          <span>Categoria</span>
-          <span>Estado</span>
-          <span>Prod.</span>
-          <span className="text-right">Acciones</span>
-        </div>
-
-        <div className="divide-y divide-zinc-800">
+      <div className="divide-y divide-zinc-700 border-y border-zinc-700">
         {sortedCategories.map((category, index) => {
           const draft = getDraft(category);
           const previousCategory = sortedCategories[index - 1];
@@ -173,96 +176,63 @@ export default function AdminCategoriesSection({
           return (
             <div
               key={category.id ?? category.value}
-              className="grid gap-3 px-4 py-3 lg:grid-cols-[72px_minmax(0,1fr)_92px_82px_142px] lg:items-center"
+              className="grid grid-cols-[84px_minmax(0,1fr)] items-center gap-2 py-2 sm:grid-cols-[84px_minmax(130px,1fr)_78px_42px_72px]"
             >
-              <div className="flex items-center gap-1 lg:block">
-                <span className="flex h-8 min-w-9 items-center justify-center rounded-lg bg-zinc-900 px-2 text-sm font-semibold text-zinc-300">
+              <div className="flex items-center gap-1">
+                <span className="flex h-7 min-w-7 items-center justify-center rounded-md bg-zinc-950 px-1 text-xs font-semibold text-zinc-300">
                   {category.sortOrder}
                 </span>
 
-                <div className="flex gap-1 lg:mt-1">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (!category.id || !previousCategory?.id) return;
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (!category.id || !previousCategory?.id) return;
 
-                      onMove(
-                        { ...category, id: category.id },
-                        {
-                          ...previousCategory,
-                          id: previousCategory.id,
-                        }
-                      );
-                    }}
-                    disabled={!canMoveUp}
-                    aria-label="Subir categoria"
-                    className="flex h-8 w-8 items-center justify-center rounded-lg border border-zinc-700 bg-zinc-900 text-white transition hover:border-zinc-500 hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-35"
-                  >
-                    <ArrowUp size={17} strokeWidth={3} />
-                  </button>
+                    onMove(
+                      { ...category, id: category.id },
+                      { ...previousCategory, id: previousCategory.id }
+                    );
+                  }}
+                  disabled={!canMoveUp}
+                  aria-label="Subir categoria"
+                  title="Subir categoria"
+                  className="flex h-7 w-6 cursor-pointer items-center justify-center rounded-md text-zinc-300 transition hover:bg-zinc-800 hover:text-white disabled:cursor-not-allowed disabled:opacity-30"
+                >
+                  <ArrowUp size={15} strokeWidth={2.5} />
+                </button>
 
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (!category.id || !nextCategory?.id) return;
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (!category.id || !nextCategory?.id) return;
 
-                      onMove(
-                        { ...category, id: category.id },
-                        {
-                          ...nextCategory,
-                          id: nextCategory.id,
-                        }
-                      );
-                    }}
-                    disabled={!canMoveDown}
-                    aria-label="Bajar categoria"
-                    className="flex h-8 w-8 items-center justify-center rounded-lg border border-zinc-700 bg-zinc-900 text-white transition hover:border-zinc-500 hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-35"
-                  >
-                    <ArrowDown size={17} strokeWidth={3} />
-                  </button>
-                </div>
+                    onMove(
+                      { ...category, id: category.id },
+                      { ...nextCategory, id: nextCategory.id }
+                    );
+                  }}
+                  disabled={!canMoveDown}
+                  aria-label="Bajar categoria"
+                  title="Bajar categoria"
+                  className="flex h-7 w-6 cursor-pointer items-center justify-center rounded-md text-zinc-300 transition hover:bg-zinc-800 hover:text-white disabled:cursor-not-allowed disabled:opacity-30"
+                >
+                  <ArrowDown size={15} strokeWidth={2.5} />
+                </button>
               </div>
 
-              <div className="grid gap-2 md:grid-cols-[minmax(0,1fr)_minmax(150px,0.65fr)]">
-                <label className="grid gap-1 lg:block">
-                  <span className="text-xs font-semibold uppercase text-zinc-500 lg:hidden">
-                    Nombre visible
-                  </span>
-
-                  <input
-                    type="text"
-                    value={draft.label}
-                    disabled={!canMutate || isSaving}
-                    onChange={(event) =>
-                      updateDraft(category, {
-                        label: event.target.value,
-                      })
-                    }
-                    className="h-10 min-w-0 rounded-xl bg-zinc-900 px-3 text-sm font-semibold outline-none disabled:opacity-60"
-                  />
-                </label>
-
-                <label className="grid gap-1 lg:block">
-                  <span className="text-xs font-semibold uppercase text-zinc-500 lg:hidden">
-                    Slug
-                  </span>
-
-                  <input
-                    type="text"
-                    value={draft.value}
-                    disabled={!canMutate || isSaving}
-                    onChange={(event) =>
-                      updateDraft(category, {
-                        value: slugifyCategoryValue(event.target.value),
-                      })
-                    }
-                    className="h-10 min-w-0 rounded-xl bg-zinc-900 px-3 text-sm outline-none disabled:opacity-60"
-                  />
-                </label>
-              </div>
+              <input
+                type="text"
+                value={draft.label}
+                disabled={!canMutate || isSaving}
+                onChange={(event) =>
+                  updateDraft(category, { label: event.target.value })
+                }
+                aria-label={`Nombre de ${category.label}`}
+                className="h-8 min-w-0 rounded-md bg-zinc-950 px-2.5 text-xs font-semibold outline-none transition focus:ring-1 focus:ring-zinc-500 disabled:opacity-60"
+              />
 
               <label
-                className={`inline-flex h-9 w-fit cursor-pointer items-center gap-2 rounded-full px-3 text-sm font-semibold lg:w-full lg:justify-center ${
+                className={`inline-flex h-7 w-fit cursor-pointer items-center justify-center gap-1 rounded-full px-2 text-[11px] font-semibold sm:w-full ${
                   draft.active
                     ? "bg-emerald-500/15 text-emerald-300"
                     : "bg-zinc-800 text-zinc-400"
@@ -273,34 +243,33 @@ export default function AdminCategoriesSection({
                   checked={draft.active}
                   disabled={!canMutate || isSaving}
                   onChange={(event) =>
-                    updateDraft(category, {
-                      active: event.target.checked,
-                    })
+                    updateDraft(category, { active: event.target.checked })
                   }
-                  className="h-4 w-4 accent-emerald-400"
+                  className="h-3.5 w-3.5 accent-emerald-400"
                 />
                 {draft.active ? "Activa" : "Oculta"}
               </label>
 
-              <span className="flex h-9 w-fit items-center justify-center rounded-full bg-zinc-900 px-3 text-sm font-semibold text-zinc-300 lg:w-full">
+              <span
+                title={`${productCount} productos`}
+                className="flex h-7 w-9 items-center justify-center rounded-full bg-zinc-950 text-[11px] font-semibold text-zinc-300"
+              >
                 {productCount}
               </span>
 
-              <div className="grid grid-cols-2 gap-2">
+              <div className="flex items-center justify-end gap-1">
                 <button
                   type="button"
                   disabled={!canMutate || isSaving}
                   onClick={() => {
                     if (!category.id) return;
-
-                    onUpdate({
-                      ...draft,
-                      id: category.id,
-                    });
+                    onUpdate({ ...draft, id: category.id });
                   }}
-                  className="h-9 rounded-lg bg-white px-3 text-sm font-semibold text-black transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
+                  aria-label="Guardar categoria"
+                  title="Guardar categoria"
+                  className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-md bg-white text-black transition hover:bg-zinc-200 disabled:cursor-not-allowed disabled:opacity-40"
                 >
-                  Guardar
+                  <Save size={15} strokeWidth={2.5} />
                 </button>
 
                 <button
@@ -308,22 +277,27 @@ export default function AdminCategoriesSection({
                   disabled={!canMutate || isSaving || productCount > 0}
                   onClick={() => {
                     if (!category.id) return;
-
-                    onDelete({
-                      ...category,
-                      id: category.id,
-                    });
+                    onDelete({ ...category, id: category.id });
                   }}
-                  className="h-9 rounded-lg border border-red-500/30 px-3 text-sm font-semibold text-red-300 transition hover:bg-red-500/15 disabled:cursor-not-allowed disabled:opacity-40"
+                  aria-label={
+                    productCount > 0
+                      ? "La categoria tiene productos"
+                      : "Eliminar categoria"
+                  }
+                  title={
+                    productCount > 0
+                      ? "La categoria tiene productos"
+                      : "Eliminar categoria"
+                  }
+                  className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-md text-red-300 transition hover:bg-red-500/15 disabled:cursor-not-allowed disabled:opacity-30"
                 >
-                  {productCount > 0 ? "Con productos" : "Eliminar"}
+                  <Trash2 size={15} strokeWidth={2.5} />
                 </button>
               </div>
             </div>
           );
         })}
-        </div>
       </div>
-    </div>
+    </section>
   );
 }

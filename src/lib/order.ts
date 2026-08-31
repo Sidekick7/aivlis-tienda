@@ -179,6 +179,7 @@ export function buildOrderWhatsAppMessage({
   payment?: {
     label: string;
     surcharge: number;
+    surchargePercent?: number;
   };
   total: number;
 }) {
@@ -196,7 +197,11 @@ Subtotal productos: ${formatPrice(productsSubtotal)}${
       : ""
   }${
     payment?.surcharge
-      ? `\nTransferencia 5%: ${formatPrice(payment.surcharge)}`
+      ? `\nTransferencia ${new Intl.NumberFormat("es-AR", {
+          maximumFractionDigits: 2,
+        }).format(payment.surchargePercent ?? 5)}%: ${formatPrice(
+          payment.surcharge
+        )}`
       : ""
   }
 TOTAL: ${formatPrice(total)}`;

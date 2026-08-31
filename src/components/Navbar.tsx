@@ -6,6 +6,11 @@ import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { useCart } from "@/context/CartContext";
 import { getCategories, getFallbackCategories } from "@/lib/categories";
+import {
+  fallbackCheckoutSettings,
+  getCheckoutSettings,
+  getMinimumPurchaseAmount,
+} from "@/lib/checkoutSettings";
 import { getProductImage } from "@/lib/productDisplay";
 import {
   getPublicProductName,
@@ -36,6 +41,9 @@ export default function Navbar() {
   );
   const [searchQuery, setSearchQuery] = useState("");
   const [searchProducts, setSearchProducts] = useState<Product[]>([]);
+  const [checkoutSettings, setCheckoutSettings] = useState(
+    fallbackCheckoutSettings
+  );
   const mobileSearchInputRef = useRef<HTMLInputElement>(null);
   const { cart, setIsCartOpen } = useCart();
   const cartItemCount = cart.reduce(
@@ -43,6 +51,9 @@ export default function Navbar() {
     0
   );
   const cartTotal = getCartPricing(cart).total;
+  const minimumPurchaseAmount = getMinimumPurchaseAmount(
+    checkoutSettings
+  );
   const normalizedSearchQuery = searchQuery.trim().toLowerCase();
   const searchResults = normalizedSearchQuery
     ? searchProducts
@@ -57,9 +68,10 @@ export default function Navbar() {
   useEffect(() => {
     const loadNavContent = async () => {
       try {
-        const [categories, products] = await Promise.all([
+        const [categories, products, settings] = await Promise.all([
           getCategories(),
           getPublicProducts(),
+          getCheckoutSettings(),
         ]);
 
         setNavCategories(
@@ -69,6 +81,7 @@ export default function Navbar() {
           )
         );
         setSearchProducts(products);
+        setCheckoutSettings(settings);
       } catch {
         setSearchProducts([]);
       }
@@ -133,7 +146,10 @@ export default function Navbar() {
     <>
       <nav className="fixed left-0 top-0 z-50 w-full border-b border-zinc-800 bg-black text-white">
         <div className="flex h-10 items-center justify-center bg-white px-4 text-center text-base font-normal uppercase leading-none text-black sm:text-lg">
-          Venta mayorista - Compra mínima $100.000
+          Venta mayorista
+          {minimumPurchaseAmount > 0 && (
+            <> - Compra mínima {formatPrice(minimumPurchaseAmount)}</>
+          )}
         </div>
 
         <div className="grid h-[60px] grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 px-3 sm:px-5 md:grid-cols-[1fr_auto_1fr] md:px-10">

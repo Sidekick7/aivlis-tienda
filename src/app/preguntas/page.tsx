@@ -1,7 +1,19 @@
 import Link from "next/link";
 import { getHomeContent } from "@/lib/homeContent";
+import {
+  getCheckoutSettings,
+  getMinimumPurchaseAmount,
+  getShippingFeeAmount,
+} from "@/lib/checkoutSettings";
+import { formatPrice } from "@/lib/pricing";
 
-function getQuestions(showroomAddress: string) {
+export const dynamic = "force-dynamic";
+
+function getQuestions(
+  showroomAddress: string,
+  minimumPurchaseAmount: number,
+  shippingFeeAmount: number
+) {
   return [
     {
       title: "Como compro?",
@@ -9,15 +21,25 @@ function getQuestions(showroomAddress: string) {
     },
     {
       title: "Hay minimo de compra?",
-      body: "Si. El minimo de compra es de $100.000.",
+      body:
+        minimumPurchaseAmount > 0
+          ? `Si. El minimo de compra es de ${formatPrice(minimumPurchaseAmount)}.`
+          : "No. Actualmente no hay minimo de compra.",
     },
-    {
-      title: "Que pasa si no llego al minimo?",
-      body: "Podes armar el carrito, pero para finalizar el pedido tenes que llegar al minimo de compra. El carrito te muestra cuanto falta.",
-    },
+    ...(minimumPurchaseAmount > 0
+      ? [
+          {
+            title: "Que pasa si no llego al minimo?",
+            body: "Podes armar el carrito, pero para finalizar el pedido tenes que llegar al minimo de compra. El carrito te muestra cuanto falta.",
+          },
+        ]
+      : []),
     {
       title: "Envios",
-      body: "Hacemos envios por correo o expreso. Se suma un costo de entrega a logistica y embalaje de $5.000. El envio queda a cargo del cliente segun peso y distancia.",
+      body:
+        shippingFeeAmount > 0
+          ? `Hacemos envios por correo o expreso. Se suma un costo de entrega a logistica y embalaje de ${formatPrice(shippingFeeAmount)}. El envio queda a cargo del cliente segun peso y distancia.`
+          : "Hacemos envios por correo o expreso. El envio queda a cargo del cliente segun peso y distancia.",
     },
     {
       title: "Retiro en showroom",
@@ -47,8 +69,15 @@ function getQuestions(showroomAddress: string) {
 }
 
 export default async function QuestionsPage() {
-  const { socialLinks } = await getHomeContent();
-  const questions = getQuestions(socialLinks.showroomAddress);
+  const [{ socialLinks }, checkoutSettings] = await Promise.all([
+    getHomeContent(),
+    getCheckoutSettings(),
+  ]);
+  const questions = getQuestions(
+    socialLinks.showroomAddress,
+    getMinimumPurchaseAmount(checkoutSettings),
+    getShippingFeeAmount(checkoutSettings)
+  );
 
   return (
     <main className="home-main-offset min-h-screen bg-zinc-100 text-black">

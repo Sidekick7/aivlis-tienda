@@ -45,6 +45,33 @@ function getMessageAmount(message: string, label: string) {
   return Number(rawAmount.replaceAll(".", "").replace(",", ".")) || 0;
 }
 
+function getTransferSurchargeFromMessage(message: string) {
+  const line = message
+    .split("\n")
+    .map((messageLine) => messageLine.trim())
+    .find((messageLine) =>
+      /^(?:recargo\s+)?transferencia\s+\d+(?:[.,]\d+)?%\s*:/i.test(
+        messageLine
+      )
+    );
+
+  if (!line) {
+    return {
+      label: "Transferencia 5%",
+      amount: 0,
+    };
+  }
+
+  const rawLabel = line.slice(0, line.indexOf(":"));
+
+  return {
+    label: rawLabel
+      .replace(/^recargo\s+/i, "")
+      .replace(/^transferencia/i, "Transferencia"),
+    amount: getMessageAmount(message, rawLabel),
+  };
+}
+
 type ReceiptItem = LocalSaleItemInput | LocalSaleItem | AdminOrderItem;
 
 export function getLocalSaleChargeBreakdown(sale: {
@@ -595,6 +622,10 @@ export function printLocalSaleReceipt({
 }
 
 export function getWebOrderChargeBreakdown(order: AdminOrder) {
+  const transferCharge = getTransferSurchargeFromMessage(
+    order.whatsappMessage
+  );
+
   return {
     productsSubtotal: order.items.reduce(
       (subtotal, item) => subtotal + item.subtotal,
@@ -608,12 +639,8 @@ export function getWebOrderChargeBreakdown(order: AdminOrder) {
         order.whatsappMessage,
         "Embalaje y cadeteria:"
       ),
-    transferSurcharge:
-      getMessageAmount(
-        order.whatsappMessage,
-        "Recargo transferencia 5%:"
-      ) ||
-      getMessageAmount(order.whatsappMessage, "Transferencia 5%:"),
+    transferSurcharge: transferCharge.amount,
+    transferSurchargeLabel: transferCharge.label,
   };
 }
 
@@ -626,8 +653,12 @@ export function printWebOrderReceipt({
   order: AdminOrder;
   deliveryLabel: string;
 }) {
-  const { productsSubtotal, logisticsFee, transferSurcharge } =
-    getWebOrderChargeBreakdown(order);
+  const {
+    productsSubtotal,
+    logisticsFee,
+    transferSurcharge,
+    transferSurchargeLabel,
+  } = getWebOrderChargeBreakdown(order);
 
   printSaleReceipt({
     printWindow,
@@ -643,7 +674,7 @@ export function printWebOrderReceipt({
     subtotal: productsSubtotal,
     charges: [
       { label: "Embalaje y cadeteria", amount: logisticsFee },
-      { label: "Transferencia 5%", amount: transferSurcharge },
+      { label: transferSurchargeLabel, amount: transferSurcharge },
     ],
   });
 }

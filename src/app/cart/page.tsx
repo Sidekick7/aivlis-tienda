@@ -17,10 +17,16 @@ import {
   getCartItemSubtotal,
   getCartItemUnitPrice,
   getCartPricing,
-  wholesaleMinimum,
 } from "@/lib/pricing";
 import { getProductsByIds } from "@/lib/products";
 import { getVariantSizeStock } from "@/lib/stock";
+import {
+  fallbackCheckoutSettings,
+  formatTransferSurchargeLabel,
+  getCheckoutSettings,
+  getMinimumPurchaseAmount,
+  getTransferSurcharge,
+} from "@/lib/checkoutSettings";
 import { useEffect, useMemo, useState } from "react";
 import {
   Minus,
@@ -42,14 +48,26 @@ const {
   isCartReady,
 } = useCart();
 
-  const total = getCartTotal(cart);
-  const transferSurcharge = Math.round(total * 0.05);
-  const finalTotal = total + transferSurcharge;
-  const cartPricing = getCartPricing(cart);
-  const wholesaleProgress = Math.min(
-    (cartPricing.wholesaleSubtotal / wholesaleMinimum) * 100,
-    100
+  const [checkoutSettings, setCheckoutSettings] = useState(
+    fallbackCheckoutSettings
   );
+
+  const total = getCartTotal(cart);
+  const transferSurcharge = getTransferSurcharge(
+    total,
+    checkoutSettings
+  );
+  const finalTotal = total + transferSurcharge;
+  const minimumPurchaseAmount = getMinimumPurchaseAmount(
+    checkoutSettings
+  );
+  const cartPricing = getCartPricing(cart, minimumPurchaseAmount);
+  const wholesaleProgress = minimumPurchaseAmount
+    ? Math.min(
+        (cartPricing.wholesaleSubtotal / minimumPurchaseAmount) * 100,
+        100
+      )
+    : 100;
   const [currentProducts, setCurrentProducts] = useState<Product[]>([]);
   const [isCheckingStock, setIsCheckingStock] = useState(false);
   const [stockError, setStockError] = useState("");
@@ -67,6 +85,18 @@ const {
     isCheckingStock ||
     Boolean(stockError) ||
     !cartPricing.meetsWholesaleMinimum;
+
+  useEffect(() => {
+    let isCurrent = true;
+
+    void getCheckoutSettings().then((settings) => {
+      if (isCurrent) setCheckoutSettings(settings);
+    });
+
+    return () => {
+      isCurrent = false;
+    };
+  }, []);
 
   useEffect(() => {
     let isCurrent = true;
@@ -405,33 +435,35 @@ const {
                 Resumen
               </h2>
 
-              <div
-                className={`min-w-[210px] rounded-2xl px-4 py-2.5 text-sm font-semibold ${
-                  cartPricing.meetsWholesaleMinimum
-                    ? "bg-emerald-50 text-emerald-700"
-                    : "bg-amber-50 text-amber-800"
-                }`}
-              >
-                <div className="mb-1 flex items-center justify-between gap-3">
-                  <span>Min. {formatPrice(wholesaleMinimum)}</span>
-                  <span>
-                    {cartPricing.meetsWholesaleMinimum ? "OK" : "Falta"}
+              {minimumPurchaseAmount > 0 && (
+                <div
+                  className={`min-w-[210px] rounded-2xl px-4 py-2.5 text-sm font-semibold ${
+                    cartPricing.meetsWholesaleMinimum
+                      ? "bg-emerald-50 text-emerald-700"
+                      : "bg-amber-50 text-amber-800"
+                  }`}
+                >
+                  <div className="mb-1 flex items-center justify-between gap-3">
+                    <span>Min. {formatPrice(minimumPurchaseAmount)}</span>
+                    <span>
+                      {cartPricing.meetsWholesaleMinimum ? "OK" : "Falta"}
+                    </span>
+                  </div>
+
+                  <span className="block h-2 overflow-hidden rounded-full bg-white">
+                    <span
+                      className={`block h-full rounded-full ${
+                        cartPricing.meetsWholesaleMinimum
+                          ? "bg-emerald-500"
+                          : "bg-amber-500"
+                      }`}
+                      style={{
+                        width: `${wholesaleProgress}%`,
+                      }}
+                    />
                   </span>
                 </div>
-
-                <span className="block h-2 overflow-hidden rounded-full bg-white">
-                  <span
-                    className={`block h-full rounded-full ${
-                      cartPricing.meetsWholesaleMinimum
-                        ? "bg-emerald-500"
-                        : "bg-amber-500"
-                    }`}
-                    style={{
-                      width: `${wholesaleProgress}%`,
-                    }}
-                  />
-                </span>
-              </div>
+              )}
 
             </div>
 
@@ -446,15 +478,17 @@ const {
                 </span>
               </div>
 
-              <div className="flex items-center justify-between gap-4 py-4">
-                <span className="text-base font-semibold text-zinc-900">
-                  Transferencia 5%
-                </span>
+              {transferSurcharge > 0 && (
+                <div className="flex items-center justify-between gap-4 py-4">
+                  <span className="text-base font-semibold text-zinc-900">
+                    {formatTransferSurchargeLabel(checkoutSettings)}
+                  </span>
 
-                <span className="text-base font-medium text-zinc-950">
-                  {formatPrice(transferSurcharge)}
-                </span>
-              </div>
+                  <span className="text-base font-medium text-zinc-950">
+                    {formatPrice(transferSurcharge)}
+                  </span>
+                </div>
+              )}
 
               <div className="flex items-center justify-between gap-4 py-4">
                 <span className="text-base font-semibold text-zinc-950">
@@ -471,7 +505,7 @@ const {
               cart.length > 0 &&
               !cartPricing.meetsWholesaleMinimum && (
                 <p className="mb-3 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
-                  El minimo de compra es {formatPrice(wholesaleMinimum)}.
+                  El minimo de compra es {formatPrice(minimumPurchaseAmount)}.
                 </p>
               )}
 

@@ -11,6 +11,7 @@ export type SiteSocialLinks = {
 
 export type HomeContent = {
   heroImages: string[];
+  categoryImages: Record<string, string>;
   trustItems: string[];
   storeTitle: string;
   storeDescription: string;
@@ -26,6 +27,7 @@ export type HomeContent = {
 export type SupabaseHomeContentRow = {
   id: number;
   hero_images?: unknown;
+  category_images?: unknown;
   trust_items?: unknown;
   store_title?: string | null;
   store_description?: string | null;

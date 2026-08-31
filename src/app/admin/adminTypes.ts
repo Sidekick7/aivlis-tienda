@@ -41,7 +41,8 @@ export type EditableProduct = Omit<
 
 export type AdminSection =
   | "products"
-  | "home";
+  | "home"
+  | "checkout";
 
 export type ProductFilter =
   | "all"

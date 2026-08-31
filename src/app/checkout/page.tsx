@@ -19,7 +19,6 @@ import {
   getCartItemSubtotal,
   getCartPricing,
   getEffectiveWebUnitPrice,
-  wholesaleMinimum,
 } from "@/lib/pricing";
 import {
   createOrderNumber,
@@ -33,6 +32,14 @@ import { getProductsByIds } from "@/lib/products";
 import { formatOrderNumber } from "@/lib/orderNumber";
 import { supabase } from "@/lib/supabase";
 import {
+  fallbackCheckoutSettings,
+  formatTransferSurchargeLabel,
+  getCheckoutSettings,
+  getMinimumPurchaseAmount,
+  getShippingFeeAmount,
+  getTransferSurcharge,
+} from "@/lib/checkoutSettings";
+import {
   fulfillmentOptions,
   fulfillmentStorageKey,
   getFulfillmentFee,
@@ -43,7 +50,6 @@ import { useEffect, useRef, useState } from "react";
 import type { Product } from "@/types/product";
 
 const checkoutCustomerStorageKey = "checkout_customer";
-const transferSurchargeRate = 0.05;
 
 type CheckoutPaymentMethod =
   | "cash"
@@ -97,7 +103,28 @@ export default function CheckoutPage() {
     useState<FulfillmentOption | "">("");
   const [paymentMethod, setPaymentMethod] =
     useState<CheckoutPaymentMethod | "">("");
+  const [checkoutSettings, setCheckoutSettings] = useState(
+    fallbackCheckoutSettings
+  );
+  const [isCheckoutSettingsLoading, setIsCheckoutSettingsLoading] =
+    useState(true);
   const isSubmittingRef = useRef(false);
+
+  useEffect(() => {
+    let isCurrent = true;
+
+    void getCheckoutSettings()
+      .then((settings) => {
+        if (isCurrent) setCheckoutSettings(settings);
+      })
+      .finally(() => {
+        if (isCurrent) setIsCheckoutSettingsLoading(false);
+      });
+
+    return () => {
+      isCurrent = false;
+    };
+  }, []);
 
   useEffect(() => {
 
@@ -211,13 +238,20 @@ export default function CheckoutPage() {
   }, []);
 
   const total = getCartTotal(cart);
-  const fulfillmentFee = getFulfillmentFee(fulfillmentOption);
+  const minimumPurchaseAmount = getMinimumPurchaseAmount(
+    checkoutSettings
+  );
+  const shippingFeeAmount = getShippingFeeAmount(checkoutSettings);
+  const fulfillmentFee = getFulfillmentFee(
+    fulfillmentOption,
+    shippingFeeAmount
+  );
   const effectivePaymentMethod =
     fulfillmentOption === "shipping" ? "transfer" : paymentMethod;
   const orderBaseTotal = total + fulfillmentFee;
   const paymentSurcharge =
     effectivePaymentMethod === "transfer"
-      ? Math.round(orderBaseTotal * transferSurchargeRate)
+      ? getTransferSurcharge(orderBaseTotal, checkoutSettings)
       : 0;
   const finalTotal = orderBaseTotal + paymentSurcharge;
   const selectedPaymentLabel =
@@ -229,7 +263,7 @@ export default function CheckoutPage() {
   const selectedFulfillment = fulfillmentOption
     ? fulfillmentOptions[fulfillmentOption]
     : null;
-  const cartPricing = getCartPricing(cart);
+  const cartPricing = getCartPricing(cart, minimumPurchaseAmount);
   const requiredFields = [
     name,
     dni,
@@ -340,7 +374,13 @@ export default function CheckoutPage() {
   };
 
   const handleWhatsApp = async () => {
-    if (createdOrderNumber || isSubmittingRef.current) return;
+    if (
+      createdOrderNumber ||
+      isSubmittingRef.current ||
+      isCheckoutSettingsLoading
+    ) {
+      return;
+    }
 
     if (
       hasEmptyFields ||
@@ -413,8 +453,10 @@ export default function CheckoutPage() {
       };
     });
     const enrichedTotal = getCartTotal(enrichedCart);
-    const enrichedFulfillmentFee =
-      getFulfillmentFee(fulfillmentOption);
+    const enrichedFulfillmentFee = getFulfillmentFee(
+      fulfillmentOption,
+      shippingFeeAmount
+    );
     const enrichedOrderBaseTotal =
       enrichedTotal + enrichedFulfillmentFee;
     const enrichedPaymentMethod =
@@ -423,16 +465,20 @@ export default function CheckoutPage() {
         : paymentMethod;
     const enrichedPaymentSurcharge =
       enrichedPaymentMethod === "transfer"
-        ? Math.round(
-            enrichedOrderBaseTotal * transferSurchargeRate
+        ? getTransferSurcharge(
+            enrichedOrderBaseTotal,
+            checkoutSettings
           )
         : 0;
     const enrichedFinalTotal =
       enrichedOrderBaseTotal + enrichedPaymentSurcharge;
 
-    if (enrichedTotal < wholesaleMinimum) {
+    if (
+      minimumPurchaseAmount > 0 &&
+      enrichedTotal < minimumPurchaseAmount
+    ) {
       setOrderError(
-        `El minimo de compra es ${formatPrice(wholesaleMinimum)}.`
+        `El minimo de compra es ${formatPrice(minimumPurchaseAmount)}.`
       );
       isSubmittingRef.current = false;
       setIsSubmitting(false);
@@ -469,9 +515,13 @@ export default function CheckoutPage() {
           }
         : undefined,
       payment: selectedPaymentLabel
-        ? {
+          ? {
             label: selectedPaymentLabel,
             surcharge: enrichedPaymentSurcharge,
+            surchargePercent:
+              checkoutSettings.transferSurchargeEnabled
+                ? checkoutSettings.transferSurchargePercent
+                : 0,
           }
         : undefined,
       total: enrichedFinalTotal,
@@ -906,7 +956,12 @@ export default function CheckoutPage() {
 
                     <label className="flex cursor-pointer items-center justify-end gap-2">
                       <span>
-                        Transferencia +5%
+                        Transferencia
+                        {checkoutSettings.transferSurchargeEnabled &&
+                          checkoutSettings.transferSurchargePercent > 0 &&
+                          ` +${formatTransferSurchargeLabel(
+                            checkoutSettings
+                          ).replace("Transferencia ", "")}`}
                         {effectivePaymentMethod === "transfer" &&
                           paymentSurcharge > 0 && (
                             <span className="ml-2 font-semibold">
@@ -963,7 +1018,7 @@ export default function CheckoutPage() {
 
             {isBelowMinimum && (
               <p className="mt-4 rounded-xl border border-amber-300 bg-amber-50 p-3 text-sm text-amber-800">
-                El minimo de compra es {formatPrice(wholesaleMinimum)}.
+                El minimo de compra es {formatPrice(minimumPurchaseAmount)}.
                 Faltan {formatPrice(cartPricing.remainingForWholesale)}.
               </p>
             )}
@@ -1010,6 +1065,7 @@ export default function CheckoutPage() {
                 hasNoPayment ||
                 isBelowMinimum ||
                 !isCartReady ||
+                isCheckoutSettingsLoading ||
                 isSubmitting ||
                 isCheckingCartStock ||
                 Boolean(checkoutStockError) ||
@@ -1019,6 +1075,8 @@ export default function CheckoutPage() {
             >
               {createdOrderNumber
                 ? "Ticket creado"
+                : isCheckoutSettingsLoading
+                  ? "Cargando checkout..."
                 : isSubmitting
                   ? "Creando ticket..."
                   : isCheckingCartStock

@@ -4,7 +4,13 @@ import Image from "next/image";
 import Link from "next/link";
 import { fallbackProductImage } from "@/config/store";
 import { X } from "lucide-react";
+import { useEffect, useState } from "react";
 import type { CartItem } from "@/context/CartContext";
+import {
+  fallbackCheckoutSettings,
+  getCheckoutSettings,
+  getMinimumPurchaseAmount,
+} from "@/lib/checkoutSettings";
 import {
   getCurveSizesFromVariant,
   getCurveUnitsPerSet,
@@ -39,8 +45,26 @@ export default function Cart({
   deleteItem,
   onClose,
 }: Props) {
+  const [checkoutSettings, setCheckoutSettings] = useState(
+    fallbackCheckoutSettings
+  );
+  const minimumPurchaseAmount = getMinimumPurchaseAmount(
+    checkoutSettings
+  );
   const total = getCartTotal(cart);
-  const cartPricing = getCartPricing(cart);
+  const cartPricing = getCartPricing(cart, minimumPurchaseAmount);
+
+  useEffect(() => {
+    let isCurrent = true;
+
+    void getCheckoutSettings().then((settings) => {
+      if (isCurrent) setCheckoutSettings(settings);
+    });
+
+    return () => {
+      isCurrent = false;
+    };
+  }, []);
 
   return (
     <div

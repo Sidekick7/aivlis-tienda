@@ -28,6 +28,15 @@ function toRecord(value: unknown): Record<string, unknown> {
     : {};
 }
 
+function normalizeCategoryImages(value: unknown): Record<string, string> {
+  return Object.fromEntries(
+    Object.entries(toRecord(value)).filter(
+      (entry): entry is [string, string] =>
+        typeof entry[1] === "string" && Boolean(entry[1].trim())
+    )
+  );
+}
+
 function toStringValue(value: unknown, fallback: string) {
   return typeof value === "string" ? value : fallback;
 }
@@ -73,6 +82,7 @@ function normalizeSocialLinks(value: unknown): SiteSocialLinks {
 
 export const fallbackHomeContent: HomeContent = {
   heroImages: editorialImages,
+  categoryImages: {},
   trustItems: [
     "Envios a todo el pais",
     "Retiro en local",
@@ -104,6 +114,7 @@ function normalizeHomeContent(
 ): HomeContent {
   return {
     heroImages: toStringArray(row.hero_images),
+    categoryImages: normalizeCategoryImages(row.category_images),
     trustItems: toStringArray(row.trust_items),
     storeTitle: normalizeCatalogText(
       row.store_title ?? fallbackHomeContent.storeTitle
@@ -174,6 +185,7 @@ export async function updateHomeContent(content: HomeContent) {
   const { error } = await supabase.from("home_content").upsert({
     id: 1,
     hero_images: content.heroImages,
+    category_images: content.categoryImages,
     trust_items: content.trustItems,
     store_title: content.storeTitle,
     store_description: content.storeDescription,
@@ -187,6 +199,15 @@ export async function updateHomeContent(content: HomeContent) {
   });
 
   if (error) {
+    const isMissingCategoryImagesColumn =
+      error.message.toLowerCase().includes("category_images");
+
+    if (isMissingCategoryImagesColumn) {
+      throw new Error(
+        "Falta ejecutar supabase/home-category-images.sql en Supabase para guardar las portadas."
+      );
+    }
+
     const isMissingSocialLinksColumn =
       error.code === "PGRST204" ||
       error.message.toLowerCase().includes("social_links");

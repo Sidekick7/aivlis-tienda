@@ -31,7 +31,8 @@ export function isFulfillmentOption(
 }
 
 export function getFulfillmentFee(
-  option: FulfillmentOption | ""
+  option: FulfillmentOption | "",
+  shippingFee = logisticsFee
 ) {
-  return option ? fulfillmentOptions[option].fee : 0;
+  return option === "shipping" ? Math.max(0, shippingFee) : 0;
 }

@@ -17,7 +17,13 @@ import {
   updateHomeContent,
   uploadHomeImage,
 } from "@/lib/homeContent";
+import {
+  fallbackCheckoutSettings,
+  getCheckoutSettings,
+  updateCheckoutSettings,
+} from "@/lib/checkoutSettings";
 import AdminCategoriesSection from "@/app/admin/AdminCategoriesSection";
+import AdminCheckoutSection from "@/app/admin/AdminCheckoutSection";
 import AdminHomeSection from "@/app/admin/AdminHomeSection";
 import AdminProductsSection from "@/app/admin/AdminProductsSection";
 import CreateProductModal from "@/app/admin/CreateProductModal";
@@ -45,6 +51,7 @@ import type {
   NewProductVariant,
 } from "@/app/admin/adminTypes";
 import type { StoreCategory } from "@/types/category";
+import type { CheckoutSettings } from "@/types/checkoutSettings";
 import type { HomeContent } from "@/types/homeContent";
 import type { Product } from "@/types/product";
 import type { Session } from "@supabase/supabase-js";
@@ -94,6 +101,11 @@ const [homeContent, setHomeContent] =
 const [homeContentError, setHomeContentError] = useState("");
 const [isSavingHomeContent, setIsSavingHomeContent] = useState(false);
 const [isUploadingHomeImage, setIsUploadingHomeImage] = useState(false);
+const [checkoutSettings, setCheckoutSettings] =
+  useState<CheckoutSettings>(fallbackCheckoutSettings);
+const [checkoutSettingsError, setCheckoutSettingsError] = useState("");
+const [isSavingCheckoutSettings, setIsSavingCheckoutSettings] =
+  useState(false);
 const [adminNotice, setAdminNotice] =
   useState<AdminNotice | null>(null);
 const [isCreatingProduct, setIsCreatingProduct] = useState(false);
@@ -246,6 +258,25 @@ const refreshHomeContent = async () => {
   }
 };
 
+const refreshCheckoutSettings = async () => {
+  setCheckoutSettingsError("");
+
+  try {
+    const settings = await getCheckoutSettings({
+      fallbackToStatic: false,
+    });
+
+    setCheckoutSettings(settings);
+  } catch (error) {
+    setCheckoutSettings(fallbackCheckoutSettings);
+    setCheckoutSettingsError(
+      error instanceof Error
+        ? `No se pudo cargar Checkout: ${error.message}. Ejecuta supabase/checkout-settings.sql.`
+        : "No se pudo cargar Checkout. Ejecuta supabase/checkout-settings.sql."
+    );
+  }
+};
+
 useEffect(() => {
 
   if (!session || !isAdminAllowed) return;
@@ -255,6 +286,7 @@ useEffect(() => {
   }).then(setProducts);
   Promise.resolve().then(refreshCategories);
   Promise.resolve().then(refreshHomeContent);
+  Promise.resolve().then(refreshCheckoutSettings);
 
 }, [session, isAdminAllowed]);
 
@@ -578,6 +610,32 @@ const saveHomeContent = async (nextHomeContent: HomeContent) => {
     });
   } finally {
     setIsSavingHomeContent(false);
+  }
+};
+
+const saveCheckoutSettings = async (
+  nextSettings: CheckoutSettings
+) => {
+  setIsSavingCheckoutSettings(true);
+  setAdminNotice(null);
+
+  try {
+    await updateCheckoutSettings(nextSettings);
+    setCheckoutSettings(nextSettings);
+    setAdminNotice({
+      type: "success",
+      message: "Checkout actualizado.",
+    });
+  } catch (error) {
+    setAdminNotice({
+      type: "error",
+      message:
+        error instanceof Error
+          ? `No se pudo actualizar Checkout: ${error.message}`
+          : "No se pudo actualizar Checkout.",
+    });
+  } finally {
+    setIsSavingCheckoutSettings(false);
   }
 };
 
@@ -940,6 +998,18 @@ if (!session) {
           >
             Home
           </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveSection("checkout")}
+            className={`h-10 flex-1 cursor-pointer rounded-xl px-4 text-sm font-semibold transition md:flex-none ${
+              activeSection === "checkout"
+                ? "bg-white text-black"
+                : "text-zinc-400 hover:text-white"
+            }`}
+          >
+            Checkout
+          </button>
         </div>
 
         <Link
@@ -1086,25 +1156,37 @@ if (!session) {
     <AdminHomeSection
       key={JSON.stringify(homeContent)}
       content={homeContent}
+      categories={categoryOptions}
+      products={products}
       error={homeContentError}
       isSaving={isSavingHomeContent}
       isUploading={isUploadingHomeImage}
       onSave={saveHomeContent}
-      onUploadHeroImages={uploadHomeImages}
-    />
-
-    <AdminCategoriesSection
-      categories={categoryOptions}
-      products={products}
-      error={categoryError}
-      isSaving={isSavingCategory}
-      onCreate={createStoreCategory}
-      onUpdate={updateStoreCategory}
-      onMove={moveStoreCategory}
-      onNormalizeOrder={normalizeStoreCategoriesOrder}
-      onDelete={deleteStoreCategory}
-    />
+      onUploadImages={uploadHomeImages}
+    >
+      <AdminCategoriesSection
+        categories={categoryOptions}
+        products={products}
+        error={categoryError}
+        isSaving={isSavingCategory}
+        onCreate={createStoreCategory}
+        onUpdate={updateStoreCategory}
+        onMove={moveStoreCategory}
+        onNormalizeOrder={normalizeStoreCategoriesOrder}
+        onDelete={deleteStoreCategory}
+      />
+    </AdminHomeSection>
   </>
+)}
+
+{activeSection === "checkout" && (
+  <AdminCheckoutSection
+    key={JSON.stringify(checkoutSettings)}
+    settings={checkoutSettings}
+    error={checkoutSettingsError}
+    isSaving={isSavingCheckoutSettings}
+    onSave={saveCheckoutSettings}
+  />
 )}
 
 {adminNotice && (

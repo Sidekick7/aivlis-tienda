@@ -19,6 +19,7 @@ import {
   getPublicProducts,
   withCurveCategory,
 } from "@/lib/publicProducts";
+import { getProductImage } from "@/lib/productDisplay";
 import type { StoreCategory } from "@/types/category";
 import type { HomeContent } from "@/types/homeContent";
 import type { Product } from "@/types/product";
@@ -56,6 +57,7 @@ export default function Home() {
   const [homeContent, setHomeContent] =
     useState<HomeContent>(fallbackHomeContent);
   const [previewProducts, setPreviewProducts] = useState<Product[]>([]);
+  const [catalogProducts, setCatalogProducts] = useState<Product[]>([]);
   const [homeCategories, setHomeCategories] = useState<StoreCategory[]>(
     getFallbackCategories()
   );
@@ -76,6 +78,7 @@ export default function Home() {
         ]);
 
         setPreviewProducts(getHomePreviewProducts(products));
+        setCatalogProducts(products);
         setHomeCategories(withCurveCategory(categories, products));
         setHomeContent(content);
       } catch {
@@ -89,11 +92,31 @@ export default function Home() {
     fetchHomeContent();
   }, []);
 
+  const visualCategories = homeCategories
+    .filter((category) => category.active && category.value !== "curvas")
+    .slice(0, 4)
+    .map((category) => {
+      const categoryProduct = catalogProducts
+        .filter((product) => product.category === category.value)
+        .sort(
+          (firstProduct, secondProduct) =>
+            Number(secondProduct.featured) - Number(firstProduct.featured) ||
+            secondProduct.id - firstProduct.id
+        )[0];
+
+      return {
+        ...category,
+        image:
+          homeContent.categoryImages[category.value] ||
+          (categoryProduct ? getProductImage(categoryProduct) : null),
+      };
+    });
+
   return (
     <main className="home-main-offset min-h-screen overflow-x-hidden bg-zinc-100 text-black">
-      <section className="relative h-[clamp(520px,70vh,760px)] w-full overflow-hidden max-[640px]:h-[clamp(430px,62vh,560px)]">
+      <section className="relative h-[clamp(500px,65vh,680px)] w-full overflow-hidden max-[640px]:h-[clamp(430px,60vh,540px)]">
         {isHomeContentLoading ? (
-          <div className="h-[calc(100%-44px)] w-full animate-pulse bg-zinc-200" />
+          <div className="h-full w-full animate-pulse bg-zinc-200" />
         ) : (
           <>
             <Swiper
@@ -121,7 +144,7 @@ export default function Home() {
                 delay: 5000,
                 disableOnInteraction: false,
               }}
-              className="h-[calc(100%-44px)] w-full pointer-events-auto"
+              className="h-full w-full pointer-events-auto"
             >
               {homeContent.heroImages.map((image) => (
                 <SwiperSlide
@@ -140,7 +163,24 @@ export default function Home() {
               ))}
             </Swiper>
 
-            <div className="relative mt-3 flex justify-center gap-3 pointer-events-auto">
+            <div className="pointer-events-none absolute inset-0 z-10">
+              <div className="pointer-events-auto absolute bottom-16 left-6 max-w-[520px] text-white drop-shadow-[0_2px_12px_rgba(0,0,0,0.75)] sm:left-10 md:bottom-20 md:left-14">
+                <p className="font-brand text-sm uppercase tracking-[0.08em] sm:text-base">
+                  Venta mayorista
+                </p>
+                <h1 className="font-brand mt-1 text-4xl uppercase leading-none sm:text-5xl md:text-6xl">
+                  Nuevos ingresos
+                </h1>
+                <Link
+                  href="/tienda"
+                  className="font-brand mt-5 inline-flex h-11 items-center justify-center border border-white bg-black px-6 text-sm uppercase text-white transition hover:bg-white hover:text-black"
+                >
+                  {homeContent.storeButtonLabel}
+                </Link>
+              </div>
+            </div>
+
+            <div className="pointer-events-auto absolute bottom-5 left-1/2 z-20 flex -translate-x-1/2 justify-center gap-3">
               {homeContent.heroImages.map((_, index) => (
                 <button
                   key={index}
@@ -161,20 +201,9 @@ export default function Home() {
         )}
       </section>
 
-      <section className="px-6 py-4 md:px-10">
-        <div className="mx-auto flex max-w-7xl flex-col items-center text-center">
-          <Link
-            href="/tienda"
-            className="font-brand inline-flex h-12 items-center justify-center rounded-full bg-black px-8 text-base uppercase text-white transition hover:bg-zinc-800"
-          >
-            {homeContent.storeButtonLabel}
-          </Link>
-        </div>
-      </section>
-
-      <section className="px-6 pb-14 md:px-10">
+      <section className="px-6 pb-12 pt-9 md:px-10 md:pt-11">
         <div className="mx-auto max-w-7xl">
-          <div className="mb-6 flex items-end justify-between gap-6">
+          <div className="mb-5 flex items-end justify-between gap-6">
             <div>
               <h2 className="font-brand text-4xl md:text-5xl">
                 {homeContent.featuredTitle}
@@ -187,7 +216,7 @@ export default function Home() {
                 onClick={() =>
                   productPreviewRef.current?.swiper.slidePrev()
                 }
-                className="flex h-11 w-11 items-center justify-center rounded-full border border-zinc-300 bg-white text-black transition hover:bg-zinc-200"
+                className="flex h-10 w-10 cursor-pointer items-center justify-center rounded-full border border-zinc-300 bg-white text-black transition hover:bg-zinc-200"
                 aria-label="Ver producto anterior"
               >
                 <ChevronLeft size={22} />
@@ -198,7 +227,7 @@ export default function Home() {
                 onClick={() =>
                   productPreviewRef.current?.swiper.slideNext()
                 }
-                className="flex h-11 w-11 items-center justify-center rounded-full border border-zinc-300 bg-white text-black transition hover:bg-zinc-200"
+                className="flex h-10 w-10 cursor-pointer items-center justify-center rounded-full border border-zinc-300 bg-white text-black transition hover:bg-zinc-200"
                 aria-label="Ver producto siguiente"
               >
                 <ChevronRight size={22} />
@@ -218,7 +247,7 @@ export default function Home() {
             <div className="relative">
               <Swiper
                 ref={productPreviewRef}
-                spaceBetween={24}
+                spaceBetween={14}
                 slidesPerView={2}
                 rewind
                 grabCursor
@@ -226,7 +255,7 @@ export default function Home() {
                   768: {
                     slidesPerView: 3,
                   },
-                  1280: {
+                  1024: {
                     slidesPerView: 4,
                   },
                 }}
@@ -290,38 +319,39 @@ export default function Home() {
         </div>
       </section>
 
-      <section className="px-6 pb-20 md:px-10">
+      <section className="px-6 pb-14 md:px-10">
         <div className="mx-auto max-w-7xl">
-          <div className="mb-6">
-            <p className="font-brand text-base uppercase text-zinc-500">
-              {homeContent.categoryEyebrow}
-            </p>
-
-            <h2 className="font-brand mt-2 text-4xl md:text-5xl">
+          <div className="mb-5">
+            <h2 className="font-brand text-4xl md:text-5xl">
               {homeContent.categoryTitle}
             </h2>
           </div>
 
-          <div className="grid gap-3 md:grid-cols-2">
-            {homeCategories.map((category) => (
+          <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+            {visualCategories.map((category) => (
               <Link
                 key={category.value}
                 href={`/tienda?categoria=${category.value}`}
-                className="group flex min-h-24 items-center justify-between rounded-lg border border-zinc-200 bg-white px-5 py-4 transition hover:border-zinc-400"
+                className="group relative aspect-[4/5] overflow-hidden rounded-lg bg-zinc-900"
               >
-                <div>
-                  <p className="font-brand text-2xl">
+                {category.image && (
+                  <Image
+                    src={category.image}
+                    alt=""
+                    fill
+                    sizes="(max-width: 1023px) 50vw, 25vw"
+                    className="object-cover object-center transition duration-500 group-hover:scale-105"
+                  />
+                )}
+
+                <div className="absolute inset-x-0 bottom-0 bg-black/70 px-4 py-4 text-white sm:px-5">
+                  <p className="font-brand text-2xl uppercase sm:text-3xl">
                     {category.label}
                   </p>
-
-                  <p className="mt-1 text-sm text-zinc-500">
-                    {homeContent.categoryCardText}
-                  </p>
+                  <span className="mt-1 block text-xs font-semibold uppercase tracking-[0.08em] text-zinc-300 transition group-hover:text-white">
+                    Ver productos
+                  </span>
                 </div>
-
-                <span className="font-brand text-base uppercase text-zinc-500 transition group-hover:text-black">
-                  Entrar
-                </span>
               </Link>
             ))}
           </div>
